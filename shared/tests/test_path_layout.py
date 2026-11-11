@@ -6,12 +6,13 @@ from unittest.mock import MagicMock
 
 import pytz
 
-from shared.db.models import RawFile, Settings
+from shared.db.models import RawFile
 from shared.path_layout import (
     get_output_folder_rel_path,
     get_raw_file_folder_rel_path,
     get_raw_file_rel_path,
 )
+from shared.tests import factories
 
 
 def test_get_output_folder_rel_path_no_fallback() -> None:
@@ -53,7 +54,7 @@ def test_get_output_folder_rel_path_with_settings() -> None:
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
     )
-    settings = Settings(name="fallback", version=7)
+    settings = factories.settings(id="fallback_v7")
 
     result = get_output_folder_rel_path(mock_raw_file, settings=settings)
 

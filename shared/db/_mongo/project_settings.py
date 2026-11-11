@@ -5,6 +5,7 @@ from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_project_settings, to_settings
 from shared.db._mongo.settings import settings_by_unique_name
+from shared.domain.errors import NotFoundError
 from shared.domain.projects import ProjectSettings
 
 
@@ -20,10 +21,13 @@ def find(project_ids: list[str] | None) -> list[ProjectSettings]:
         settings_doc.pk: to_settings(settings_doc)
         for settings_doc in models.Settings.objects(id__in=settings_ids)
     }
-    return [
-        to_project_settings(doc, settings_by_id[doc.to_mongo()["settings"]])
-        for doc in docs
-    ]
+    result = []
+    for doc in docs:
+        settings_id = doc.to_mongo()["settings"]
+        if settings_id not in settings_by_id:
+            raise NotFoundError(f"Settings of assignment {doc.pk} do not exist")
+        result.append(to_project_settings(doc, settings_by_id[settings_id]))
+    return result
 
 
 @translate_errors

@@ -43,23 +43,24 @@ from jobs.job_handler import (
     get_job_result,
     start_job,
 )
-from mongoengine import DoesNotExist
 
 from shared.config_params import (
     ConfigParamPlaceholders,
     substitute_dummy_values,
     substitute_placeholders,
 )
+from shared.db import project_settings as project_settings_store
+from shared.db import settings as settings_store
 from shared.db.interface import (
     add_metrics_to_raw_file,
-    get_project_settings,
     get_raw_file_by_id,
-    get_settings_by_id,
     update_raw_file,
 )
-from shared.db.models import RawFile, Settings
+from shared.db.models import RawFile
 from shared.display_paths import get_current_output_display_base_path
+from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFileStatus
+from shared.domain.settings import Settings
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations, View
@@ -75,14 +76,14 @@ def resolve_settings(raw_file_id: str) -> list[str]:
 
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:
-        project_settings = get_project_settings(raw_file.project_id)
+        project_settings = project_settings_store.find([raw_file.project_id])
         settings_list = resolve_scoped_settings(
             project_settings,
             instrument_id=instrument_id,
             instrument_type=instrument_type,
             raw_file_id=raw_file_id,
         )
-    except DoesNotExist as e:
+    except NotFoundError as e:
         # this should not happen as every project has a fallback setting
         raise AirflowFailException(
             f"Project or settings not found for '{raw_file.project_id}'."
@@ -99,7 +100,7 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     base_output_path = get_internal_output_path_for_raw_file(raw_file)
     base_output_path.mkdir(parents=True, exist_ok=True)
 
-    return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
+    return [s.id for s in settings_list]
 
 
 def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | None]:
@@ -108,7 +109,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | Non
     :return: The quanting environment as a dict, to be passed on via XCom.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
-    settings = get_settings_by_id(settings_id)
+    settings = settings_store.get(settings_id)
 
     try:
         runner = get_runner(settings.runner_name)

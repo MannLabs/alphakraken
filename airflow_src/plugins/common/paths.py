@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from shared.db.models import RawFile, Settings
+from shared.db.models import RawFile
+from shared.domain.settings import Settings
 from shared.path_layout import get_output_folder_rel_path
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 

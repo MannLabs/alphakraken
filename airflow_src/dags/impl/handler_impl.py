@@ -51,8 +51,8 @@ from raw_file_wrapper_factory import (
     ThermoRawFileMonitorWrapper,
 )
 
+from shared.db import project_settings as project_settings_store
 from shared.db.interface import (
-    get_project_settings,
     get_raw_file_by_id,
     update_raw_file,
 )
@@ -463,7 +463,7 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     instrument_type = get_instrument_settings(
         raw_file.instrument_id, InstrumentKeys.TYPE
     )
-    project_settings = get_project_settings(raw_file.project_id)
+    project_settings = project_settings_store.find([raw_file.project_id])
     resolved_settings = resolve_scoped_settings(
         project_settings,
         instrument_id=raw_file.instrument_id,

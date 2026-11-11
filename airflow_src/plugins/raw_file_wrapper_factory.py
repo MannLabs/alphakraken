@@ -563,7 +563,7 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
 
     Returns None if the main file is not found in the `raw_file.file_info` dictionary.
     """
-    file_info = raw_file.require_file_info()
+    file_info = raw_file.get_file_info()
     if file_info == {}:
         return None
 

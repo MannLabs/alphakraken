@@ -77,7 +77,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = file_info
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -169,7 +169,7 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = file_info
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "some_etag", 1000)
@@ -255,7 +255,7 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = file_info
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.side_effect = [
@@ -349,7 +349,7 @@ def test_compute_checksum_main_file_missing(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = {}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -398,7 +398,7 @@ def test_compute_checksum_different_file_info(
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = {"test_file.raw": (1001, "some_other_hash")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -451,7 +451,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_raw_file.id = "test_file.raw"
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"test_file.raw": (1000, "some_other_hash")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -562,7 +562,7 @@ def test_compute_checksum_no_files_found(
     }
     mock_raw_file = MagicMock()
     mock_raw_file.file_info = None
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
@@ -599,7 +599,7 @@ def test_compute_checksum_no_files_found_accepted(
     mock_raw_file = MagicMock()
     mock_raw_file.id = "test_file.raw"
     mock_raw_file.file_info = None
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
@@ -654,7 +654,7 @@ def test_compute_checksum_source_missing(  # noqa: PLR0913
     mock_raw_file = MagicMock()
     mock_raw_file.id = "test_file.raw"
     mock_raw_file.file_info = None
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = airflow_variable_value
 

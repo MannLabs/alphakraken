@@ -429,7 +429,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -478,7 +478,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -528,7 +528,7 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
@@ -568,7 +568,7 @@ def test_safe_remove_files_check_error(
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))

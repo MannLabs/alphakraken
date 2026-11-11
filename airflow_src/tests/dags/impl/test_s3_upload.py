@@ -320,7 +320,7 @@ def test_prepare_upload_should_create_correct_mapping(
         "file1.d/analysis.tdf": ("hash1", 123, "etag1"),
         "file1.d/1234.m/file.txt": ("hash2", 1234, "etag2"),
     }
-    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     target_folder_path = Path("/dst/backup")
 
     result, key_prefix = _prepare_upload(mock_raw_file, target_folder_path)

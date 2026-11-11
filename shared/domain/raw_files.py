@@ -120,7 +120,7 @@ class RawFile:
         """Return whether the raw file has a project assigned or belongs to the fallback project."""
         return self.project_id != FALLBACK_PROJECT_ID
 
-    def require_file_info(self) -> dict[str, FileInfoItem]:
+    def get_file_info(self) -> dict[str, FileInfoItem]:
         """Return the file info.
 
         Raises:

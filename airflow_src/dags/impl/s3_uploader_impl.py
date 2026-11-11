@@ -132,7 +132,7 @@ def _prepare_upload(
 
     key_prefix = _get_key_prefix(raw_file)
 
-    for rel_file_path, size_and_hashes in raw_file.require_file_info().items():
+    for rel_file_path, size_and_hashes in raw_file.get_file_info().items():
         logging.info(
             f"Preparing file info for upload: {rel_file_path=} {size_and_hashes=}"
         )

@@ -71,7 +71,7 @@ class AbstractFileIdentifier(ABC):
 
     def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str | None]:
         """Get size and hash from DB for given relative file path."""
-        ret_val = self._raw_file.require_file_info()[str(rel_file_path)]
+        ret_val = self._raw_file.get_file_info()[str(rel_file_path)]
 
         if len(ret_val) == 2:  # noqa: PLR2004
             # files that were created before s3 upload was turned on don't have etag information in DB -> etag_in_db = None will fail the downstream verification

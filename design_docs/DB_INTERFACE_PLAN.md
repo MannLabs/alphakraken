@@ -447,7 +447,7 @@ here already, as their last functions moved.
 Done differently than planned: `file_info` is read at six places, not four (checksum
 computation, S3 upload, the remover's candidate scan and its per-file check, the mover's
 main-file check, the watcher's collision lookup). Readers go through
-`RawFile.require_file_info()`, which raises if it was not loaded, so that a missing opt-in
+`RawFile.get_file_info()`, which raises if it was not loaded, so that a missing opt-in
 fails loudly and `ty` flags any direct read of the optional field.
 
 ### Slice 9c: fence closed (0.5 day)

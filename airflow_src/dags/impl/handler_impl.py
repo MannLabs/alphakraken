@@ -193,7 +193,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     if not files_size_and_hashsum:
         raise FileNotFoundError("No files were found.")
 
-    if existing_file_info := raw_file.require_file_info():
+    if existing_file_info := raw_file.get_file_info():
         logging.warning(
             f"Raw file {raw_file_id} already has file_info, checking for equality."
         )

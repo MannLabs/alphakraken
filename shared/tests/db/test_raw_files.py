@@ -433,7 +433,7 @@ def test_get_with_file_info(mock_objects: MagicMock) -> None:
 
     result = get("C1_file.raw", include_file_info=True)
 
-    assert result.require_file_info() == {
+    assert result.get_file_info() == {
         "a.raw": (1.0, "hash"),
         "b.raw": (2.0, "hash2", "etag"),
     }
@@ -448,10 +448,10 @@ def test_get_raises_if_missing(mock_objects: MagicMock) -> None:
         get("unknown.raw")
 
 
-def test_require_file_info_raises_if_not_loaded() -> None:
+def test_get_file_info_raises_if_not_loaded() -> None:
     """Reading file info that was not loaded is an error, not an empty result."""
     with pytest.raises(ValueError, match="was not loaded"):
-        raw_file(file_info=None).require_file_info()
+        raw_file(file_info=None).get_file_info()
 
 
 @pytest.mark.parametrize(

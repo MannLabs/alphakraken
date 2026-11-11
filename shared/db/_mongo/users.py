@@ -4,7 +4,6 @@ from shared.db import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_user
-from shared.domain.errors import ValidationError
 from shared.domain.users import User, UserStatus
 
 
@@ -38,11 +37,6 @@ def project_owner(raw_file_id: str) -> User | None:
 def add(*, email: str, initials: str, messenger_id: str | None) -> User:
     """Add a new active user, cf. `shared.db.users`."""
     ensure_connected()
-    email = email.strip().lower()
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    if models.User.objects(email=email).first():
-        raise ValidationError([f"A user with email '{email}' already exists."])
-    _check_initials_unique(initials)
     user = models.User(email=email, initials=initials, messenger_id=messenger_id)
     user.save(force_insert=True)
     return to_user(user)
@@ -52,24 +46,11 @@ def add(*, email: str, initials: str, messenger_id: str | None) -> User:
 def update(email: str, *, initials: str, messenger_id: str | None) -> None:
     """Update the initials and messenger id of a user, cf. `shared.db.users`."""
     ensure_connected()
-    _check_initials_unique(initials, exclude_email=email)
     user = models.User.objects.get(email=email)
     user.initials = initials
     user.messenger_id = messenger_id
     # save() instead of update() to run the field validation
     user.save()
-
-
-def _check_initials_unique(initials: str, *, exclude_email: str | None = None) -> None:
-    """Raise if another user already has the initials."""
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    others = (
-        models.User.objects(email__ne=exclude_email)
-        if exclude_email
-        else models.User.objects
-    )
-    if others(initials=initials).first():
-        raise ValidationError([f"A user with initials '{initials}' already exists."])
 
 
 @translate_errors

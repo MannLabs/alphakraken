@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from shared.db import models, users
+from shared.db._mongo import users as backend
 from shared.domain.errors import ValidationError
 from shared.domain.users import UserStatus
 from shared.keys import FALLBACK_PROJECT_ID
@@ -102,18 +103,15 @@ def test_project_owner_returns_none(
 
 
 @patch("shared.db._mongo.users.models")
-def test_add(mock_models: MagicMock) -> None:
-    """A new user is inserted with normalized email if email and initials are unused."""
-    mock_models.User.objects.return_value.first.return_value = None
+def test_backend_add(mock_models: MagicMock) -> None:
+    """The backend inserts the user, never overwriting an existing one."""
     mock_models.User.return_value = _user_document()
 
     with patch.object(models.User, "save") as mock_save:
-        result = users.add(
-            email=" MaSc@Example.org ", initials="MaSc", messenger_id="U_MASC"
+        result = backend.add(
+            email="masc@example.org", initials="MaSc", messenger_id="U_MASC"
         )
 
-    mock_models.User.objects.assert_any_call(email="masc@example.org")
-    mock_models.User.objects.assert_any_call(initials="MaSc")
     mock_models.User.assert_called_once_with(
         email="masc@example.org", initials="MaSc", messenger_id="U_MASC"
     )
@@ -121,35 +119,11 @@ def test_add(mock_models: MagicMock) -> None:
     assert result == user(created_at_=AWARE_TIME)
 
 
-@pytest.mark.parametrize(
-    ("taken", "error"),
-    [("email", "email 'a@b.de'"), ("initials", "initials 'AB'")],
-)
 @patch("shared.db._mongo.users.models")
-def test_add_rejects_duplicates(mock_models: MagicMock, taken: str, error: str) -> None:
-    """A taken email or taken initials are a validation error, nothing is saved."""
-    mock_models.User.objects.side_effect = lambda **kwargs: MagicMock(
-        first=MagicMock(return_value=MagicMock() if taken in kwargs else None)
-    )
+def test_backend_update(mock_models: MagicMock) -> None:
+    """The backend saves the document, to run its field validation."""
+    backend.update("a@b.de", initials="NB", messenger_id="U123")
 
-    with pytest.raises(ValidationError, match=error) as excinfo:
-        users.add(email="a@b.de", initials="AB")
-
-    assert len(excinfo.value.errors) == 1
-    mock_models.User.return_value.save.assert_not_called()
-
-
-@patch("shared.db._mongo.users.models")
-def test_update(mock_models: MagicMock) -> None:
-    """The user itself is excluded from the uniqueness check; the document is saved to run its validation."""
-    others = MagicMock()
-    others.return_value.first.return_value = None
-    mock_models.User.objects.return_value = others
-
-    users.update("a@b.de", initials="NB", messenger_id="U123")
-
-    mock_models.User.objects.assert_called_once_with(email__ne="a@b.de")
-    others.assert_called_once_with(initials="NB")
     mock_models.User.objects.get.assert_called_once_with(email="a@b.de")
     document = mock_models.User.objects.get.return_value
     assert document.initials == "NB"
@@ -157,15 +131,78 @@ def test_update(mock_models: MagicMock) -> None:
     document.save.assert_called_once()
 
 
-@patch("shared.db._mongo.users.models")
-def test_update_rejects_duplicate_initials(mock_models: MagicMock) -> None:
-    """Initials of another user are a validation error, nothing is loaded or saved."""
-    mock_models.User.objects.return_value.return_value.first.return_value = MagicMock()
+EXISTING = [
+    user(email="a@b.de", initials="AB"),
+    user(email="c@d.de", initials="CD", status=UserStatus.INACTIVE),
+]
 
-    with pytest.raises(ValidationError, match="initials 'NB'"):
-        users.update("a@b.de", initials="NB", messenger_id=None)
 
-    mock_models.User.objects.get.assert_not_called()
+@patch("shared.db._mongo.users.add")
+@patch("shared.db.users.find", return_value=EXISTING)
+def test_add_normalizes_email_and_checks_all_users(
+    mock_find: MagicMock, mock_backend_add: MagicMock
+) -> None:
+    """A user with unused email and initials is added with the email in lower case."""
+    result = users.add(email=" New@B.de ", initials="NB", messenger_id="U123")
+
+    mock_find.assert_called_once_with(include_inactive=True)
+    mock_backend_add.assert_called_once_with(
+        email="new@b.de", initials="NB", messenger_id="U123"
+    )
+    assert result == mock_backend_add.return_value
+
+
+@pytest.mark.parametrize(
+    ("email", "initials", "error"),
+    [
+        ("A@b.de", "NB", "email 'a@b.de'"),
+        ("new@b.de", "AB", "initials 'AB'"),
+        # inactive users keep their email and initials
+        ("new@b.de", "CD", "initials 'CD'"),
+    ],
+)
+@patch("shared.db._mongo.users.add")
+@patch("shared.db.users.find", return_value=EXISTING)
+def test_add_rejects_duplicates(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,
+    email: str,
+    initials: str,
+    error: str,
+) -> None:
+    """A taken email or taken initials are a validation error, nothing is stored."""
+    with pytest.raises(ValidationError, match=error) as excinfo:
+        users.add(email=email, initials=initials)
+
+    assert len(excinfo.value.errors) == 1
+    mock_backend_add.assert_not_called()
+
+
+@patch("shared.db._mongo.users.update")
+@patch("shared.db.users.find", return_value=EXISTING)
+def test_update_may_keep_own_initials(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_update: MagicMock,
+) -> None:
+    """The user itself is excluded from the uniqueness check."""
+    users.update("a@b.de", initials="AB", messenger_id="U123")
+
+    mock_backend_update.assert_called_once_with(
+        "a@b.de", initials="AB", messenger_id="U123"
+    )
+
+
+@patch("shared.db._mongo.users.update")
+@patch("shared.db.users.find", return_value=EXISTING)
+def test_update_rejects_initials_of_another_user(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_update: MagicMock,
+) -> None:
+    """Initials of another user are a validation error, nothing is stored."""
+    with pytest.raises(ValidationError, match="initials 'CD'"):
+        users.update("a@b.de", initials="CD", messenger_id=None)
+
+    mock_backend_update.assert_not_called()
 
 
 @patch("shared.db._mongo.users.models")

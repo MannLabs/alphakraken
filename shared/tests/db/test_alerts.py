@@ -19,7 +19,7 @@ OBJECT_ID = ObjectId("65a0000000000000000000aa")
 
 @pytest.fixture(autouse=True)
 def _connected() -> Iterator[None]:
-    with patch("shared.db._mongo.alerts.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         yield
 
 

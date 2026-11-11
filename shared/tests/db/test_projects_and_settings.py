@@ -57,9 +57,7 @@ def mock_models() -> Iterator[MagicMock]:
         for method in ["order_by", "skip", "limit"]:
             getattr(query, method).return_value = query
     with (
-        patch("shared.db._mongo.projects.ensure_connected"),
-        patch("shared.db._mongo.settings.ensure_connected"),
-        patch("shared.db._mongo.project_settings.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.projects.models", mock),
         patch("shared.db._mongo.settings.models", mock),
         patch("shared.db._mongo.project_settings.models", mock),

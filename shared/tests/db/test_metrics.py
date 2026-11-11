@@ -108,7 +108,7 @@ def mock_objects() -> Iterator[MagicMock]:
         _document("f2", MetricsTypes.ALPHADIA, NAIVE_TIME, values={"proteins": 3}),
     ]
     with (
-        patch("shared.db._mongo.metrics.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.metrics.models") as mock_models,
     ):
         mock_models.Metrics.objects.return_value = query
@@ -171,7 +171,7 @@ def test_find_requires_a_condition() -> None:
         find()
 
 
-@patch("shared.db._mongo.metrics.ensure_connected")
+@patch("shared.db._mongo.connection.ensure_connected")
 @patch("shared.db._mongo.metrics.models")
 def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa: ARG001
     """Metrics are stored for an existing raw file, with the values as fields of the document."""

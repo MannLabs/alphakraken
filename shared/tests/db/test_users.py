@@ -30,7 +30,7 @@ def _user_document(status: str = UserStatus.ACTIVE) -> models.User:
 
 @pytest.fixture(autouse=True)
 def _connected() -> Iterator[None]:
-    with patch("shared.db._mongo.users.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         yield
 
 

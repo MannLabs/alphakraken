@@ -219,25 +219,9 @@ with c_assign1:
                 ):
                     try:
                         _check_assignment_allowed(selected_project_id)
-                        project_settings_store.check_not_assigned_with_same_filters(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            list(ps.raw_file_id_filter),
-                            list(ps.raw_file_id_exclude_filter),
-                        )
-                        project_settings_store.unassign(ps_id)
-                        project_settings_store.assign(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            scopes=list(ps.scopes),
-                            excluded_scopes=list(ps.excluded_scopes),
-                            raw_file_id_filter=list(ps.raw_file_id_filter),
-                            raw_file_id_exclude_filter=list(
-                                ps.raw_file_id_exclude_filter
-                            ),
-                        )
+                        updated = project_settings_store.update_to_latest(ps_id)
                         show_success_toast(
-                            f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
+                            f"Updated '{ps.settings.name}' to version {updated.settings.version}."
                         )
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))

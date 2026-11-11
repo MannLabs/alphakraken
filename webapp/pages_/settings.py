@@ -555,12 +555,11 @@ if submit:
             slurm_time=empty_to_none(slurm_time),
             num_threads=num_threads,
             owner_email=owner_email,
+            archive_previous=is_update and archive_previous,
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
     else:
-        if is_update and archive_previous:
-            settings_store.archive(latest_settings["id"])
         get_settings_df.clear()
         show_success_toast(
             f"Created new settings '{name}'. Assign it to projects on the Projects page."

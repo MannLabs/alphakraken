@@ -61,7 +61,7 @@ def assign(  # noqa: PLR0913
     raw_file_id_filter = raw_file_id_filter or []
     raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
 
-    check_not_assigned_with_same_filters(
+    _check_not_assigned_with_same_filters(
         project_id, settings_id, raw_file_id_filter, raw_file_id_exclude_filter
     )
 
@@ -82,7 +82,7 @@ def assign(  # noqa: PLR0913
     return assignment
 
 
-def check_not_assigned_with_same_filters(
+def _check_not_assigned_with_same_filters(
     project_id: str,
     settings_id: str,
     raw_file_id_filter: list[str],
@@ -133,3 +133,37 @@ def unassign(assignment_id: str) -> None:
 
     _backend.unassign(assignment_id)
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
+
+
+def update_to_latest(assignment_id: str) -> ProjectSettings:
+    """Replace a settings assignment by one to the latest active version of its settings, keeping scopes and filters.
+
+    Raises:
+        NotFoundError: if there is no such assignment.
+        ValidationError: if there is no newer active version, the project is archived or deleted, or
+            the latest version is already assigned to the project with the same file name filters.
+
+    """
+    project_id = _backend.get_project_id(assignment_id)
+    current = next(a for a in find([project_id]) if a.id == assignment_id)
+    latest = settings.latest_active(current.settings.name)
+    if latest is None or latest.version <= current.settings.version:
+        raise ValidationError(
+            [
+                f"No newer active version of settings '{current.settings.name}' "
+                f"than version {current.settings.version}"
+            ]
+        )
+
+    # assigning first: if it fails, the current assignment is kept
+    updated = assign(
+        project_id,
+        latest.id,
+        scopes=list(current.scopes),
+        excluded_scopes=list(current.excluded_scopes),
+        raw_file_id_filter=list(current.raw_file_id_filter),
+        raw_file_id_exclude_filter=list(current.raw_file_id_exclude_filter),
+    )
+    _backend.unassign(assignment_id)
+    logging.info(f"Removed project-settings assignment: {assignment_id=}")
+    return updated

@@ -42,6 +42,8 @@ class RecentFile:
     created_at: datetime
     # known initials of the operator in the file name, if any
     initials: str | None
+    # bytes
+    size: int | None
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,7 @@ def _load_recent_files(
                 raw_file.id,
                 raw_file.created_at,
                 extract_initials(raw_file.id, known_initials),
+                raw_file.size,
             )
             for raw_file in files
         ]
@@ -167,19 +170,13 @@ def _handoff(
     )
 
 
-def _load_sizes(file_ids: Collection[str]) -> dict[str, int | None]:
-    """Load the current sizes of the files; sizes may be populated after detection."""
-    found = raw_files.find(raw_files.RawFileFilter(ids=sorted(file_ids)))
-    return {raw_file.id: raw_file.size for raw_file in found}
-
-
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
     return f"{size_bytes / BYTES_PER_GB:.2f} GB"
 
 
-def _render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:
+def _render_issue(issue: QueueStopIssue) -> str:
     """Render a single issue to a message string."""
     if issue.kind == KIND_STOP:
         pause_minutes = issue.pause.total_seconds() / 60 if issue.pause else 0
@@ -192,7 +189,7 @@ def _render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:
         header = f"Queue handoff on `{issue.instrument_id}`"
 
     file_lines = [
-        f"- `{rf.file_id}` ({_format_size(sizes.get(rf.file_id))}) "
+        f"- `{rf.file_id}` ({_format_size(rf.size)}) "
         f"[{rf.created_at:%Y-%m-%d %H:%M UTC}]"
         for rf in issue.recent_files
     ]
@@ -239,7 +236,5 @@ class QueueStopAlert(BaseAlert):
         return issues
 
     def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
-        """Render all issues with the current file sizes."""
-        file_ids = {rf.file_id for issue in issues for rf in issue.details.recent_files}
-        sizes = _load_sizes(file_ids)
-        return "\n\n".join(_render_issue(issue.details, sizes) for issue in issues)
+        """Render all issues."""
+        return "\n\n".join(_render_issue(issue.details) for issue in issues)

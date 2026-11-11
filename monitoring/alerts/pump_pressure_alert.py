@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 from utils import short_digest
@@ -52,6 +53,18 @@ class PressureChange:
     def increase(self) -> float:
         """Return the pressure difference, positive for an increase."""
         return self.younger.pressure - self.older.pressure
+
+
+@lru_cache(maxsize=1)
+def _pressure_data(
+    instrument_ids: tuple[str, ...], now: datetime
+) -> dict[str, list[PressureDataPoint]]:
+    """Return the pressure measurements, loaded once per check.
+
+    Both pump pressure alerts run in the same loop iteration with the same `now`, so the
+    second one gets the data the first one loaded.
+    """
+    return _load_pressure_data(list(instrument_ids), now)
 
 
 def _load_pressure_data(
@@ -174,7 +187,7 @@ class PumpPressureIncreaseAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             change = _detect_increase(
                 points, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
@@ -212,7 +225,7 @@ class PumpPressureHighAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             for point in _detect_high(points, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR):
                 issues.append(  # noqa: PERF401
                     Issue(

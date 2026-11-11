@@ -7,7 +7,7 @@ from service.admin import is_admin
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.timezone import display_now, to_display_timezone
-from service.user_input import clean_initials, clean_messenger_id, parse_user_row
+from service.user_input import parse_user_row
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -17,12 +17,14 @@ from service.utils import (
 
 from shared.db import alerts as alert_store
 from shared.db import users as user_store
-from shared.domain.users import UserStatus
+from shared.domain.inputs import max_length
+from shared.domain.users import NewUser, UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
 
+_MESSENGER_ID_MAX_CHARS = max_length(NewUser, "messenger_id")
 _MESSENGER_ID_HELP = (
     "Id of the user in the messenger (e.g. Slack member ID), inserted into the user alerts URL to notify the user directly "
     "about alerts concerning raw files with their initials."
@@ -72,19 +74,17 @@ c1, _ = st.columns([0.5, 0.5])
 c1.markdown("### Add user")
 
 with c1.form("add_user_form"):
-    new_email = st.text_input("Email*", max_chars=128)
+    new_email = st.text_input("Email*", max_chars=max_length(NewUser, "email"))
     new_initials = st.text_input("Initials*", max_chars=8)
     new_messenger_id = st.text_input(
-        "Messenger id", max_chars=64, help=_MESSENGER_ID_HELP
+        "Messenger id", max_chars=_MESSENGER_ID_MAX_CHARS, help=_MESSENGER_ID_HELP
     )
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
 if add_submit:
-    with toast_result(f"Added user '{clean_initials(new_initials)}'."):
+    with toast_result(f"Added user '{new_initials.strip()}'."):
         user_store.add(
-            email=new_email,
-            initials=clean_initials(new_initials),
-            messenger_id=clean_messenger_id(new_messenger_id),
+            email=new_email, initials=new_initials, messenger_id=new_messenger_id
         )
 
 # cleared, as the report lists the failed rows
@@ -107,7 +107,7 @@ if bulk_submit:
         except Exception as e:  # noqa: BLE001
             failures.append(f"line {line_number}: {e}")
         else:
-            added.append(initials)
+            added.append(initials.strip())
     # shown after the rerun, which refreshes the users table
     set_session_state(SessionStateKeys.BULK_ADD_USERS_REPORT, (added, failures))
     st.rerun()
@@ -140,7 +140,7 @@ if all_users:
     messenger_id = c1.text_input(
         "Messenger id",
         value=user.messenger_id or "",
-        max_chars=64,
+        max_chars=_MESSENGER_ID_MAX_CHARS,
         key=f"messenger_id_{selected_email}",
         help=_MESSENGER_ID_HELP,
     )
@@ -150,11 +150,9 @@ if all_users:
 
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
-        with toast_result(f"Updated user '{clean_initials(initials)}'."):
+        with toast_result(f"Updated user '{initials.strip()}'."):
             user_store.update(
-                selected_email,
-                initials=clean_initials(initials),
-                messenger_id=clean_messenger_id(messenger_id),
+                selected_email, initials=initials, messenger_id=messenger_id
             )
 
     is_active = user.status == UserStatus.ACTIVE

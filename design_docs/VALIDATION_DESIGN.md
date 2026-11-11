@@ -284,6 +284,11 @@ webapp validation tests (`test_settings_validation.py`, `test_user_input.py`,
 
 ## 4. Decisions to confirm
 
+/Decided 2026-11-11, cf. `VALIDATION_PLAN.md`: 4.1 the alternative (one error type), 4.3
+yes, 4.4 the rules stay in the `shared.db` API modules, 4.5 the form's. Section 2 is to be
+read accordingly: `shared/services/<aggregate>.py` is `shared/db/<aggregate>.py`, and 2.5
+is dropped. Open: 4.2, 4.6.
+
 4.1. Pydantic for the input types, dataclasses for the output types (2.1). Clients catch two
 error types, `pydantic.ValidationError` and the domain one, rendered by one formatter.
 Alternative: the service takes keyword arguments and builds the input type itself, wrapping

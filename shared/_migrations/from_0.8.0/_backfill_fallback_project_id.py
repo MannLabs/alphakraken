@@ -10,8 +10,8 @@ Sets project_id to "_FALLBACK" for all RawFile documents where project_id is Non
 import argparse
 import logging
 
-from shared.db.engine import connect_db
-from shared.db.models import RawFile
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import RawFile
 from shared.keys import FALLBACK_PROJECT_ID
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

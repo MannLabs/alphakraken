@@ -14,9 +14,9 @@ To run the update:
 
 import sys
 
-from shared.db.engine import connect_db
-from shared.db.models import RawFile, get_created_at_year_month
-from shared.domain.raw_files import RawFileStatus
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import RawFile
+from shared.domain.raw_files import RawFileStatus, get_created_at_year_month
 
 sys.path.insert(0, "/opt/airflow/plugins")
 from plugins.common.paths import (

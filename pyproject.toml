@@ -41,8 +41,6 @@ ignore = [
 "mongoengine".msg = "use shared.db"
 "pymongo".msg = "use shared.db"
 "shared.db._mongo".msg = "use shared.db"
-"shared.db.models".msg = "legacy, use shared.db and shared.domain"
-"shared.db.engine".msg = "legacy, use shared.db"
 
 [tool.ruff.lint.per-file-ignores]
 # the Mongo backend, its tests and the migration scripts
@@ -51,8 +49,7 @@ ignore = [
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 "airflow_src/plugins/celery_config.py" = ["TID251"]
-# the API modules are the only importers of the backend; this also covers the legacy
-# models.py and engine.py until they have moved into it
+# the API modules are the only importers of the backend
 "shared/db/*.py" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected

@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from bson import ObjectId
 
-from shared.db import alerts, models
+from shared.db import alerts
+from shared.db._mongo import models
 from shared.tests.factories import alert_issue, alert_suppression
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo

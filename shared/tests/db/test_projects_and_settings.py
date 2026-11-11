@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from bson import ObjectId
 
-from shared.db import models, project_settings, projects, settings
+from shared.db import project_settings, projects, settings
+from shared.db._mongo import models
 from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend

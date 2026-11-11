@@ -1,6 +1,6 @@
 """User queries on MongoDB."""
 
-from shared.db import models
+from shared.db._mongo import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_user

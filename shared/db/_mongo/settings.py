@@ -12,10 +12,14 @@ from shared.domain.errors import NotFoundError
 from shared.domain.settings import Settings, SettingsStatus, split_unique_settings_name
 
 
-def _query(*, name: str | None, include_deleted: bool) -> QuerySet:
+def _query(
+    *, name: str | None, statuses: list[str] | None, include_deleted: bool
+) -> QuerySet:
     conditions = {}
     if not include_deleted:
         conditions["status__ne"] = SettingsStatus.DELETED
+    if statuses is not None:
+        conditions["status__in"] = statuses
     if name is not None:
         conditions["name"] = name
     return models.Settings.objects(**conditions)
@@ -23,11 +27,18 @@ def _query(*, name: str | None, include_deleted: bool) -> QuerySet:
 
 @translate_errors
 def find(
-    *, name: str | None, include_deleted: bool, limit: int | None, offset: int
+    *,
+    name: str | None,
+    statuses: list[str] | None,
+    include_deleted: bool,
+    limit: int | None,
+    offset: int,
 ) -> list[Settings]:
     """Return the settings, cf. `shared.db.settings`."""
     ensure_connected()
-    query = _query(name=name, include_deleted=include_deleted).order_by("-created_at_")
+    query = _query(
+        name=name, statuses=statuses, include_deleted=include_deleted
+    ).order_by("-created_at_")
     if offset:
         query = query.skip(offset)
     if limit is not None:
@@ -36,10 +47,12 @@ def find(
 
 
 @translate_errors
-def count(*, name: str | None, include_deleted: bool) -> int:
+def count(
+    *, name: str | None, statuses: list[str] | None, include_deleted: bool
+) -> int:
     """Return the number of settings, cf. `shared.db.settings`."""
     ensure_connected()
-    return _query(name=name, include_deleted=include_deleted).count()
+    return _query(name=name, statuses=statuses, include_deleted=include_deleted).count()
 
 
 @translate_errors

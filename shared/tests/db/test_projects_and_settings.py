@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from bson import ObjectId
@@ -99,6 +99,22 @@ def test_find_projects_including_deleted_without_paging(mock_models: MagicMock) 
     query.limit.assert_not_called()
 
 
+def test_find_and_count_projects_by_status(mock_models: MagicMock) -> None:
+    """The statuses narrow the projects in the query, for `find` and `count` alike."""
+    query = mock_models.Project.objects.return_value
+    query.__iter__.return_value = []
+    query.count.return_value = 0
+
+    projects.find(statuses=[ProjectStatus.ACTIVE])
+    projects.count(statuses=[ProjectStatus.ACTIVE])
+
+    assert (
+        mock_models.Project.objects.call_args_list
+        == [call(status__ne=ProjectStatus.DELETED, status__in=[ProjectStatus.ACTIVE])]
+        * 2
+    )
+
+
 def test_count_projects(mock_models: MagicMock) -> None:
     """The count applies the same conditions as find."""
     mock_models.Project.objects.return_value.count.return_value = 7
@@ -127,6 +143,22 @@ def test_find_settings(mock_models: MagicMock) -> None:
     query.order_by.assert_called_once_with("-created_at_")
     query.skip.assert_called_once_with(20)
     query.limit.assert_called_once_with(10)
+
+
+def test_find_and_count_settings_by_status(mock_models: MagicMock) -> None:
+    """The statuses narrow the settings in the query, for `find` and `count` alike."""
+    query = mock_models.Settings.objects.return_value
+    query.__iter__.return_value = []
+    query.count.return_value = 0
+
+    settings.find(statuses=[SettingsStatus.ACTIVE])
+    settings.count(statuses=[SettingsStatus.ACTIVE])
+
+    assert (
+        mock_models.Settings.objects.call_args_list
+        == [call(status__ne=SettingsStatus.DELETED, status__in=[SettingsStatus.ACTIVE])]
+        * 2
+    )
 
 
 def test_count_settings(mock_models: MagicMock) -> None:
@@ -465,7 +497,6 @@ def test_get_project_raises_if_missing(mock_find: MagicMock) -> None:  # noqa: A
 def test_latest_active_settings(mock_find: MagicMock) -> None:
     """The highest active version of the name is returned; archived versions do not count."""
     mock_find.return_value = [
-        factories.settings(id="fallback_v9", version=9, status=SettingsStatus.INACTIVE),
         factories.settings(id="fallback_v7", version=7),
         factories.settings(id="fallback_v8", version=8),
     ]
@@ -473,7 +504,7 @@ def test_latest_active_settings(mock_find: MagicMock) -> None:
     assert settings.latest_active("fallback") == factories.settings(
         id="fallback_v8", version=8
     )
-    mock_find.assert_called_once_with(name="fallback")
+    mock_find.assert_called_once_with(name="fallback", statuses=[SettingsStatus.ACTIVE])
 
 
 @patch("shared.db.settings.find", return_value=[])

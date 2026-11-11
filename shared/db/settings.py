@@ -13,6 +13,7 @@ from shared.domain.settings import (
 def find(
     *,
     name: str | None = None,
+    statuses: list[str] | None = None,
     include_deleted: bool = False,
     limit: int | None = None,
     offset: int = 0,
@@ -20,15 +21,25 @@ def find(
     """Return the settings, newest first.
 
     :param name: only the versions of the settings with this name
+    :param statuses: only the settings with one of these statuses; deleted ones also need `include_deleted`
     """
     return _backend.find(
-        name=name, include_deleted=include_deleted, limit=limit, offset=offset
+        name=name,
+        statuses=statuses,
+        include_deleted=include_deleted,
+        limit=limit,
+        offset=offset,
     )
 
 
-def count(*, name: str | None = None, include_deleted: bool = False) -> int:
+def count(
+    *,
+    name: str | None = None,
+    statuses: list[str] | None = None,
+    include_deleted: bool = False,
+) -> int:
     """Return the number of settings that `find` returns without limit and offset."""
-    return _backend.count(name=name, include_deleted=include_deleted)
+    return _backend.count(name=name, statuses=statuses, include_deleted=include_deleted)
 
 
 def get(unique_name: str) -> Settings:
@@ -43,7 +54,7 @@ def get(unique_name: str) -> Settings:
 
 def latest_active(name: str) -> Settings | None:
     """Return the latest active version of the settings with the given name, None if there is none."""
-    active = [s for s in find(name=name) if s.status == SettingsStatus.ACTIVE]
+    active = find(name=name, statuses=[SettingsStatus.ACTIVE])
     return max(active, key=lambda s: s.version, default=None)
 
 

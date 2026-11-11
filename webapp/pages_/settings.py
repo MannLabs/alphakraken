@@ -89,7 +89,7 @@ def _text(value: object) -> str:
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
-    return {p.id for p in project_store.find() if p.status == ProjectStatus.ACTIVE}
+    return {p.id for p in project_store.find(statuses=[ProjectStatus.ACTIVE])}
 
 
 settings_df = get_settings_df()

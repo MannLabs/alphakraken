@@ -21,15 +21,7 @@ from service.utils import (
     show_success_toast,
 )
 
-from shared.db.interface import (
-    add_alert_suppression,
-    add_user,
-    delete_alert_suppression,
-    get_alert_suppressions,
-    get_all_users,
-    set_user_status,
-    update_user,
-)
+from shared.db import alerts, users
 from shared.domain.users import UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -59,9 +51,9 @@ if not is_admin():
 
 st.markdown("## Users")
 
-users = get_all_users(include_inactive=True)
+all_users = users.find(include_inactive=True)
 
-if users:
+if all_users:
     st.table(
         pd.DataFrame(
             [
@@ -71,7 +63,7 @@ if users:
                     "messenger id": u.messenger_id,
                     "status": u.status,
                 }
-                for u in users
+                for u in all_users
             ]
         )
     )
@@ -94,7 +86,7 @@ with c1.form("add_user_form"):
 
 if add_submit:
     try:
-        add_user(
+        users.add(
             email=new_email,
             initials=clean_initials(new_initials),
             messenger_id=clean_messenger_id(new_messenger_id),
@@ -120,7 +112,7 @@ if bulk_submit:
             continue
         try:
             email, initials, messenger_id = parse_user_row(row)
-            add_user(email=email, initials=initials, messenger_id=messenger_id)
+            users.add(email=email, initials=initials, messenger_id=messenger_id)
         except Exception as e:  # noqa: BLE001
             failures.append(f"line {line_number}: {e}")
         else:
@@ -139,10 +131,10 @@ if report := st.session_state.pop(SessionStateKeys.BULK_ADD_USERS_REPORT, None):
             + "\n".join(f"- {f}" for f in failures)
         )
 
-if users:
+if all_users:
     c1.markdown("### Edit user")
 
-    users_by_email = {u.email: u for u in users}
+    users_by_email = {u.email: u for u in all_users}
     selected_email = c1.selectbox(
         "User",
         options=list(users_by_email),
@@ -168,7 +160,7 @@ if users:
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
         try:
-            update_user(
+            users.update(
                 selected_email,
                 initials=clean_initials(initials),
                 messenger_id=clean_messenger_id(messenger_id),
@@ -184,7 +176,7 @@ if users:
         disabled=DISABLE_WRITE,
         help="Inactive users can't be selected as owner, but stay owner of existing projects and settings.",
     ):
-        set_user_status(
+        users.set_status(
             selected_email, UserStatus.INACTIVE if is_active else UserStatus.ACTIVE
         )
         show_success_toast(
@@ -210,7 +202,7 @@ st.info(
     icon="ℹ️",  # noqa: RUF001
 )
 
-suppressions = get_alert_suppressions()
+suppressions = alerts.find_suppressions()
 
 if not suppressions:
     st.info("No alert suppressions.")
@@ -223,8 +215,7 @@ else:
 
     with st.expander("Delete suppressions .."):
         for suppression in suppressions:
-            # id is added by mongoengine
-            suppression_id = str(suppression.id)  # ty: ignore[unresolved-attribute]
+            suppression_id = suppression.id
             col_delete, col_info = st.columns([0.15, 0.85])
             col_info.write(
                 f"`{suppression.alert}` / `{suppression.instrument_id}` / "
@@ -237,7 +228,7 @@ else:
                 icon=":material/delete:",
             ):
                 try:
-                    delete_alert_suppression(suppression_id)
+                    alerts.delete_suppression(suppression_id)
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
                 else:
@@ -299,7 +290,7 @@ if form_submit:
             details=details,
             comment=comment,
         )
-        add_alert_suppression(
+        alerts.add_suppression(
             alert=alert.strip(),
             instrument_id=instrument_id,
             identifier=identifier.strip(),

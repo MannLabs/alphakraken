@@ -12,7 +12,7 @@ def _user(initials: str) -> MagicMock:
     return user
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 def test_add_owner_initials(mock_get_users: MagicMock) -> None:
     """Test that owner ids are replaced by initials, also for inactive and unknown owners."""
     mock_get_users.return_value = [_user("AB")]
@@ -28,7 +28,7 @@ def test_add_owner_initials(mock_get_users: MagicMock) -> None:
     mock_get_users.assert_called_once_with(include_inactive=True)
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 def test_add_owner_initials_without_owner_column(mock_get_users: MagicMock) -> None:
     """Test that a frame without owners is returned as is."""
     df = pd.DataFrame({"name": ["a"]})
@@ -41,7 +41,7 @@ def test_add_owner_initials_without_owner_column(mock_get_users: MagicMock) -> N
     mock_get_users.assert_not_called()
 
 
-@patch("service.owner.get_all_users", return_value=[])
+@patch("shared.db.users.find", return_value=[])
 def test_show_owner_selectbox_without_users(mock_get_users: MagicMock) -> None:  # noqa: ARG001
     """Test that nothing is shown without active users."""
     st_display = MagicMock()
@@ -54,7 +54,7 @@ def test_show_owner_selectbox_without_users(mock_get_users: MagicMock) -> None: 
     st_display.selectbox.assert_not_called()
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 def test_show_owner_selectbox(mock_get_users: MagicMock) -> None:
     """Test that the active users are offered after the no-owner option."""
     mock_get_users.return_value = [_user("AB"), _user("CD")]
@@ -76,7 +76,7 @@ def test_show_owner_selectbox(mock_get_users: MagicMock) -> None:
     ]
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 def test_show_owner_selectbox_with_inactive_default(mock_get_users: MagicMock) -> None:
     """Test that a default owner that is not active falls back to no owner."""
     mock_get_users.return_value = [_user("AB")]

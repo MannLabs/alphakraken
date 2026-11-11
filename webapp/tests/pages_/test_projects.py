@@ -86,7 +86,7 @@ def test_projects_display_table(
     assert table_data.loc[1, "settings"] == ""
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
 @patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
@@ -164,7 +164,7 @@ def test_fallback_assignment_only_for_admins(  # noqa: PLR0913
 
 
 @patch("shared.db.interface.add_project")
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 @patch("service.db.get_project_data", return_value=[])
 @patch("service.db.df_from_db_data", return_value=pd.DataFrame())
 @patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))

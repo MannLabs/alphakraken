@@ -30,3 +30,34 @@ def find_suppressions(*, active_only: bool = False) -> list[AlertSuppression]:
     :param active_only: leave out the expired ones
     """
     return _backend.find_suppressions(active_only=active_only)
+
+
+def add_suppression(  # noqa: PLR0913
+    *,
+    alert: str,
+    instrument_id: str,
+    identifier: str,
+    details: str,
+    comment: str,
+    expires_at: datetime | None,
+    created_by: str | None,
+) -> None:
+    """Add an alert suppression."""
+    logging.info(
+        f"Adding alert suppression to DB: {alert=} {instrument_id=} {identifier=} {details=} {expires_at=}"
+    )
+    _backend.add_suppression(
+        alert=alert,
+        instrument_id=instrument_id,
+        identifier=identifier,
+        details=details,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    )
+
+
+def delete_suppression(suppression_id: str) -> None:
+    """Delete an alert suppression."""
+    _backend.delete_suppression(suppression_id)
+    logging.info(f"Deleted alert suppression: {suppression_id=}")

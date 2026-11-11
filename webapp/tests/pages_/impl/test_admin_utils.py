@@ -11,7 +11,7 @@ from pages_.impl.admin_utils import (
 )
 from service.timezone import DISPLAY_TIMEZONE
 
-from shared.db.models import AlertSuppression
+from shared.tests.factories import alert_suppression
 
 VALID = {
     "alert": "PumpPressureAlert",
@@ -66,9 +66,9 @@ def test_get_suppressions_df_should_mark_expired_suppressions() -> None:
     # given
     now = datetime.now(tz=pytz.UTC)
     suppressions = [
-        AlertSuppression(comment="old", expires_at=now - timedelta(days=1)),
-        AlertSuppression(comment="future", expires_at=now + timedelta(days=1)),
-        AlertSuppression(comment="never"),
+        alert_suppression(comment="old", expires_at=now - timedelta(days=1)),
+        alert_suppression(comment="future", expires_at=now + timedelta(days=1)),
+        alert_suppression(comment="never"),
     ]
 
     # when

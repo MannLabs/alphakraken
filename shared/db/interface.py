@@ -11,7 +11,6 @@ from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
-    AlertSuppression,
     Metrics,
     Project,
     ProjectSettings,
@@ -25,7 +24,6 @@ from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
 from shared.domain.settings import SettingsStatus
 from shared.domain.slurm_jobs import SlurmJobQueueStates
-from shared.domain.users import UserStatus
 from shared.keys import DEFAULT_SCOPE
 
 _NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
@@ -394,52 +392,6 @@ def _get_owner(owner_email: str | None) -> User | None:
     return User.objects.get(email=owner_email) if owner_email else None
 
 
-def add_user(*, email: str, initials: str, messenger_id: str | None = None) -> User:
-    """Add a new active user, the email is normalized to lower case."""
-    connect_db()
-    email = email.strip().lower()
-    if User.objects(email=email).first():
-        raise ValueError(f"A user with email '{email}' already exists.")
-    _check_initials_unique(initials)
-    user = User(email=email, initials=initials, messenger_id=messenger_id)
-    user.save(force_insert=True)
-    logging.info(f"Added user: {email=} {initials=} {messenger_id=}")
-    return user
-
-
-def update_user(email: str, *, initials: str, messenger_id: str | None) -> None:
-    """Update the initials and messenger id of a user, the email is immutable."""
-    connect_db()
-    _check_initials_unique(initials, exclude_email=email)
-    user = User.objects.get(email=email)
-    user.initials = initials
-    user.messenger_id = messenger_id
-    # save() instead of update() to run the field validation
-    user.save()
-    logging.info(f"Updated user: {email=} {initials=} {messenger_id=}")
-
-
-def _check_initials_unique(initials: str, *, exclude_email: str | None = None) -> None:
-    """Raise if another user already has the initials."""
-    others = User.objects(email__ne=exclude_email) if exclude_email else User.objects
-    if others(initials=initials).first():
-        raise ValueError(f"A user with initials '{initials}' already exists.")
-
-
-def set_user_status(email: str, status: str) -> None:
-    """Set the status of a user, used for soft-deleting."""
-    connect_db()
-    User.objects(email=email).update_one(status=status)
-    logging.info(f"Set user status: {email=} {status=}")
-
-
-def get_all_users(*, include_inactive: bool = False) -> list[User]:
-    """Get all users, ordered by initials."""
-    connect_db()
-    users = User.objects if include_inactive else User.objects(status=UserStatus.ACTIVE)
-    return list(users.order_by("initials"))
-
-
 def get_settings_by_id(settings_id: str) -> Settings:
     """Get a settings entry by its ID."""
     connect_db()
@@ -534,42 +486,3 @@ def get_slurm_job(cluster_id: str, job_id: str) -> SlurmJob | None:
     connect_db()
 
     return SlurmJob.objects(id=get_slurm_job_db_id(cluster_id, job_id)).first()
-
-
-def get_alert_suppressions() -> list[AlertSuppression]:
-    """Get all alert suppressions, including expired ones, newest first."""
-    connect_db()
-    return list(AlertSuppression.objects.order_by("-created_at_"))
-
-
-def add_alert_suppression(  # noqa: PLR0913
-    *,
-    alert: str,
-    instrument_id: str,
-    identifier: str,
-    details: str,
-    comment: str,
-    expires_at: datetime | None,
-    created_by: str | None,
-) -> None:
-    """Add an alert suppression to the database."""
-    logging.info(
-        f"Adding alert suppression to DB: {alert=} {instrument_id=} {identifier=} {details=} {expires_at=}"
-    )
-    connect_db()
-    AlertSuppression(
-        alert=alert,
-        instrument_id=instrument_id,
-        identifier=identifier,
-        details=details,
-        comment=comment,
-        expires_at=expires_at,
-        created_by=created_by,
-    ).save()
-
-
-def delete_alert_suppression(suppression_id: str) -> None:
-    """Delete an alert suppression from the database."""
-    connect_db()
-    AlertSuppression.objects(id=suppression_id).delete()
-    logging.info(f"Deleted alert suppression: {suppression_id=}")

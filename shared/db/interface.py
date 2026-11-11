@@ -332,61 +332,6 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
     return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
 
 
-def create_settings(  # noqa: PLR0913
-    *,
-    name: str,
-    description: str | None = None,
-    fasta_file_name: str | None = None,
-    speclib_file_name: str | None = None,
-    config_file_name: str | None = None,
-    config_params: str | None = None,
-    software_type: str,
-    software: str,
-    runner_name: str,
-    metrics_type: str,
-    slurm_cpus_per_task: int | None = None,
-    slurm_mem: str | None = None,
-    slurm_time: str | None = None,
-    num_threads: int | None = None,
-    owner_email: str | None = None,
-) -> Settings:
-    """Create a new settings entry.
-
-    Version is automatically incremented based on existing settings with same name.
-    """
-    connect_db()
-
-    existing = Settings.objects(name=name).order_by("-version").first()
-    version = (existing.version + 1) if existing else 1
-
-    next_number = (
-        Settings.objects.count() + 1
-    )  # deliberately ignoring potential race condition
-
-    settings = Settings(
-        number=next_number,
-        name=name,
-        version=version,
-        description=description,
-        fasta_file_name=fasta_file_name,
-        speclib_file_name=speclib_file_name,
-        config_file_name=config_file_name,
-        config_params=config_params,
-        software_type=software_type,
-        software=software,
-        runner_name=runner_name,
-        metrics_type=metrics_type,
-        slurm_cpus_per_task=slurm_cpus_per_task,
-        slurm_mem=slurm_mem,
-        slurm_time=slurm_time,
-        num_threads=num_threads,
-        owner=_get_owner(owner_email),
-    )
-    settings.save(force_insert=True)
-    logging.info(f"Created settings: {name=} {version=}")
-    return settings
-
-
 def _get_owner(owner_email: str | None) -> User | None:
     """Get the user to set as owner, raises if it does not exist."""
     return User.objects.get(email=owner_email) if owner_email else None
@@ -396,33 +341,6 @@ def get_settings_by_id(settings_id: str) -> Settings:
     """Get a settings entry by its ID."""
     connect_db()
     return Settings.objects.get(id=settings_id)
-
-
-def archive_settings(settings_id: str) -> None:
-    """Archive a settings entry by setting its status to INACTIVE."""
-    connect_db()
-    Settings.objects(id=settings_id).update_one(status=SettingsStatus.INACTIVE)
-    logging.info(f"Archived settings: {settings_id=}")
-
-
-def delete_settings(settings_id: str) -> None:
-    """Soft-delete a settings entry by setting its status to DELETED."""
-    connect_db()
-    settings = Settings.objects.get(id=settings_id)
-    if settings.status == SettingsStatus.INACTIVE:
-        raise ValueError(
-            f"Cannot delete archived settings '{settings.name}' version {settings.version}"
-        )
-    project_ids = sorted(
-        {str(ps.project.id) for ps in ProjectSettings.objects(settings=settings)}
-    )
-    if project_ids:
-        raise ValueError(
-            f"Cannot delete settings '{settings.name}' version {settings.version}: "
-            f"still assigned to projects {', '.join(project_ids)}"
-        )
-    Settings.objects(id=settings_id).update_one(status=SettingsStatus.DELETED)
-    logging.info(f"Deleted settings: {settings_id=}")
 
 
 def get_all_settings(*, include_archived: bool = False) -> list[Settings]:

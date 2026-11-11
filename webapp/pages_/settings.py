@@ -20,10 +20,8 @@ from pages_.impl.settings_utils import (
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
-    get_project_data,
-    get_settings_data,
 )
-from service.owner import add_owner_initials, show_owner_selectbox
+from service.owner import OWNER_COLUMN, add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
 from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
@@ -39,8 +37,9 @@ from shared.config_params import (
     check_for_unknown_placeholders,
     substitute_dummy_values,
 )
-from shared.db.interface import archive_settings, create_settings, delete_settings
-from shared.db.models import ProjectSettings
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import SettingsStatus
@@ -76,14 +75,16 @@ st.markdown("# Manage settings")
 
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_settings_df() -> pd.DataFrame:
-    """Get all settings entries."""
-    return df_from_db_data(get_settings_data())
+    """Get all settings entries, with the unique name in column `id`."""
+    return df_from_db_data(settings_store.find()).rename(
+        columns={"owner_email": OWNER_COLUMN}
+    )
 
 
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
-    return {p.id for p in get_project_data() if p.status == ProjectStatus.ACTIVE}
+    return {p.id for p in project_store.find() if p.status == ProjectStatus.ACTIVE}
 
 
 settings_df = get_settings_df()
@@ -108,7 +109,7 @@ def display_settings(
         default_value="status=^active",
     )
 
-    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+    filtered_df = filtered_df.drop(columns=["id"], errors="ignore").fillna("")
 
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
@@ -529,7 +530,7 @@ if submit:
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        create_settings(
+        settings_store.create(
             name=empty_to_none(name),
             description=empty_to_none(description),
             fasta_file_name=fasta_file_name,
@@ -550,7 +551,7 @@ if submit:
         show_error_toast(str(e))
     else:
         if is_update and archive_previous:
-            archive_settings(latest_settings["_id"])
+            settings_store.archive(latest_settings["id"])
         get_settings_df.clear()
         show_success_toast(
             f"Created new settings '{name}'. Assign it to projects on the Projects page."
@@ -579,48 +580,46 @@ else:
         )
 
         # Map settings ID -> list of active project IDs
-        all_ps = ProjectSettings.objects.all()
         active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
         assigned_settings_ids: set[str] = set()
-        for ps in all_ps:
-            project_id = str(ps.project.id)
-            assigned_settings_ids.add(str(ps.settings.id))
-            if project_id in active_project_ids:
-                assigned_projects[str(ps.settings.id)].append(project_id)
+        for ps in project_settings_store.find():
+            assigned_settings_ids.add(ps.settings.id)
+            if ps.project_id in active_project_ids:
+                assigned_projects[ps.settings.id].append(ps.project_id)
 
         for _, row in active_settings_df.iterrows():
             col_btn, col_delete, col_info = st.columns([0.15, 0.15, 0.7])
-            projects = sorted(set(assigned_projects.get(str(row["_id"]), [])))
+            projects = sorted(set(assigned_projects.get(row["id"], [])))
             projects_str = ", ".join(projects) if projects else "none"
             col_info.write(
                 f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}`, description: `{row.get('description', '')}`) — assigned to projects: {projects_str}"
             )
             if col_btn.button(
                 "Archive",
-                key=f"archive_{row['_id']}",
+                key=f"archive_{row['id']}",
                 disabled=DISABLE_WRITE,
                 icon=":material/archive:",
             ):
                 try:
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
-                    archive_settings(row["_id"])
+                    settings_store.archive(row["id"])
                     get_settings_df.clear()
                     show_success_toast(
                         f"Archived settings '{row['name']}' version {int(row['version'])}."
                     )
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
-            is_assigned = str(row["_id"]) in assigned_settings_ids
+            is_assigned = row["id"] in assigned_settings_ids
             if col_delete.button(
                 "Delete",
-                key=f"delete_{row['_id']}",
+                key=f"delete_{row['id']}",
                 disabled=DISABLE_WRITE or is_assigned,
                 help="Unassign from all projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
                 try:
-                    delete_settings(row["_id"])
+                    settings_store.delete(row["id"])
                     get_settings_df.clear()
                     show_success_toast(
                         f"Deleted settings '{row['name']}' version {int(row['version'])}."

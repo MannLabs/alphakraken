@@ -329,60 +329,79 @@ and delete a suppression and see the monitoring honour it.
 **Exit**: `webapp/pages_/admin.py`, `webapp/service/owner.py` and their tests off the
 exemption list.
 
-### Slice 8b: project and settings writes (1 day)
+Slices 8b to 8d are cut by page (2026-11-11). The first cut, "move the write functions,
+then switch the ids", did not hold: once a page reads settings through `settings.find`, its
+DataFrame has no ObjectId left, so reads, writes and the id switch are entangled per page.
 
-**Business value**: the write functions live with their aggregates, ready for the
-validation refactoring. No change of identifiers yet.
+### Slice 8b: settings page (1 day)
 
-**Technical scope**: `shared/db/{projects,settings,project_settings}.py` (write
-functions), `webapp/pages_/{projects,settings}.py`, `webapp/pages_/impl/*`.
+**Business value**: the settings page is fenced and identifies settings by their unique
+name.
 
-**Implementation details**:
-- Move `add_project`, `archive_project`, `delete_project`, `create_settings`,
-  `archive_settings`, `delete_settings`, `assign_settings_to_project`,
-  `check_not_assigned_with_same_filters`, `unassign_settings_from_project` with their
-  callers; the settings functions still take the ids the pages pass today. Same rules for
-  parameters and `ValidationError` as in 8a.
-- Their eight invariant checks (project id taken, archived project, duplicate filters,
-  settings still assigned, ...) go into the API modules `shared/db/{projects,settings,
-  project_settings}.py`, not into `_mongo`, as in 8a. Where a check needs data, the API
-  module reads it through its own find functions; add a read function if one is missing.
-- `get_project_data`, `get_settings_data` on `projects.find`, `settings.find`.
-- Delete the moved functions from `interface.py`.
-
-**Testing**: `pytest webapp shared`; on the stack: create a project, create settings,
-assign with scopes and filters, update the assignment to a new version, archive and delete
-both.
-
-**Exit**: no entry leaves the list yet: the two pages still hold ObjectIds and
-`ProjectSettings.objects`.
-
-### Slice 8c: settings id = unique_name (1 day)
-
-**Business value**: ObjectIds no longer appear in page state or XCom; the webapp is fully
-fenced.
-
-**Technical scope**: `shared/db/{settings,project_settings}.py`,
-`webapp/pages_/{projects,settings}.py`, `airflow_src/dags/impl/processor_impl.py`.
+**Technical scope**: `shared/db/{settings,project_settings}.py`, `webapp/pages_/settings.py`.
 
 **Implementation details**:
-- Settings functions take `unique_name`. Pages: `str(row["_id"])`, `str(ps.id)`,
-  `str(latest.id)`, `str(s.id)` become the unique name; `ProjectSettings.objects.all()` in
-  `settings.py:580` becomes `project_settings.find()`; `ps.project.id` becomes
-  `ps.project_id`; `projects.py:92` loop becomes one `project_settings.find()` grouped by
-  project.
-- `settings_scope_resolver`, `path_layout`, `display_paths` type-hint the dataclasses next to
-  the documents (moved here from slice 7); `_unique_by_id` keys on `unique_name`.
-- Airflow `processor_impl.py`: `resolve_settings` returns unique names; `prepare_job` calls
-  `settings.get(unique_name)`. **Deploy note**: in-flight processor runs carry ObjectIds in
-  XCom and fail at `prepare_job` with `NotFoundError`; deploy with the quanting queue
-  drained or re-trigger them. No dual-format lookup. This is the only part of slice 8 with
-  a deploy constraint, hence its own PR.
+- `settings.create`, `settings.archive(unique_name)`, `settings.delete(unique_name)`;
+  `project_settings.find()` without project ids returns all assignments. The page reads
+  `settings.find()`, `projects.find()`, `project_settings.find()`; `_id` becomes `id`.
+- The rules (next version and number on create; no deletion of archived or still assigned
+  settings) are in the API module, built on its read functions; the backend only stores.
+- Delete `create_settings`, `archive_settings`, `delete_settings` from `interface.py`.
 
-**Testing**: `pytest webapp airflow_src shared`; on the stack: the 8b walk-through again,
-then trigger a quanting run and check it resolves the settings by name.
+**Testing**: `pytest webapp shared`; on the stack: create settings, a new version of them
+with "archive previous", archive and delete settings, try to delete assigned ones.
+
+**Exit**: `webapp/pages_/settings.py` off the exemption list.
+
+### Slice 8c: projects page (1.5 days)
+
+**Business value**: the webapp is fully fenced; no ObjectId in any page state.
+
+**Technical scope**: `shared/db/{projects,project_settings,settings}.py`,
+`webapp/pages_/projects.py`, `webapp/pages_/impl/projects_utils.py`, `webapp/service/db.py`,
+`shared/settings_scope_resolver.py`.
+
+**Implementation details**:
+- `projects.add/archive/delete`; `project_settings.assign(project_id, settings_unique_name,
+  ...)`, `check_not_assigned_with_same_filters`, `unassign(assignment_id)`;
+  `settings.latest_active(name)` and `include_archived` for the page's selections. Their
+  six invariant checks (project id used by a deleted project, archived project, archived
+  settings, duplicate filters) go into the API modules, as in 8a and 8b.
+- The page: `str(ps.id)`, `str(latest.id)`, `s.id` become the dataclass ids; the
+  `projects.py:92` loop becomes one `project_settings.find()` grouped by project;
+  `get_project_data` and `get_settings_data` are replaced by `projects.find` and
+  `settings.find` and deleted, `df_from_db_data` loses its document branch.
+- `settings_scope_resolver` type-hints the dataclasses next to the documents (Airflow
+  passes documents until 8d); `_unique_by_id` works for both.
+- Delete the moved functions from `interface.py`; `get_project_settings`,
+  `get_settings_by_id`, `get_active_project_ids` stay for Airflow until 8d.
+
+**Testing**: `pytest webapp shared`; on the stack: create a project, assign settings with
+scopes and filters, update the assignment to a new version, the scope preview, archive and
+delete a project.
 
 **Exit**: `webapp/**` off the exemption list.
+
+### Slice 8d: settings id in Airflow (0.5 day)
+
+**Business value**: ObjectIds no longer appear in XCom.
+
+**Technical scope**: `airflow_src/dags/impl/processor_impl.py`,
+`shared/{settings_scope_resolver,path_layout}.py`.
+
+**Implementation details**:
+- `resolve_settings` reads `project_settings.find([project_id])` and returns unique names;
+  `prepare_job` calls `settings.get(unique_name)`. `path_layout` type-hints the `Settings`
+  dataclass next to the document. **Deploy note**: in-flight processor runs carry ObjectIds
+  in XCom and fail at `prepare_job` with `NotFoundError`; deploy with the quanting queue
+  drained or re-trigger them. No dual-format lookup. This is the only part of slice 8 with
+  a deploy constraint, hence its own PR.
+- Delete `get_project_settings`, `get_settings_by_id`, `get_all_settings`,
+  `get_latest_active_settings_by_name`, `get_active_project_ids` from `interface.py` as
+  their last callers move.
+
+**Testing**: `pytest airflow_src shared`; on the stack: trigger a quanting run and check it
+resolves the settings by name.
 
 ### Slice 9a: slurm jobs and metrics writes (0.5 day)
 
@@ -450,17 +469,17 @@ the migration scripts and `celery_config.py`. Done.
 
 - Design doc section 6 (deferred): real-database test suite in CI, Protocol layer. Not
   scheduled.
-- `VALIDATION_DESIGN.md` gets its own plan; its prerequisites are met after slice 8c.
+- `VALIDATION_DESIGN.md` gets its own plan; its prerequisites are met after slice 8d.
 
 ## Order and dependencies
 
 ```
-1 → 2 → 3 → 4 → 5 → 6a → 6b → 7 → 8a → 8b → 8c → 9a → 9b → 9c
+1 → 2 → 3 → 4 → 5 → 6a → 6b → 7 → 8a → 8b → 8c → 8d → 9a → 9b → 9c
             └──────────────────→ 7 (independent of 5 and 6)
 ```
 
 Slices 1 to 5 are done. 6a, 7, 8a and 9a are independent of each other and can be taken in
-any order. 6b needs 4. 8b needs 7. 8c needs 8b. 9b needs 8c (settings id in Airflow). 9c
+any order. 6b needs 4. 8b needs 7. 8c needs 8b. 8d needs 8c. 9b needs 8d (settings id in Airflow). 9c
 is last.
 
 Total: about 15 days, of which about 8.5 remain.
@@ -470,7 +489,7 @@ Total: about 15 days, of which about 8.5 remain.
 - **Real-database behaviour is only checked by the per-slice smoke test** on the local
   stack, as CI has no MongoDB (design 6.0). Each slice names its smoke test; do not merge
   without it.
-- **Slice 8c touches the Airflow deploy.** It is cut small so that nothing else rides on
+- **Slice 8d touches the Airflow deploy.** It is cut small so that nothing else rides on
   the drained queue.
 - **`shared/tests/db/test_interface.py`** is dismantled across slices 4 to 9c. Its
   call-side assertions move, its return-side assertions on `MagicMock` documents are

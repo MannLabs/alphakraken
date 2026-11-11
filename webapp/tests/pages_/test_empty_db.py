@@ -39,6 +39,9 @@ def _empty_db() -> Iterator[None]:
         patch("shared.db.raw_files.find", return_value=[]),
         patch("shared.db.metrics.latest_by_raw_file", return_value={}),
         patch("shared.db.status.find", return_value=[]),
+        patch("shared.db.settings.find", return_value=[]),
+        patch("shared.db.projects.find", return_value=[]),
+        patch("shared.db.project_settings.find", return_value=[]),
         patch("service.db.connect_db"),
         patch.multiple(
             "service.db", **{model: MagicMock() for model in DB_MODELS}

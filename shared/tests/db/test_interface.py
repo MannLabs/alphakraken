@@ -15,9 +15,7 @@ from shared.db.interface import (
     add_raw_file,
     archive_project,
     assign_settings_to_project,
-    create_settings,
     delete_project,
-    delete_settings,
     get_active_project_ids,
     get_all_settings,
     get_latest_active_settings_by_name,
@@ -346,102 +344,6 @@ def test_get_active_project_ids(
     mock_project.objects.assert_called_once_with(status=ProjectStatus.ACTIVE)
 
     mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Settings")
-def test_create_settings_first_version(
-    mock_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that create_settings creates first version of settings."""
-    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
-
-    create_settings(
-        name="plasma_settings",
-        description="Fast plasma settings",
-        fasta_file_name="human.fasta",
-        speclib_file_name="plasma.speclib",
-        config_file_name="fast.yaml",
-        config_params=None,
-        software_type="alphadia",
-        software="alphadia-1.10.0",
-        runner_name="slurm",
-        metrics_type="alphadia",
-    )
-
-    mock_settings.assert_called_once()
-    call_kwargs = mock_settings.call_args.kwargs
-    assert call_kwargs["name"] == "plasma_settings"
-    assert call_kwargs["version"] == 1
-    assert call_kwargs["description"] == "Fast plasma settings"
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Settings")
-def test_create_settings_auto_increment_version(
-    mock_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that create_settings auto-increments version."""
-    existing_setting = MagicMock()
-    existing_setting.version = 3
-    mock_settings.objects.return_value.order_by.return_value.first.return_value = (
-        existing_setting
-    )
-
-    create_settings(
-        name="plasma_settings",
-        description=None,
-        fasta_file_name="human.fasta",
-        speclib_file_name="plasma.speclib",
-        config_file_name="fast.yaml",
-        config_params=None,
-        software_type="alphadia",
-        software="alphadia-1.10.0",
-        runner_name="slurm",
-        metrics_type="alphadia",
-    )
-
-    mock_settings.assert_called_once()
-    call_kwargs = mock_settings.call_args.kwargs
-    assert call_kwargs["name"] == "plasma_settings"
-    assert call_kwargs["version"] == 4
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.User")
-@patch("shared.db.interface.Settings")
-def test_create_settings_with_owner(
-    mock_settings: MagicMock,
-    mock_user: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that create_settings sets the owner looked up by id."""
-    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
-
-    create_settings(
-        name="plasma_settings",
-        software_type="alphadia",
-        software="alphadia-1.10.0",
-        runner_name="slurm",
-        metrics_type="alphadia",
-        owner_email="a@b.de",
-    )
-
-    mock_user.objects.get.assert_called_once_with(email="a@b.de")
-    assert mock_settings.call_args.kwargs["owner"] == mock_user.objects.get.return_value
-
-
-def test_create_settings_requires_runner() -> None:
-    """Test that settings cannot be created without naming the runner."""
-    with pytest.raises(TypeError, match="runner_name"):
-        create_settings(  # type: ignore[missing-argument]
-            name="plasma_settings",
-            software_type="alphadia",
-            software="alphadia-1.10.0",
-            metrics_type="alphadia",
-        )
 
 
 @patch("shared.db.interface.connect_db")
@@ -850,70 +752,3 @@ def test_delete_archived_project_raises(
         delete_project("P1234")
 
     mock_project.objects.assert_not_called()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-@patch("shared.db.interface.Settings")
-def test_delete_settings(
-    mock_settings: MagicMock,
-    mock_project_settings: MagicMock,
-    mock_connect_db: MagicMock,
-) -> None:
-    """Test that delete_settings sets the status of unassigned settings to DELETED."""
-    mock_settings.objects.get.return_value.status = SettingsStatus.ACTIVE
-    mock_project_settings.objects.return_value = []
-
-    delete_settings("settings_id")
-
-    mock_settings.objects.assert_called_once_with(id="settings_id")
-    mock_settings.objects.return_value.update_one.assert_called_once_with(
-        status=SettingsStatus.DELETED
-    )
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-@patch("shared.db.interface.Settings")
-def test_delete_archived_settings_raises(
-    mock_settings: MagicMock,
-    mock_project_settings: MagicMock,  # noqa: ARG001
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that archived settings cannot be deleted."""
-    mock_settings_instance = mock_settings.objects.get.return_value
-    mock_settings_instance.status = SettingsStatus.INACTIVE
-    mock_settings_instance.name = "s1"
-    mock_settings_instance.version = 2
-
-    with pytest.raises(
-        ValueError, match="Cannot delete archived settings 's1' version 2"
-    ):
-        delete_settings("settings_id")
-
-    mock_settings.objects.assert_not_called()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-@patch("shared.db.interface.Settings")
-def test_delete_assigned_settings_raises(
-    mock_settings: MagicMock,
-    mock_project_settings: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that settings assigned to any project cannot be deleted."""
-    mock_settings_instance = mock_settings.objects.get.return_value
-    mock_settings_instance.status = SettingsStatus.ACTIVE
-    mock_settings_instance.name = "s1"
-    mock_settings_instance.version = 2
-    ps1, ps2 = MagicMock(), MagicMock()
-    ps1.project.id = "P2"
-    ps2.project.id = "P1"
-    mock_project_settings.objects.return_value = [ps1, ps2]
-
-    with pytest.raises(ValueError, match="still assigned to projects P1, P2"):
-        delete_settings("settings_id")
-
-    mock_settings.objects.assert_not_called()

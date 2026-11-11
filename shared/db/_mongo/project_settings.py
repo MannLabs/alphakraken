@@ -8,12 +8,11 @@ from shared.domain.projects import ProjectSettings
 
 
 @translate_errors
-def find(project_ids: list[str]) -> list[ProjectSettings]:
+def find(project_ids: list[str] | None) -> list[ProjectSettings]:
     """Return the settings assignments of the given projects, cf. `shared.db.project_settings`."""
     ensure_connected()
-    docs = list(
-        models.ProjectSettings.objects(project__in=project_ids).order_by("created_at_")
-    )
+    conditions = {} if project_ids is None else {"project__in": project_ids}
+    docs = list(models.ProjectSettings.objects(**conditions).order_by("created_at_"))
     # one query for all settings, where dereferencing would run one per assignment
     settings_ids = {doc.to_mongo()["settings"] for doc in docs}
     settings_by_id = {

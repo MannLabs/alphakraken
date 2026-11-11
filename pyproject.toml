@@ -64,7 +64,6 @@ ignore = [
 "shared/tests/test_runners.py" = ["TID251"]
 "webapp/service/db.py" = ["TID251"]
 "webapp/pages_/projects.py" = ["TID251"]
-"webapp/pages_/settings.py" = ["TID251"]
 "webapp/pages_/impl/projects_utils.py" = ["TID251"]
 "airflow_src/**" = ["TID251"]
 "*.ipynb" = [

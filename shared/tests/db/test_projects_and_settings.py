@@ -590,13 +590,16 @@ def test_assign_settings_to_archived_or_deleted_project_raises(
     assignable["backend_assign"].assert_not_called()
 
 
-def test_assign_archived_settings_raises(assignable: dict[str, MagicMock]) -> None:
-    """Archived settings cannot be assigned."""
-    assignable["get_settings"].return_value = factories.settings(
-        status=SettingsStatus.INACTIVE
-    )
+@pytest.mark.parametrize("status", [SettingsStatus.INACTIVE, SettingsStatus.DELETED])
+def test_assign_archived_or_deleted_settings_raises(
+    assignable: dict[str, MagicMock], status: str
+) -> None:
+    """Archived and deleted settings cannot be assigned."""
+    assignable["get_settings"].return_value = factories.settings(status=status)
 
-    with pytest.raises(ValidationError, match="Cannot assign archived settings"):
+    with pytest.raises(
+        ValidationError, match="Cannot assign archived or deleted settings"
+    ):
         project_settings.assign("P1", "fallback_v7")
 
     assignable["backend_assign"].assert_not_called()
@@ -766,20 +769,29 @@ def test_backend_assigned_project_ids_of_unknown_settings_raises(
         settings_backend.assigned_project_ids("fallback_v7")
 
 
-def test_find_project_settings_raises_for_missing_settings(
+def test_find_project_settings_skips_assignment_with_missing_settings(
     mock_models: MagicMock,
 ) -> None:
-    """An assignment whose settings no longer exist is reported, as dereferencing it was before."""
-    assignment = models.ProjectSettings(
+    """An assignment whose settings no longer exist is left out, the others are returned."""
+    dangling = models.ProjectSettings(
+        id=ObjectId(),
+        project=_project_document("P1"),
+        settings=models.Settings(id=ObjectId()),
+        created_at_=NAIVE_TIME,
+    )
+    intact = models.ProjectSettings(
         id=ASSIGNMENT_OBJECT_ID,
         project=_project_document("P1"),
         settings=_settings_document(),
         created_at_=NAIVE_TIME,
     )
     mock_models.ProjectSettings.objects.return_value.__iter__.return_value = [
-        assignment
+        dangling,
+        intact,
     ]
-    mock_models.Settings.objects.return_value = []
+    mock_models.Settings.objects.return_value = [_settings_document()]
 
-    with pytest.raises(NotFoundError, match=str(ASSIGNMENT_OBJECT_ID)):
-        project_settings.find(["P1"])
+    # when
+    result = project_settings.find(["P1"])
+
+    assert [assignment.id for assignment in result] == [str(ASSIGNMENT_OBJECT_ID)]

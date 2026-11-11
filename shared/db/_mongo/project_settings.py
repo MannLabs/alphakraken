@@ -1,5 +1,7 @@
 """Queries on the assignments of settings to projects on MongoDB."""
 
+import logging
+
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import reference_id, to_project_settings, to_settings
@@ -23,7 +25,12 @@ def find(project_ids: list[str] | None) -> list[ProjectSettings]:
     for doc in docs:
         settings_id = reference_id(doc, "settings")
         if settings_id not in settings_by_id:
-            raise NotFoundError(f"Settings of assignment {doc.pk} do not exist")
+            # one dangling assignment must not hide all others
+            logging.error(
+                f"Skipping assignment {doc.pk} of project {reference_id(doc, 'project')}: "
+                f"settings {settings_id} do not exist"
+            )
+            continue
         result.append(to_project_settings(doc, settings_by_id[settings_id]))
     return result
 

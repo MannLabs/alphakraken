@@ -32,7 +32,7 @@ def test_poll_slurm_job_states_skips_in_debug_mode(
 @patch("dags.impl.poller_impl.get_airflow_variable", return_value="false")
 @patch("dags.impl.poller_impl.monotonic")
 @patch("dags.impl.poller_impl.sleep")
-@patch("dags.impl.poller_impl.update_slurm_jobs")
+@patch("shared.db.slurm_jobs.upsert_states")
 @patch("dags.impl.poller_impl.get_cluster_ssh_hook")
 def test_poll_slurm_job_states_writes_states_and_reuses_hook(
     mock_get_cluster_ssh_hook: MagicMock,
@@ -62,7 +62,7 @@ def test_poll_slurm_job_states_writes_states_and_reuses_hook(
 @patch("dags.impl.poller_impl.get_airflow_variable", return_value="false")
 @patch("dags.impl.poller_impl.monotonic")
 @patch("dags.impl.poller_impl.sleep")
-@patch("dags.impl.poller_impl.update_slurm_jobs")
+@patch("shared.db.slurm_jobs.upsert_states")
 @patch("dags.impl.poller_impl.get_cluster_ssh_hook")
 def test_poll_slurm_job_states_reconnects_after_error(
     mock_get_cluster_ssh_hook: MagicMock,

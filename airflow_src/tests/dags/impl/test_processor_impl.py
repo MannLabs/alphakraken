@@ -957,7 +957,7 @@ def test_check_job_result_unknown_job_status(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 def test_check_job_result_business_error(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_get_business_errors: MagicMock,
@@ -989,7 +989,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"time_elapsed": 522},
+        values={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -1005,7 +1005,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 def test_check_job_result_business_error_raises(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_get_business_errors: MagicMock,
@@ -1037,7 +1037,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"time_elapsed": 522},
+        values={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -1052,7 +1052,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 def test_check_job_result_timeout(
     mock_add_metrics: MagicMock,
     mock_get_job_result: MagicMock,
@@ -1078,7 +1078,7 @@ def test_check_job_result_timeout(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"time_elapsed": 522},
+        values={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -1093,7 +1093,7 @@ def test_check_job_result_timeout(
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 def test_check_job_result_oom(
     mock_add_metrics: MagicMock,
     mock_get_job_result: MagicMock,
@@ -1119,7 +1119,7 @@ def test_check_job_result_oom(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"time_elapsed": 522},
+        values={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -1215,7 +1215,7 @@ def test_get_business_errors_known_error_before_last_error_line(tmp_path: Path) 
     assert result == ["NO_PSM_FOUND"]
 
 
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 @patch("metrics.metrics_calculator.calc_metrics")
 def test_compute_metrics(
     mock_calc_metrics: MagicMock,
@@ -1240,7 +1240,7 @@ def test_compute_metrics(
     mock_add.assert_called_once_with(
         "some_file.raw",
         metrics_type="alphadia",
-        metrics={"metric1": "value1", "time_elapsed": 123},
+        values={"metric1": "value1", "time_elapsed": 123},
         settings_name="test_settings",
         settings_version=1,
         relative_output_path="P1/out_some_file.raw/alphadia",
@@ -1248,7 +1248,7 @@ def test_compute_metrics(
     )
 
 
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("shared.db.metrics.add")
 @patch("metrics.metrics_calculator.calc_metrics")
 def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
@@ -1270,7 +1270,7 @@ def test_compute_metrics_msqc_software_type(
         metrics_type="msqc",
     )
     assert mock_add.call_args.kwargs["metrics_type"] == "msqc"
-    assert mock_add.call_args.kwargs["metrics"] == {"qc_metric": 42}
+    assert mock_add.call_args.kwargs["values"] == {"qc_metric": 42}
 
 
 # --- helpers for finalize / _extract_errors tests ---

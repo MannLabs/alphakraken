@@ -7,17 +7,11 @@ import logging
 import re
 from datetime import UTC, datetime, timedelta
 
-from pymongo import UpdateOne
-
 from shared.db.engine import connect_db
 from shared.db.models import (
-    Metrics,
     RawFile,
-    SlurmJob,
-    get_slurm_job_db_id,
 )
 from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
-from shared.domain.slurm_jobs import SlurmJobQueueStates
 
 
 def get_raw_files_by_names(
@@ -160,74 +154,3 @@ def update_raw_file(  # noqa: PLR0913
     }
 
     raw_file.update(**{k: v for k, v in kwargs.items() if v != _NO_UPDATE})
-
-
-def add_metrics_to_raw_file(  # noqa: PLR0913
-    raw_file_id: str,
-    *,
-    metrics_type: str,
-    metrics: dict,
-    settings_name: str,
-    settings_version: int,
-    relative_output_path: str,
-    output_display_base_path: str,
-) -> None:
-    """Add `metrics` to DB entry of `raw_file_id`."""
-    logging.info(
-        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=} {output_display_base_path=}"
-    )
-    connect_db()
-    raw_file = RawFile.objects.get(id=raw_file_id)
-
-    Metrics(
-        raw_file=raw_file,
-        type=metrics_type,
-        settings_name=settings_name,
-        settings_version=settings_version,
-        relative_output_path=relative_output_path,
-        output_display_base_path=output_display_base_path,
-        **metrics,
-    ).save()
-
-
-def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:
-    """Store the `states` (job id -> state) of all jobs in the queue of the cluster `cluster_id`.
-
-    Jobs of the cluster that are stored but not in `states` get the state `LEFT_QUEUE`.
-    """
-    connect_db()
-    now = datetime.now(tz=UTC)
-    db_ids = [get_slurm_job_db_id(cluster_id, job_id) for job_id in states]
-
-    if states:
-        # one round trip for all jobs
-        SlurmJob._get_collection().bulk_write(  # noqa: SLF001
-            [
-                UpdateOne(
-                    {"_id": db_id},
-                    {
-                        "$set": {
-                            "cluster_id": cluster_id,
-                            "state": state,
-                            "updated_at_": now,
-                        }
-                    },
-                    upsert=True,
-                )
-                for db_id, state in zip(db_ids, states.values(), strict=True)
-            ],
-            ordered=False,
-        )
-
-    SlurmJob.objects(
-        cluster_id=cluster_id,
-        state__ne=SlurmJobQueueStates.LEFT_QUEUE,
-        id__nin=db_ids,
-    ).update(set__state=SlurmJobQueueStates.LEFT_QUEUE, set__updated_at_=now)
-
-
-def get_slurm_job(cluster_id: str, job_id: str) -> SlurmJob | None:
-    """Get the Slurm job `job_id` of the cluster `cluster_id`, None if it was never seen in the queue."""
-    connect_db()
-
-    return SlurmJob.objects(id=get_slurm_job_db_id(cluster_id, job_id)).first()

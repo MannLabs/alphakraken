@@ -362,8 +362,3 @@ class SlurmJob(Document):
     state = StringField(max_length=32)
 
     updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-
-def get_slurm_job_db_id(cluster_id: str, job_id: str) -> str:
-    """Get the DB id of the Slurm job `job_id` on the cluster `cluster_id`, unique across clusters."""
-    return f"{cluster_id}/{job_id}"

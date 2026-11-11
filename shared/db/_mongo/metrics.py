@@ -49,6 +49,32 @@ def find(
     return [_to_metrics(doc) for doc in query]
 
 
+@translate_errors
+def add(  # noqa: PLR0913
+    raw_file_id: str,
+    *,
+    metrics_type: str,
+    values: dict[str, Any],
+    settings_name: str,
+    settings_version: int,
+    relative_output_path: str,
+    output_display_base_path: str,
+) -> None:
+    """Add metrics for a raw file, cf. `shared.db.metrics`."""
+    ensure_connected()
+    raw_file = models.RawFile.objects.get(id=raw_file_id)
+
+    models.Metrics(
+        raw_file=raw_file,
+        type=metrics_type,
+        settings_name=settings_name,
+        settings_version=settings_version,
+        relative_output_path=relative_output_path,
+        output_display_base_path=output_display_base_path,
+        **values,
+    ).save()
+
+
 def _stored_keys(fields: list[str]) -> list[str]:
     """Return the fields plus the legacy keys they were stored under."""
     return [*fields, *(k for k, domain in LEGACY_KEYS.items() if domain in fields)]

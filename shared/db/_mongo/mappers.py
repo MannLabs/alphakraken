@@ -10,6 +10,7 @@ from shared.domain.alerts import AlertIssue, AlertSuppression
 from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import FileInfoItem, RawFile
 from shared.domain.settings import Settings
+from shared.domain.slurm_jobs import SlurmJob
 from shared.domain.status import KrakenStatus
 from shared.domain.users import User
 
@@ -157,6 +158,16 @@ def to_project_settings(
         raw_file_id_filter=list(doc.raw_file_id_filter),
         raw_file_id_exclude_filter=list(doc.raw_file_id_exclude_filter),
         created_at_=as_utc(doc.created_at_),
+    )
+
+
+def to_slurm_job(doc: models.SlurmJob) -> SlurmJob:
+    """Map a Slurm job document."""
+    return SlurmJob(
+        id=doc.id,
+        cluster_id=doc.cluster_id,
+        state=doc.state,
+        updated_at_=as_utc(doc.updated_at_),
     )
 
 

@@ -10,6 +10,7 @@ from mongoengine import Q, QuerySet
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
+from shared.db import raw_files
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 from shared.display_paths import get_display_backup_path, get_display_output_path
@@ -30,26 +31,10 @@ def get_raw_files_for_status_df(
     :param max_age_in_days: Only consider files younger than this
     :return: DataFrame with all non-terminal entries, sorted by creation date
     """
-    connect_db()
-    min_created_at = pd.Timestamp(
-        datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
-    )
+    min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
 
-    raw_files_db = (
-        RawFile.objects(
-            created_at__gte=min_created_at,
-        )
-        .only(
-            "created_at",
-            "updated_at_",
-            "instrument_id",
-            "status",
-            "status_details",
-        )
-        .order_by("-created_at")
-    )
+    raw_files_db = raw_files.find(raw_files.RawFileFilter(created_after=min_created_at))
 
-    # Convert to DataFrame with proper column order
     df = pd.DataFrame(
         [
             {

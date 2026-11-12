@@ -36,6 +36,7 @@ def _empty_db() -> Iterator[None]:
     """Make every database collection appear empty."""
     with (
         patch("shared.db.interface.connect_db"),
+        patch("shared.db.raw_files.find", return_value=[]),
         patch("service.db.connect_db"),
         patch.multiple(
             "service.db", **{model: MagicMock() for model in DB_MODELS}

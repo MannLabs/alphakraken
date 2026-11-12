@@ -3,9 +3,8 @@
 import logging
 from datetime import datetime, timedelta
 
-from utils import ensure_utc
-
-from shared.db.models import KrakenStatus, RawFile
+from shared.db import raw_files
+from shared.db.models import KrakenStatus
 
 from .base_alert import BaseAlert, Issue
 from .config import (
@@ -34,18 +33,18 @@ class InstrumentStallAlert(BaseAlert):
 
         issues = []
         for instrument_id in INSTRUMENT_STALL_INSTRUMENT_IDS:
-            latest = (
-                RawFile.objects.filter(instrument_id=instrument_id)
-                .order_by("-created_at")
-                .only("original_name", "created_at")
-                .first()
+            latest_files = raw_files.find(
+                raw_files.RawFileFilter(instrument_ids=[instrument_id]),
+                order="-created_at",
+                limit=1,
             )
 
-            if not latest:
+            if not latest_files:
                 logging.debug(f"No raw files found for instrument {instrument_id}")
                 continue
 
-            created_at = ensure_utc(latest.created_at)
+            latest = latest_files[0]
+            created_at = latest.created_at
 
             if created_at < threshold:
                 hours_ago = (now - created_at).total_seconds() / 3600

@@ -113,8 +113,9 @@ compose stack: provoke one ERROR file and one UPLOAD_FAILED file, open the statu
 the monitoring log shows both issues, the page shows the rows. Record the status page
 render time for the comparison in slice 6.
 
-**Exit**: the three alerts off the exemption list (`monitoring/**` becomes an explicit file
-list).
+**Exit**: the three alerts read raw files through `shared.db` only. They stay on the exemption
+list until slice 5, as they still type-hint `KrakenStatus` from `shared.db.models`; the
+`monitoring/**` entry therefore stays a tree until then.
 
 ### Slice 3: UTC-aware timestamps on the write side (0.5 day)
 

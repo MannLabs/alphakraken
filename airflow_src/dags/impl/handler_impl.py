@@ -56,9 +56,14 @@ from shared.db.interface import (
     get_raw_file_by_id,
     update_raw_file,
 )
-from shared.db.models import FileInfoItem, RawFile, parse_file_info_item
+from shared.db.models import RawFile, parse_file_info_item
 from shared.display_paths import get_current_backup_display_base_path
-from shared.domain.raw_files import BackupStatus, InstrumentFileStatus, RawFileStatus
+from shared.domain.raw_files import (
+    BackupStatus,
+    FileInfoItem,
+    InstrumentFileStatus,
+    RawFileStatus,
+)
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import is_s3_upload_enabled

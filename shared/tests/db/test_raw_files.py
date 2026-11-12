@@ -19,10 +19,14 @@ from shared.db._mongo.mappers import to_raw_file
 from shared.db.raw_files import (
     _ORDER_FIELDS,
     RawFileFilter,
+    add,
     count,
     count_by_status,
+    delete,
     find,
+    get,
     latest_per_instrument,
+    update,
 )
 from shared.domain.errors import (
     AlreadyExistsError,
@@ -143,6 +147,7 @@ def test_conditions_of_full_filter_resolve_against_the_model() -> None:
     """Every query key names a field and an operator the model knows."""
     where = RawFileFilter(
         ids=["f1"],
+        original_names=["F1.raw"],
         instrument_id="inst1",
         instrument_ids=["inst1"],
         project_id="P1",
@@ -155,6 +160,7 @@ def test_conditions_of_full_filter_resolve_against_the_model() -> None:
         statuses_not=[RawFileStatus.DONE],
         backup_status=BackupStatus.UPLOAD_FAILED,
         instrument_file_status=InstrumentFileStatus.MOVED,
+        instrument_file_statuses_not=[InstrumentFileStatus.PURGED],
     )
     conditions = backend._conditions(where)
     assert set(conditions) == set(backend._QUERY_KEYS.values())
@@ -405,3 +411,139 @@ def test_ping_raises_when_database_is_unreachable(
 
     with pytest.raises(DatabaseUnavailableError, match="down"):
         db.ping()
+
+
+# single raw file reads and writes
+
+
+def test_get(mock_objects: MagicMock) -> None:
+    """A raw file is loaded by id, without file info by default."""
+    query = mock_objects.return_value
+    query.first.return_value = _document()
+
+    assert get("C1_file.raw") == to_raw_file(_document(), file_info_loaded=False)
+    mock_objects.assert_called_once_with(id="C1_file.raw")
+    query.exclude.assert_called_once_with("file_info")
+
+
+def test_get_with_file_info(mock_objects: MagicMock) -> None:
+    """The file info is loaded on request."""
+    query = mock_objects.return_value
+    query.first.return_value = _document()
+
+    result = get("C1_file.raw", include_file_info=True)
+
+    assert result.get_file_info() == {
+        "a.raw": (1.0, "hash"),
+        "b.raw": (2.0, "hash2", "etag"),
+    }
+    query.exclude.assert_not_called()
+
+
+def test_get_raises_if_missing(mock_objects: MagicMock) -> None:
+    """An unknown raw file is an error, where the legacy lookup returned None."""
+    mock_objects.return_value.first.return_value = None
+
+    with pytest.raises(NotFoundError, match="unknown.raw"):
+        get("unknown.raw")
+
+
+def test_get_file_info_raises_if_not_loaded() -> None:
+    """Reading file info that was not loaded is an error, not an empty result."""
+    with pytest.raises(ValueError, match="was not loaded"):
+        raw_file(file_info=None).get_file_info()
+
+
+@pytest.mark.parametrize(
+    ("collision_flag", "expected_id"),
+    [(None, "file.raw"), ("123-", "123-file.raw")],
+)
+@patch("shared.db._mongo.raw_files.add")
+def test_add_prefixes_the_id_with_the_collision_flag(
+    mock_backend_add: MagicMock, collision_flag: str | None, expected_id: str
+) -> None:
+    """The id is the file name, prefixed with the collision flag if there is one."""
+    result = add(
+        "file.raw",
+        collision_flag,
+        project_id="P1",
+        status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
+        instrument_id="inst1",
+        creation_ts=43.0,
+    )
+
+    assert result == expected_id
+    mock_backend_add.assert_called_once_with(
+        expected_id,
+        collision_flag=collision_flag,
+        original_name="file.raw",
+        project_id="P1",
+        instrument_id="inst1",
+        status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
+        created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=UTC),
+    )
+
+
+def test_backend_add_never_overwrites() -> None:
+    """The backend inserts the raw file, failing if the id exists."""
+    with (
+        patch("shared.db._mongo.raw_files.ensure_connected"),
+        patch("shared.db._mongo.raw_files.models") as mock_models,
+    ):
+        backend.add("file.raw", original_name="file.raw")
+
+    mock_models.RawFile.assert_called_once_with(id="file.raw", original_name="file.raw")
+    mock_models.RawFile.return_value.save.assert_called_once_with(force_insert=True)
+
+
+@patch("shared.db._mongo.raw_files.update")
+def test_update_passes_only_the_given_fields(mock_backend_update: MagicMock) -> None:
+    """Fields left out keep their value; None is a value, e.g. to clear the status details."""
+    update("file.raw", new_status=RawFileStatus.DONE, status_details=None, size=7)
+
+    mock_backend_update.assert_called_once_with(
+        "file.raw",
+        {"status": RawFileStatus.DONE, "status_details": None, "size": 7},
+    )
+
+
+@patch("shared.db._mongo.raw_files.datetime")
+def test_backend_update_sets_the_update_time(
+    mock_datetime: MagicMock, mock_objects: MagicMock
+) -> None:
+    """The backend stamps every update."""
+    backend.update("file.raw", {"status": RawFileStatus.DONE})
+
+    mock_objects.with_id.assert_called_once_with("file.raw")
+    mock_objects.with_id.return_value.update.assert_called_once_with(
+        updated_at_=mock_datetime.now.return_value, status=RawFileStatus.DONE
+    )
+
+
+def test_backend_update_raises_if_missing(mock_objects: MagicMock) -> None:
+    """Updating an unknown raw file is an error."""
+    mock_objects.with_id.return_value = None
+
+    with pytest.raises(NotFoundError, match="unknown.raw"):
+        backend.update("unknown.raw", {"status": RawFileStatus.DONE})
+
+
+def test_delete(mock_objects: MagicMock) -> None:
+    """The raw file with the given id is removed."""
+    delete("file.raw")
+
+    mock_objects.assert_called_once_with(id="file.raw")
+    mock_objects.return_value.delete.assert_called_once()
+
+
+def test_original_names_match_exactly_ignoring_case() -> None:
+    """Names are matched as a whole, with special characters taken literally, in any case."""
+    (pattern,) = backend._conditions(RawFileFilter(original_names=["File(1).raw"]))[
+        "original_name__in"
+    ]
+
+    assert pattern.match("file(1).RAW")
+    assert not pattern.match("File(1).raw.bak")
+    assert not pattern.match("File1.raw")

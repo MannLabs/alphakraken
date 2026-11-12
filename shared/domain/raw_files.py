@@ -119,3 +119,45 @@ class RawFile:
     def has_project(self) -> bool:
         """Return whether the raw file has a project assigned or belongs to the fallback project."""
         return self.project_id != FALLBACK_PROJECT_ID
+
+    def get_file_info(self) -> dict[str, FileInfoItem]:
+        """Return the file info.
+
+        Raises:
+            ValueError: if it was not loaded, cf. `shared.db.raw_files`.
+
+        """
+        if self.file_info is None:
+            raise ValueError(f"file_info of raw file {self.id} was not loaded.")
+        return self.file_info
+
+
+def parse_file_info_item(
+    item: FileInfoItem | None,
+) -> tuple[float | None, str | None]:
+    """Parse a file_info item tuple.
+
+    This is to hide the details of the file_info storage format from the rest of the codebase.
+
+    Args:
+        item: The file_info item tuple to parse.
+
+    Returns:
+        A tuple containing the size and hash.
+
+    Raises:
+        ValueError: If the item length is invalid.
+
+    """
+    if not item:
+        return item  # type: ignore[invalid-return-type]
+
+    if len(item) >= 2:  # noqa: PLR2004
+        return item[0], item[1]
+
+    raise ValueError(f"Invalid file_info item length {len(item)} {item}.")
+
+
+def get_created_at_year_month(raw_file: RawFile) -> str:
+    """Get the year and month of the raw file creation date."""
+    return raw_file.created_at.strftime("%Y_%m")

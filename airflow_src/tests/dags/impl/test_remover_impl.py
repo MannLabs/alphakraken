@@ -237,7 +237,7 @@ def test_get_raw_files_to_remove_handle_error(
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
-@patch("dags.impl.remover_impl.get_purge_candidates_by_age")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.remover_impl._get_total_size")
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_ok(
@@ -409,9 +409,8 @@ def test_remove_folder() -> None:
     folder_path.rmdir.assert_called_once()
 
 
-@patch("shared.db.interface.connect_db")
-@patch("dags.impl.remover_impl.update_raw_file")
-@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
@@ -425,12 +424,12 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files successfully removes files when all checks pass."""
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -459,9 +458,8 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     )
 
 
-@patch("shared.db.interface.connect_db")
-@patch("dags.impl.remover_impl.update_raw_file")
-@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
@@ -475,12 +473,12 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files successfully removes files and the containing folders when all checks pass."""
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -512,9 +510,8 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     )
 
 
-@patch("shared.db.interface.connect_db")
-@patch("dags.impl.remover_impl.update_raw_file")
-@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._remove_files")
@@ -526,12 +523,12 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files gracefully handles nonexisting file to delete."""
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
@@ -559,7 +556,7 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     )
 
 
-@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl.create_file_identifier")
 def test_safe_remove_files_check_error(
@@ -571,6 +568,7 @@ def test_safe_remove_files_check_error(
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))

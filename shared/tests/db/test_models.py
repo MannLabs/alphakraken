@@ -17,8 +17,8 @@ from shared.db.models import (
     Settings,
     SlurmJob,
     User,
-    parse_file_info_item,
 )
+from shared.domain.raw_files import parse_file_info_item
 from shared.domain.settings import split_unique_settings_name
 
 

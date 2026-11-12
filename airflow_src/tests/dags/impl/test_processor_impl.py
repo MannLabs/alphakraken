@@ -38,12 +38,12 @@ from plugins.common.keys import (
 )
 
 from airflow_src.tests.helpers import container_locations, runner_view
-from shared.db.models import RawFile
 from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFileStatus
 from shared.keys import JobEngines
 from shared.path_views import Locations, View
 from shared.runners import RUNNERS, OperatingSystems, Runner, get_runner
+from shared.tests import factories
 
 _POSIX_VIEW = View(
     "test",
@@ -69,8 +69,7 @@ def test_create_quanting_env(
     )
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -138,8 +137,7 @@ def test_create_quanting_env_custom_software(
     )
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -206,7 +204,7 @@ def test_create_quanting_env_custom_software(
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
@@ -217,8 +215,7 @@ def test_resolve_settings(
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that resolve_settings returns settings info dicts."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -247,7 +244,7 @@ def test_resolve_settings(
     assert result == ["sid1", "sid2"]
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_resolve_settings_no_project_raise(
@@ -256,8 +253,7 @@ def test_resolve_settings_no_project_raise(
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that resolve_settings raises an exception if no project is found."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -272,7 +268,7 @@ def test_resolve_settings_no_project_raise(
         resolve_settings(raw_file_id="test_file.raw")
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
@@ -283,8 +279,7 @@ def test_resolve_settings_no_settings_raise(
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that resolve_settings raises an exception if no settings are found."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -302,7 +297,7 @@ def test_resolve_settings_no_settings_raise(
 
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("shared.db.settings.get")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job(
     mock_get_raw_file_by_id: MagicMock,
@@ -311,8 +306,7 @@ def test_prepare_job(
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that prepare_job orchestrates the expected calls for a single settings entry."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -358,14 +352,13 @@ _WINDOWS_RUNNER = Runner(
 
 @patch.dict(RUNNERS, {"win_box": _WINDOWS_RUNNER})
 @patch("shared.db.settings.get")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 def test_prepare_job_windows_runner_yields_windows_paths(
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
 ) -> None:
     """Test that the absolute paths follow the runner's OS while the relative ones stay posix."""
-    mock_get_raw_file_by_id.return_value = MagicMock(
-        wraps=RawFile,
+    mock_get_raw_file_by_id.return_value = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -553,7 +546,7 @@ def test_check_content_rejects_malicious_field(
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("shared.db.settings.get")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_validation_error_raises(
     mock_get_raw_file_by_id: MagicMock,
@@ -563,8 +556,7 @@ def test_prepare_job_validation_error_raises(
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that prepare_job raises on validation errors in the quanting env."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -591,13 +583,13 @@ def test_prepare_job_validation_error_raises(
 
 
 @patch("shared.db.settings.get")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 def test_prepare_job_unknown_runner_raises(
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
 ) -> None:
     """Test that a settings entry naming an undeclared runner fails the task without a retry."""
-    mock_get_raw_file_by_id.return_value = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_get_raw_file_by_id.return_value = factories.raw_file(id="test_file.raw")
     mock_settings = MagicMock()
     mock_settings.runner_name = "no_such_runner"
     mock_get_settings_by_id.return_value = mock_settings
@@ -636,7 +628,7 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
 
 
 @patch("dags.impl.processor_impl.start_job")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_start_job: MagicMock,
@@ -767,7 +759,7 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("shared.db.settings.get")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_add_mode(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
@@ -779,8 +771,7 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
     tmp_path: Path,
 ) -> None:
     """Test that prepare_job passes a suffix when output_exists_mode is 'add' and output exists."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -838,8 +829,7 @@ def test_create_quanting_env_with_suffix(
 
     result = _create_quanting_env(
         settings=mock_settings,
-        raw_file=MagicMock(
-            wraps=RawFile,
+        raw_file=factories.raw_file(
             id="test_file.raw",
             project_id="some_project_id",
             created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -865,7 +855,7 @@ def test_create_quanting_env_with_suffix(
 
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl.start_job")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_submit_job_output_folder_exists_add(
     mock_update: MagicMock,  # noqa: ARG001
     mock_start_job: MagicMock,  # noqa: ARG001
@@ -954,7 +944,7 @@ def test_check_job_result_unknown_job_status(
 
 
 @patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("shared.db.metrics.add")
@@ -970,7 +960,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
     quanting_env = make_quanting_env(
         output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
-    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_raw_file = factories.raw_file(id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_job_result.return_value = ("FAILED", 522)
     mock_get_business_errors.return_value = ["error1", "error2"]
@@ -1002,7 +992,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
 
 
 @patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("shared.db.metrics.add")
@@ -1018,7 +1008,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
     quanting_env = make_quanting_env(
         output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
-    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_raw_file = factories.raw_file(id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_job_result.return_value = "FAILED", 522
     mock_get_business_errors.return_value = ["error1", "__UNKNOWN_ERROR"]
@@ -1050,7 +1040,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
 
 
 @patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("shared.db.metrics.add")
 def test_check_job_result_timeout(
@@ -1064,7 +1054,7 @@ def test_check_job_result_timeout(
     quanting_env = make_quanting_env(
         output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
-    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_raw_file = factories.raw_file(id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_job_result.return_value = "TIMEOUT", 522
     mock_ti = MagicMock()
@@ -1091,7 +1081,7 @@ def test_check_job_result_timeout(
 
 
 @patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("shared.db.metrics.add")
 def test_check_job_result_oom(
@@ -1105,7 +1095,7 @@ def test_check_job_result_oom(
     quanting_env = make_quanting_env(
         output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
-    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_raw_file = factories.raw_file(id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_job_result.return_value = "OUT_OF_ME+", 522
     mock_ti = MagicMock()
@@ -1305,7 +1295,7 @@ def _make_get_xcom(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
 
 
 @patch("dags.impl.processor_impl._extract_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_finalize_sets_done_when_no_errors(
     mock_update: MagicMock, mock_extract: MagicMock
 ) -> None:
@@ -1325,7 +1315,7 @@ def test_finalize_sets_done_when_no_errors(
 
 
 @patch("dags.impl.processor_impl._extract_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_finalize_sets_error_on_airflow_failures(
     mock_update: MagicMock, mock_extract: MagicMock
 ) -> None:
@@ -1352,7 +1342,7 @@ def test_finalize_sets_error_on_airflow_failures(
 
 
 @patch("dags.impl.processor_impl._extract_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_finalize_sets_quanting_failed_on_business_errors(
     mock_update: MagicMock, mock_extract: MagicMock
 ) -> None:
@@ -1377,7 +1367,7 @@ def test_finalize_sets_quanting_failed_on_business_errors(
 
 
 @patch("dags.impl.processor_impl._extract_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_finalize_error_takes_priority_over_business_errors(
     mock_update: MagicMock, mock_extract: MagicMock
 ) -> None:

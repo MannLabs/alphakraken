@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,8 +30,11 @@ from plugins.raw_file_wrapper_factory import (
     get_main_file_size_from_db,
 )
 
-from shared.db.models import RawFile
 from shared.keys import InstrumentTypes
+from shared.tests import factories
+
+if TYPE_CHECKING:
+    from shared.domain.raw_files import RawFile
 
 
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -160,7 +163,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
 @pytest.fixture
 def mock_raw_file() -> RawFile:
     """Fixture for a mock RawFile."""
-    return RawFile(
+    return factories.raw_file(
         id="123-original_file.raw",
         original_name="original_file.raw",
         created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
@@ -367,17 +370,17 @@ def test_main_file_path_pass_raw_file_original_name(
     [
         (
             ThermoRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.raw"),
+            factories.raw_file(original_name="sample.raw"),
             Path("/path/to/instrument/sample.raw"),
         ),
         (
             SciexRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.wiff"),
+            factories.raw_file(original_name="sample.wiff"),
             Path("/path/to/instrument/sample.wiff"),
         ),
         (
             BrukerRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.d"),
+            factories.raw_file(original_name="sample.d"),
             Path("/path/to/instrument/sample.d/analysis.tdf_bin"),
         ),
     ],
@@ -395,7 +398,7 @@ def test_main_file_path_pass_raw_file(
 
 def test_main_file_path_pass_both_raises() -> None:
     """Test that main_file_path raises if it get both raw_file arguments."""
-    raw_file = MagicMock(wraps=RawFile, original_name="sample.raw")
+    raw_file = factories.raw_file(original_name="sample.raw")
 
     with pytest.raises(
         ValueError,
@@ -412,8 +415,7 @@ def test_thermo_get_files_to_copy(
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -444,8 +446,7 @@ def test_sciex_get_files_to_copy(
         Path("/path/to/instrument/sample.wiff.scan"),
     ]
 
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -473,8 +474,7 @@ def test_sciex_get_files_to_copy(
 
 def test_bruker_get_files_to_copy() -> None:
     """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -547,7 +547,7 @@ def test_get_main_file_size_from_db(
     raw_file_original_name: str,
 ) -> None:
     """Test that get_main_file_size_from_db returns the correct file size."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id=raw_file_id,
         original_name=raw_file_original_name,
         instrument_id="instrument1",
@@ -572,7 +572,7 @@ def test_get_main_file_size_from_db_file_missing(
     mock_create_monitor_wrapper: MagicMock,
 ) -> None:
     """Test that get_main_file_size_from_db raises if file is not in file_info."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id="123-sample.raw",
         original_name="sample.raw",
         instrument_id="instrument1",

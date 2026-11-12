@@ -15,9 +15,8 @@ from raw_file_wrapper_factory import (
     get_main_file_size_from_db,
 )
 
-from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFile
-from shared.domain.raw_files import InstrumentFileStatus
+from shared.db import raw_files as raw_file_store
+from shared.domain.raw_files import InstrumentFileStatus, RawFile
 
 # Note: the parent DAG does not have callbacks configured yet
 
@@ -26,7 +25,7 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     """Get single files to move for a raw_file_id to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id)
 
     move_wrapper = RawFileWrapperFactory.create_write_wrapper(
         raw_file, path_provider=MovePathProvider
@@ -50,7 +49,7 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
 def move_files(ti: TaskInstance, **kwargs) -> None:
     """Move all files/folders associated with a raw file to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id, include_file_info=True)
 
     files_to_move_str = get_xcom(
         ti, XComKeys.FILES_TO_MOVE, task_ids=Tasks.GET_FILES_TO_MOVE
@@ -67,7 +66,9 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
         _move_files(files_to_actually_move)
         _move_files(files_to_actually_remove, only_rename=True)
 
-        update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.MOVED)
+        raw_file_store.update(
+            raw_file_id, instrument_file_status=InstrumentFileStatus.MOVED
+        )
 
 
 def _get_files_to_move(

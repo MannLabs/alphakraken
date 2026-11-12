@@ -13,7 +13,7 @@ from common.exceptions import (
 from common.keys import DAG_DELIMITER, DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_xcom
 
-from shared.db.interface import update_raw_file
+from shared.db import raw_files as raw_file_store
 from shared.domain.raw_files import BackupStatus, RawFileStatus
 
 
@@ -62,7 +62,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         ):
             update_args["new_status"] = RawFileStatus.ERROR
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         **update_args,  # type: ignore[invalid-argument-type]
     )

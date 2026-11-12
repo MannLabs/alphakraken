@@ -10,8 +10,7 @@ from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
 from plugins.s3.s3_utils import parse_s3_upload_path
 from raw_file_wrapper_factory import CopyPathProvider
 
-from shared.db.models import RawFile
-from shared.domain.raw_files import BackupStatus
+from shared.domain.raw_files import BackupStatus, RawFile
 
 
 class AbstractFileIdentifier(ABC):
@@ -72,7 +71,7 @@ class AbstractFileIdentifier(ABC):
 
     def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str | None]:
         """Get size and hash from DB for given relative file path."""
-        ret_val = self._raw_file.file_info[str(rel_file_path)]
+        ret_val = self._raw_file.get_file_info()[str(rel_file_path)]
 
         if len(ret_val) == 2:  # noqa: PLR2004
             # files that were created before s3 upload was turned on don't have etag information in DB -> etag_in_db = None will fail the downstream verification

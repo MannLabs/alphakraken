@@ -440,7 +440,15 @@ the local job engine, its job state and metrics appear.
 handler, mover, processor, remover with one file; a second file with the same name
 (collision path); the S3 uploader with the local MinIO if configured.
 
-**Exit**: `airflow_src/**` and the three `shared/*.py` modules off the exemption list.
+**Exit**: `airflow_src/**` and the two path helper modules with their tests off the
+exemption list: the legacy list is empty. `interface.py` and its test file are deleted
+here already, as their last functions moved.
+
+Done differently than planned: `file_info` is read at six places, not four (checksum
+computation, S3 upload, the remover's candidate scan and its per-file check, the mover's
+main-file check, the watcher's collision lookup). Readers go through
+`RawFile.get_file_info()`, which raises if it was not loaded, so that a missing opt-in
+fails loudly and `ty` flags any direct read of the optional field.
 
 ### Slice 9c: fence closed (0.5 day)
 
@@ -451,11 +459,9 @@ provider switch now means a new `_mongo`-like package. No logic changes in this 
 
 **Implementation details**:
 - `shared/db/models.py` moves to `shared/db/_mongo/models.py`, `engine.py` into
-  `_mongo/connection.py`; `interface.py` is deleted; `shared/tests/db/test_interface.py`
-  is gone by now, its surviving call-side assertions having moved slice by slice to
-  `shared/tests/db/test_<aggregate>.py`.
-- The three legacy modules leave the ban list; the `shared/db/*.py` exemption stays for
-  the API modules.
+  `_mongo/connection.py`. `interface.py` and its tests are gone since slice 9b.
+- The two legacy modules leave the ban list; the `shared/db/*.py` exemption stays for the
+  API modules.
 - The migration scripts under `shared/_migrations` and `airflow_src/plugins/_db_migrations`
   import `shared.db._mongo.models`; they stay exempt.
 

@@ -44,6 +44,7 @@ def test_check_file_success(
 
     raw_file = MagicMock()
     raw_file.file_info = file_info_in_db
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     # when
     assert FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
@@ -80,6 +81,7 @@ def test_check_file_not_existing_on_pool_backup(
 
     raw_file = MagicMock()
     raw_file.file_info = {}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     # when
     assert not FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
@@ -104,6 +106,7 @@ def test_check_file_mismatch_instrument(  # noqa: PLR0913
     # ground truth:
     raw_file = MagicMock()
     raw_file.file_info = {"file.raw": (100, "some_hash")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
@@ -137,6 +140,7 @@ def test_check_file_mismatch_pool(  # noqa: PLR0913
     # ground truth:
     raw_file = MagicMock()
     raw_file.file_info = {"file.raw": (100, "some_hash")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
@@ -171,6 +175,7 @@ def test_check_file_raises_when_size_is_none(
 
     raw_file = MagicMock()
     raw_file.file_info = file_info_in_db
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     with pytest.raises(KeyError, match="has no size or hash information"):
         FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
@@ -195,6 +200,7 @@ def test_check_file_raises_when_hash_is_none(
 
     raw_file = MagicMock()
     raw_file.file_info = file_info_in_db
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     with pytest.raises(KeyError, match="has no size or hash information"):
         FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
@@ -214,6 +220,7 @@ def test_check_file_raises_when_key_is_missing(
 
     raw_file = MagicMock()
     raw_file.file_info = {"instrument1/2024_08/file.raw": (100, "some_hash")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     with pytest.raises(KeyError, match="file.raw"):
         FileIdentifier(raw_file).check_file(
@@ -246,6 +253,7 @@ def test_s3_check_file_success(
     raw_file.s3_upload_path = "s3://my-bucket/prefix/"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     mock_s3_client = MagicMock()
 
@@ -275,6 +283,7 @@ def test_s3_check_file_not_found_on_s3(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -305,6 +314,7 @@ def test_s3_check_file_size_mismatch(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -335,6 +345,7 @@ def test_s3_check_file_etag_mismatch(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -365,6 +376,7 @@ def test_s3_check_file_no_etag_in_file_info(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash")}  # only 2 elements
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -386,6 +398,7 @@ def test_s3_check_file_backup_status_not_upload_done(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_FAILED
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -407,6 +420,7 @@ def test_s3_check_file_s3_upload_path_not_set(
     raw_file.s3_upload_path = None
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")
@@ -431,6 +445,7 @@ def test_s3_check_file_s3_error_skipped_gracefully(
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash", "abc123__100")}
+    raw_file.get_file_info.return_value = raw_file.file_info
 
     result = S3FileIdentifier(raw_file, MagicMock()).check_file(
         Path("/instrument1/file.raw"), Path("file.raw")

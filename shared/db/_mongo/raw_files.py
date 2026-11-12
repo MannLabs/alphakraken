@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from dataclasses import fields
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from shared.db import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
+from shared.domain.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from shared.db.raw_files import RawFileFilter
     from shared.domain.raw_files import RawFile
 
 # RawFileFilter field -> mongoengine query key, for every field of the filter
 _QUERY_KEYS = {
     "ids": "id__in",
+    "original_names": "original_name__in",
     "instrument_id": "instrument_id",
     "instrument_ids": "instrument_id__in",
     "project_id": "project_id",
@@ -31,7 +34,20 @@ _QUERY_KEYS = {
     "statuses_not": "status__nin",
     "backup_status": "backup_status",
     "instrument_file_status": "instrument_file_status",
+    "instrument_file_statuses_not": "instrument_file_status__nin",
 }
+
+
+def _exact_ignoring_case(names: list[str]) -> list[re.Pattern[str]]:
+    return [re.compile(f"^{re.escape(name)}$", re.IGNORECASE) for name in names]
+
+
+def _identity(value: Any) -> Any:
+    return value
+
+
+# filter fields whose value is not passed on as it is
+_VALUE_TRANSFORMS = {"original_names": _exact_ignoring_case}
 
 
 def _conditions(where: RawFileFilter) -> dict[str, Any]:
@@ -42,7 +58,7 @@ def _conditions(where: RawFileFilter) -> dict[str, Any]:
 
     """
     return {
-        _QUERY_KEYS[field.name]: value
+        _QUERY_KEYS[field.name]: _VALUE_TRANSFORMS.get(field.name, _identity)(value)
         for field in fields(where)
         if (value := getattr(where, field.name)) is not None
     }
@@ -103,3 +119,43 @@ def count_by_status(where: RawFileFilter) -> dict[str, int]:
         [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
     )
     return {row["_id"]: row["count"] for row in rows}
+
+
+@translate_errors
+def get(raw_file_id: str, *, include_file_info: bool) -> RawFile:
+    """Return the raw file with the given id, cf. `shared.db.raw_files.get`."""
+    ensure_connected()
+    query = models.RawFile.objects(id=raw_file_id)
+    if not include_file_info:
+        query = query.exclude("file_info")
+    doc = query.first()
+    if doc is None:
+        raise NotFoundError(f"No raw file {raw_file_id}")
+    return to_raw_file(doc, file_info_loaded=include_file_info)
+
+
+@translate_errors
+def add(raw_file_id: str, **fields_: Any) -> None:
+    """Insert a new raw file, cf. `shared.db.raw_files.add`."""
+    ensure_connected()
+    # this will fail if the file already exists
+    models.RawFile(id=raw_file_id, **fields_).save(force_insert=True)
+
+
+@translate_errors
+def delete(raw_file_id: str) -> None:
+    """Remove a raw file, cf. `shared.db.raw_files.delete`."""
+    ensure_connected()
+    models.RawFile.objects(id=raw_file_id).delete()
+
+
+@translate_errors
+def update(raw_file_id: str, fields_: dict[str, Any]) -> None:
+    """Set the given fields of a raw file, cf. `shared.db.raw_files.update`."""
+    ensure_connected()
+    doc = models.RawFile.objects.with_id(raw_file_id)
+    if doc is None:
+        raise NotFoundError(f"No raw file {raw_file_id}")
+    logging.info(f"Old DB state: {doc.status=} {doc.status_details=}")
+
+    doc.update(updated_at_=datetime.now(tz=UTC), **fields_)

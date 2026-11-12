@@ -3,6 +3,7 @@
 import logging
 import traceback
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -33,14 +34,9 @@ from raw_file_wrapper_factory import (
     RemovePathProvider,
 )
 
+from shared.db import raw_files as raw_file_store
 from shared.db import status as status_store
-from shared.db.interface import (
-    get_purge_candidates_by_age,
-    get_raw_file_by_id,
-    update_raw_file,
-)
-from shared.db.models import RawFile
-from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.raw_files import InstrumentFileStatus, RawFile
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 from shared.yamlsettings import (
     S3_SWITCH,
@@ -181,7 +177,22 @@ def _decide_on_raw_files_to_remove(
         )
         return raw_file_ids_to_remove
 
-    raw_files = get_purge_candidates_by_age(instrument_id, min_age_in_days=min_file_age)
+    youngest_created_at = datetime.now(tz=UTC) - timedelta(hours=min_file_age * 24)
+    logging.info(f"Getting from DB: {instrument_id=} {youngest_created_at=}")
+    # not purged, renamed or disappeared, oldest first
+    raw_files = raw_file_store.find(
+        raw_file_store.RawFileFilter(
+            instrument_id=instrument_id,
+            created_before=youngest_created_at,
+            instrument_file_statuses_not=[
+                InstrumentFileStatus.PURGED,
+                InstrumentFileStatus.RENAMED,
+                InstrumentFileStatus.DISAPPEARED,
+            ],
+        ),
+        order="created_at",
+        include_file_info=True,
+    )
 
     sum_size_gb = 0
     for raw_file in raw_files:
@@ -320,7 +331,7 @@ def _safe_remove_files(
         - compares it to the corresponding file in the pool backup folder (to verify that the backup was successful)
     - only if all checks pass for all files associated with a raw file, those files are deleted.
     """
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id, include_file_info=True)
 
     remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
         raw_file, path_provider=RemovePathProvider
@@ -363,8 +374,9 @@ def _safe_remove_files(
     if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
 
-    # TODO: add a InstrumentFileStatus.REMOVED_EXTERNALLY to track manual deletions?
-    update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.PURGED)
+    raw_file_store.update(
+        raw_file_id, instrument_file_status=InstrumentFileStatus.PURGED
+    )
 
 
 def _change_folder_permissions(base_raw_file_path_to_remove: Path) -> None:

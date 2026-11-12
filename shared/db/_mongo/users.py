@@ -4,7 +4,7 @@ from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_user
 from shared.domain.errors import NotFoundError
-from shared.domain.users import User, UserStatus
+from shared.domain.users import NewUser, User, UserStatus, UserUpdate
 
 
 @db_backend_function
@@ -32,19 +32,31 @@ def project_owner(raw_file_id: str) -> User | None:
 
 
 @db_backend_function
-def add(*, email: str, initials: str, messenger_id: str | None) -> User:
+def email_taken(email: str) -> bool:
+    """Return whether a user, active or not, has the email."""
+    return models.User.objects(email=email).count() > 0
+
+
+@db_backend_function
+def initials_taken(initials: str, *, except_email: str | None = None) -> bool:
+    """Return whether a user, active or not, other than the one with `except_email` has the initials."""
+    return models.User.objects(initials=initials, email__ne=except_email).count() > 0
+
+
+@db_backend_function
+def add(new: NewUser) -> User:
     """Add a new active user, cf. `shared.db.users`."""
-    user = models.User(email=email, initials=initials, messenger_id=messenger_id)
+    user = models.User(**new.model_dump())
     user.save(force_insert=True)
     return to_user(user)
 
 
 @db_backend_function
-def update(email: str, *, initials: str, messenger_id: str | None) -> None:
-    """Update the initials and messenger id of a user, cf. `shared.db.users`."""
+def update(email: str, changes: UserUpdate) -> None:
+    """Update a user, cf. `shared.db.users`."""
     user = models.User.objects.get(email=email)
-    user.initials = initials
-    user.messenger_id = messenger_id
+    user.initials = changes.initials
+    user.messenger_id = changes.messenger_id
     # save() instead of update() to run the field validation
     user.save()
 

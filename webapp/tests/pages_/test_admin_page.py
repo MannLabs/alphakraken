@@ -75,11 +75,11 @@ def test_admin_shows_users(mock_get_users: MagicMock) -> None:
 
 @patch("shared.db.users.add")
 @patch("shared.db.users.find", return_value=[])
-def test_admin_adds_user_with_cleaned_inputs(
+def test_admin_adds_user_with_inputs_as_entered(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
-    """Test that adding a user passes the email and the stripped initials with their case kept."""
+    """Test that adding a user passes the inputs on unchanged, cleaning is not the page's job."""
     at = _admin_app().run()
 
     at.text_input[0].set_value(" A@B.de ")
@@ -89,7 +89,7 @@ def test_admin_adds_user_with_cleaned_inputs(
 
     assert not at.exception
     mock_add_user.assert_called_once_with(
-        email=" A@B.de ", initials="Ab", messenger_id="U123"
+        email=" A@B.de ", initials=" Ab ", messenger_id=" U123 "
     )
 
 

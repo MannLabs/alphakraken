@@ -15,10 +15,11 @@ from service.db import (
     df_from_db_data,
     get_raw_files_for_status_df,
     get_raw_files_for_throughput_per_day,
-    get_status_data,
 )
 from service.query_params import QueryParams, get_all_query_params, get_query_param
 from service.utils import DEFAULT_MAX_AGE_STATUS, _log
+
+from shared.db import status
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -38,7 +39,7 @@ st.markdown("# Status")
 def _display_status(combined_df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     try:
-        status_data_df = df_from_db_data(get_status_data())
+        status_data_df = df_from_db_data(status.find())
 
         if status_data_df.empty:
             st.warning("No data available.")

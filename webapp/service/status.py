@@ -1,14 +1,15 @@
 """Module to display status warnings in the Streamlit app."""
 
 import streamlit as st
-from service.db import df_from_db_data, get_status_data
+from service.db import df_from_db_data
 
+from shared.db import status
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 
 
 def display_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
-    status_data_df = df_from_db_data(get_status_data())
+    status_data_df = df_from_db_data(status.find())
     if status_data_df.empty:
         return
 
@@ -17,7 +18,7 @@ def display_status_warning() -> None:
         & (status_data_df["status"] != KrakenStatusValues.OK)
     ]
     if len(nok_status_df):
-        instruments_with_issues = nok_status_df["_id"].unique()
+        instruments_with_issues = nok_status_df["id"].unique()
         st.warning(
             f"Currently, monitoring of the following instrument(s) is disrupted: **{', '.join(instruments_with_issues)}** . "
             "Please check the status page for more information. "

@@ -13,9 +13,9 @@ PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 @patch("service.db.get_raw_files_for_throughput_per_day")
 @patch("service.db.get_raw_files_for_status_df")
 @patch("service.db.df_from_db_data")
-@patch("service.db.get_status_data")
+@patch("shared.db.status.find")
 def test_status(
-    mock_get_status_data: MagicMock,
+    mock_find_status: MagicMock,
     mock_df_from_db_data: MagicMock,
     mock_get_raw_files_for_status_df: MagicMock,
     mock_get_raw_files_for_throughput_per_day: MagicMock,
@@ -23,7 +23,7 @@ def test_status(
     """Test that status page renders successfully."""
     mock_status_db = MagicMock()
 
-    mock_get_status_data.return_value = mock_status_db
+    mock_find_status.return_value = mock_status_db
 
     ts1 = pd.Timestamp.now(tz="UTC")
     ts2 = pd.Timestamp(5e9 + 0.5, unit="s", tz="UTC")
@@ -53,7 +53,7 @@ def test_status(
 
     status_df = pd.DataFrame(
         {
-            "_id": ["i1", "i1"],
+            "id": ["i1", "i1"],
             "updated_at_": [
                 ts1,
                 ts2,

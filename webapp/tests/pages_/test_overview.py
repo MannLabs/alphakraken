@@ -62,7 +62,7 @@ def _configure_mocks(
     )
     status_df = pd.DataFrame(
         {
-            "_id": ["i1", "i1"],
+            "id": ["i1", "i1"],
             "updated_at_": [ts1, ts2],
             "status": ["ok", "ok"],
             "status_details": ["", ""],
@@ -86,9 +86,9 @@ def _configure_mocks(
 
 
 @patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("service.status.get_status_data")
+@patch("shared.db.status.find")
 def test_overview(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_find_status: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that overview page renders successfully."""
@@ -140,9 +140,9 @@ def test_overview(
 
 
 @patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("service.status.get_status_data")
+@patch("shared.db.status.find")
 def test_overview_file_selection_mode(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_find_status: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that enabling the 'File selection' toggle shows the file list and its buttons."""
@@ -170,9 +170,9 @@ def test_overview_file_selection_mode(
 
 
 @patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("service.status.get_status_data")
+@patch("shared.db.status.find")
 def test_overview_project_id_filter(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_find_status: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that selecting a project ID narrows the table to that project only."""
@@ -195,9 +195,9 @@ def test_overview_project_id_filter(
 
 
 @patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("service.status.get_status_data")
+@patch("shared.db.status.find")
 def test_overview_csv_download_is_prepared_on_demand(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_find_status: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that the CSV is created on demand only and discarded once the selection changes."""

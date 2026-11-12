@@ -267,7 +267,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
     status_data_df = pd.DataFrame(
         {
-            "_id": ["inst1", "inst2", "backup"],
+            "id": ["inst1", "inst2", "backup"],
             "updated_at_": [
                 ts1,
                 ts2,

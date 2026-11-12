@@ -258,7 +258,7 @@ def _with_latest_metrics(
                 "raw_file": {
                     k: _format(v)
                     for k, v in vars(raw_file).items()
-                    if k in raw_file_keys_whitelist
+                    if k in raw_file_keys_whitelist and v is not None
                 }
                 | {"name": raw_file.id},
                 "metrics": {

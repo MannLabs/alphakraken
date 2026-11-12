@@ -10,10 +10,13 @@ from service.db import (
     get_full_raw_file_data,
     get_output_folders,
     get_raw_files_for_status_df,
+    get_raw_files_for_throughput_per_day,
 )
 from service.timezone import DISPLAY_TIMEZONE
 
-from shared.tests.factories import raw_file
+from shared.db import status
+from shared.domain.raw_files import TERMINAL_STATUSES
+from shared.tests.factories import kraken_status, raw_file
 
 
 @patch("shared.db.raw_files.find")
@@ -57,6 +60,53 @@ def test_get_raw_files_for_status_df(mock_find: MagicMock) -> None:
     assert pd.isna(result["status_details"][1])
     assert result["created_at"].dt.tz == DISPLAY_TIMEZONE
     assert result["created_at"][1] == datetime(2024, 1, 2, tzinfo=UTC)
+
+
+@patch("shared.db.raw_files.find")
+def test_get_raw_files_for_throughput_per_day(mock_find: MagicMock) -> None:
+    """Finished files are counted and their sizes summed per day and instrument."""
+    # given
+    day1, day2 = (
+        datetime(2024, 1, 1, 10, tzinfo=UTC),
+        datetime(2024, 1, 2, 10, tzinfo=UTC),
+    )
+    mock_find.return_value = [
+        raw_file(instrument_id="inst1", created_at=day1, size=1024**3),
+        raw_file(instrument_id="inst1", created_at=day1, size=None),
+        raw_file(instrument_id="inst2", created_at=day2, size=2 * 1024**3),
+    ]
+
+    # when
+    result = get_raw_files_for_throughput_per_day(days=14)
+
+    # then
+    where = mock_find.call_args.args[0]
+    assert where.statuses == TERMINAL_STATUSES
+    assert (datetime.now(tz=UTC) - where.created_after).days == 14
+    assert result.to_dict("records") == [
+        {"date": day1.date(), "instrument_id": "inst1", "count": 2, "size_gb": 1.0},
+        {"date": day2.date(), "instrument_id": "inst2", "count": 1, "size_gb": 2.0},
+    ]
+
+
+def test_get_raw_files_for_throughput_per_day_empty() -> None:
+    """Without finished files the DataFrame has the columns but no rows."""
+    with patch("shared.db.raw_files.find", return_value=[]):
+        result = get_raw_files_for_throughput_per_day()
+
+    assert result.empty
+    assert list(result.columns) == ["date", "instrument_id", "count", "size_gb"]
+
+
+@patch("shared.db.status.find")
+def test_df_from_db_data_with_domain_objects(mock_find: MagicMock) -> None:
+    """Domain objects become rows with `id` as the identifier column, in display time."""
+    mock_find.return_value = [kraken_status(id="inst1"), kraken_status(id="backup")]
+
+    result = df_from_db_data(status.find())
+
+    assert list(result["id"]) == ["inst1", "backup"]
+    assert result["updated_at_"].dt.tz == DISPLAY_TIMEZONE
 
 
 def test_get_raw_files_for_status_df_empty() -> None:

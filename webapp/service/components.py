@@ -416,7 +416,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     # Add instrument entries (with raw files)
     for instrument_id in sorted(combined_df["instrument_id"].unique()):
         tmp_df = combined_df[combined_df["instrument_id"] == instrument_id]
-        status_df = status_data_df[status_data_df["_id"] == instrument_id]
+        status_df = status_data_df[status_data_df["id"] == instrument_id]
         if len(status_df) > 0:
             all_entries.append(("instrument", instrument_id, tmp_df, status_df.iloc[0]))
 
@@ -425,13 +425,13 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         status_data_df["entity_type"] == KrakenStatusEntities.FILE_SYSTEM
     ]
     for _, filesystem_row in filesystem_entries.iterrows():
-        all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))
+        all_entries.append(("filesystem", filesystem_row["id"], None, filesystem_row))
 
     job_entries = status_data_df[
         status_data_df["entity_type"] == KrakenStatusEntities.JOB
     ]
     for _, job_row in job_entries.iterrows():
-        all_entries.append(("job", job_row["_id"], None, job_row))
+        all_entries.append(("job", job_row["id"], None, job_row))
 
     # Process all entries uniformly
     for entry_type, entry_id, raw_files_df, status_row in all_entries:

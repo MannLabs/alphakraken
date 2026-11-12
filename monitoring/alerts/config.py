@@ -4,9 +4,7 @@ import logging
 import sys
 from collections import defaultdict
 
-from shared.db.models import (
-    InstrumentFileStatus,
-)
+from shared.domain.raw_files import InstrumentFileStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants

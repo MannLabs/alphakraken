@@ -7,7 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.raw_file_error_alert import RawFileErrorAlert
-from shared.db.models import RawFileStatus
+from shared.domain.raw_files import RawFileStatus
 
 NOW = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
 

@@ -7,7 +7,8 @@ import pytest
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
 
-from shared.db.models import AlertSuppression, UserStatus
+from shared.db.models import AlertSuppression
+from shared.domain.users import UserStatus
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 

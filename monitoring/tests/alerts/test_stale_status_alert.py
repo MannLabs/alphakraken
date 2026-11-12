@@ -7,7 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.stale_status_alert import StaleStatusAlert
-from shared.db.models import KrakenStatusEntities
+from shared.domain.status import KrakenStatusEntities
 
 # ruff: noqa: DTZ001
 

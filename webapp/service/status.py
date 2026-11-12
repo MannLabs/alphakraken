@@ -3,7 +3,7 @@
 import streamlit as st
 from service.db import df_from_db_data, get_status_data
 
-from shared.db.models import KrakenStatusEntities, KrakenStatusValues
+from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 
 
 def display_status_warning() -> None:

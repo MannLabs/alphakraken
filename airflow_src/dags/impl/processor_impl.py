@@ -57,8 +57,9 @@ from shared.db.interface import (
     get_settings_by_id,
     update_raw_file,
 )
-from shared.db.models import RawFile, RawFileStatus, Settings
+from shared.db.models import RawFile, Settings
 from shared.display_paths import get_current_output_display_base_path
+from shared.domain.raw_files import RawFileStatus
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations, View

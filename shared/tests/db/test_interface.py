@@ -44,13 +44,10 @@ from shared.db.interface import (
     update_slurm_jobs,
     update_user,
 )
-from shared.db.models import (
-    InstrumentFileStatus,
-    ProjectStatus,
-    RawFileStatus,
-    SettingsStatus,
-    UserStatus,
-)
+from shared.domain.projects import ProjectStatus
+from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
+from shared.domain.settings import SettingsStatus
+from shared.domain.users import UserStatus
 from shared.keys import MetricsTypes
 
 

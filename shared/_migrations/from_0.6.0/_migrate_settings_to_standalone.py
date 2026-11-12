@@ -32,7 +32,9 @@ from mongoengine import get_db
 from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from shared.db.engine import connect_db
-from shared.db.models import Project, ProjectStatus, Settings, SettingsStatus
+from shared.db.models import Project, Settings
+from shared.domain.projects import ProjectStatus
+from shared.domain.settings import SettingsStatus
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)

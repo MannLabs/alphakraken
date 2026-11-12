@@ -13,8 +13,9 @@ import argparse
 import logging
 
 from shared.db.engine import connect_db
-from shared.db.models import BackupStatus, RawFile
+from shared.db.models import RawFile
 from shared.display_paths import get_current_backup_display_base_path
+from shared.domain.raw_files import BackupStatus
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)

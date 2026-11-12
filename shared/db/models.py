@@ -21,6 +21,12 @@ from mongoengine import (
     StringField,
 )
 
+from shared.domain.projects import ProjectStatus
+from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.settings import SettingsStatus
+from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
+from shared.domain.status import KrakenStatusEntities
+from shared.domain.users import UserStatus
 from shared.keys import (
     ALERT_SUPPRESSION_WILDCARD,
     DEFAULT_SCOPE,
@@ -32,81 +38,6 @@ from shared.keys import (
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
 )
-
-
-class RawFileStatus:
-    """Status of raw file.
-
-    Not every status is required for consecutive tasks (e.g. `ACQUISITION_FINISHED`).
-    The last task of a DAG should set a status (e.g. `COPYING_FINISHED`).
-
-    Note that you might adapt the webapp when a new status is added, e.g. update TERMINAL_STATUSES, ERROR_STATUSES, highlight_status_cell()
-    """
-
-    IGNORED = "ignored"
-
-    QUEUED_FOR_MONITORING = "queued_for_monitoring"
-    MONITORING_ACQUISITION = "monitoring_acquisition"
-    MONITORING_DONE = "monitoring_done"
-
-    CHECKSUMMING = "checksumming"
-    CHECKSUMMING_DONE = "checksumming_done"
-    COPYING = "copying"
-    COPYING_DONE = "copying_done"
-    ACQUISITION_FAILED = "acquisition_failed"
-    DISAPPEARED = "disappeared"  # files vanished from the instrument before backup
-
-    QUEUED_FOR_QUANTING = "queued_for_quanting"
-    QUANTING = "quanting"
-    QUANTING_FAILED = "quanting_failed"
-
-    ERROR = "error"
-    DONE = "done"
-    DONE_NOT_QUANTED = "done_not_quanted"
-
-
-class BackupStatus:
-    """Status of backup.
-
-    "copying" refers to copying to local backup location, "upload" to uploading to S3.
-    """
-
-    COPYING_IN_PROGRESS = "copying_in_progress"
-    COPYING_DONE = "copying_done"
-    COPYING_FAILED = "copying_failed"
-
-    UPLOAD_IN_PROGRESS = "upload_in_progress"
-    UPLOAD_DONE = "upload_done"
-    UPLOAD_FAILED = "upload_failed"
-
-    SKIPPED = "skipped"
-
-
-ERROR_STATUSES = [
-    RawFileStatus.ERROR,
-    RawFileStatus.QUANTING_FAILED,
-    RawFileStatus.ACQUISITION_FAILED,
-    RawFileStatus.DISAPPEARED,
-]
-TERMINAL_STATUSES = [
-    *ERROR_STATUSES,
-    RawFileStatus.DONE,
-    RawFileStatus.DONE_NOT_QUANTED,
-    RawFileStatus.IGNORED,
-]
-
-
-class InstrumentFileStatus:
-    """Status of files on instrument and their lifecycle."""
-
-    NA = "n/a"  # for backwards compatibility
-    INITIAL = "initial"  # File exists on instrument, not yet moved
-    RENAMED = "renamed"  # File was renamed on instrument (read as "file does no longer exist under its name as it was renamed")
-    DISAPPEARED = (
-        "disappeared"  # File disappeared from instrument before it was backed up
-    )
-    MOVED = "moved"  # File moved from instrument to instrument backup folder
-    PURGED = "purged"  # File removed from instrument backup folder
 
 
 class RawFile(Document):
@@ -220,29 +151,6 @@ class Metrics(DynamicDocument):
     created_at_ = DateTimeField(default=datetime.now)
 
 
-class ProjectStatus:
-    """Status of project."""
-
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    DELETED = "deleted"
-
-
-class SettingsStatus:
-    """Status of settings."""
-
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    DELETED = "deleted"
-
-
-class UserStatus:
-    """Status of user."""
-
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-
-
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
 USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
@@ -268,9 +176,6 @@ class User(Document):
     status = StringField(max_length=32, default=UserStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)
-
-
-ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
 
 
 class AlertIssue(Document):
@@ -439,21 +344,6 @@ class ProjectSettings(Document):
     created_at_ = DateTimeField(default=datetime.now)
 
 
-class KrakenStatusValues:
-    """Values of kraken health status."""
-
-    OK = "ok"
-    ERROR = "error"
-
-
-class KrakenStatusEntities:
-    """Entities for AlphaKraken status updates."""
-
-    INSTRUMENT = "instrument"
-    FILE_SYSTEM = "file_system"
-    JOB = "job"
-
-
 class KrakenStatus(Document):
     """Schema for the AlphaKraken status, representing health, status details, free space, entity type, and last update time."""
 
@@ -469,17 +359,6 @@ class KrakenStatus(Document):
     entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
     updated_at_ = DateTimeField(default=datetime.now)
-
-
-class SlurmJobQueueStates:
-    """States of Slurm jobs set by AlphaKraken, in addition to the ones reported by `squeue`."""
-
-    # the job was in the queue, but is no more (e.g. finished)
-    LEFT_QUEUE = "LEFT_QUEUE"
-
-
-# expired entries are deleted by MongoDB
-SLURM_JOB_EXPIRY_S = 7 * 24 * 60 * 60
 
 
 class SlurmJob(Document):

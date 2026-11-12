@@ -15,7 +15,7 @@ from dags.impl.s3_uploader_impl import (
     upload_raw_file_to_s3,
 )
 
-from shared.db.models import BackupStatus
+from shared.domain.raw_files import BackupStatus
 
 
 def test_s3_upload_failed_exception_is_airflow_fail_exception() -> None:

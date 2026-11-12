@@ -2,12 +2,9 @@
 
 from datetime import datetime
 
-from shared.db.models import (
-    TERMINAL_STATUSES,
-    KrakenStatus,
-    KrakenStatusEntities,
-    RawFile,
-)
+from shared.db.models import KrakenStatus, RawFile
+from shared.domain.raw_files import TERMINAL_STATUSES
+from shared.domain.status import KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
 from .config import STATUS_PILE_UP_THRESHOLDS

@@ -30,7 +30,8 @@ from plugins.s3.s3_utils import (
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import BackupStatus, RawFile, get_created_at_year_month
+from shared.db.models import RawFile, get_created_at_year_month
+from shared.domain.raw_files import BackupStatus
 from shared.yamlsettings import get_s3_upload_config
 
 

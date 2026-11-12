@@ -52,14 +52,16 @@ module that imports a status constant.
   the expiry constants) from `shared/db/models.py` to `shared/domain/<aggregate>.py`.
   `models.py` imports them from there; all other imports are rewritten. Mechanical.
 - `pyproject.toml`: `flake8-tidy-imports.banned-api` for `mongoengine`, `pymongo`,
-  `shared.db._mongo`; `per-file-ignores` with `TID251` for `shared/db/_mongo/**`,
+  `shared.db._mongo`, and, until slice 9 removes them, `shared.db.{models,interface,engine}`
+  (otherwise a client importing only `shared.db.models` is not on the list and the list
+  measures nothing); `per-file-ignores` with `TID251` for `shared/db/_mongo/**`,
   `shared/tests/db/**`, the migration scripts, `airflow_src/plugins/celery_config.py`
   (worker preload), and the legacy list: `shared/db/{interface,models,engine}.py`,
   `shared/{path_layout,display_paths,settings_scope_resolver}.py`,
   `webapp/service/{db,data_handling}.py`, `webapp/pages_/**`, `rest_api/service.py`,
-  `mcp_server/server.py`, `monitoring/**`, `airflow_src/**`. Verify that `TID251` flags
-  `from mongoengine import X`; if it flags only `import mongoengine`, add
-  `banned-module-level-imports` (`TID253`).
+  `mcp_server/server.py`, `monitoring/**`, `airflow_src/**`, plus the test modules and
+  `rest_api/main.py`, `webapp/service/owner.py` that import a banned module. `TID251` flags
+  `from mongoengine import X` (verified with ruff 0.9.1), no `TID253` needed.
 
 **Testing**: pre-commit green with the exemption list; the full test suite unchanged.
 

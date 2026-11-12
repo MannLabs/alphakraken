@@ -30,7 +30,7 @@ from shared.db.interface import (
     set_user_status,
     update_user,
 )
-from shared.db.models import UserStatus
+from shared.domain.users import UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 

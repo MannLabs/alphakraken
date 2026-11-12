@@ -12,7 +12,8 @@ from alerts.config import (
     Destinations,
 )
 
-from shared.db.models import KrakenStatus, KrakenStatusEntities
+from shared.db.models import KrakenStatus
+from shared.domain.status import KrakenStatusEntities
 
 # covariant: Issue is immutable, so e.g. Issue[str] is an Issue[str | None]
 D_co = TypeVar("D_co", covariant=True)

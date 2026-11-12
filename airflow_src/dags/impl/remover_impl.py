@@ -39,12 +39,9 @@ from shared.db.interface import (
     update_kraken_status,
     update_raw_file,
 )
-from shared.db.models import (
-    InstrumentFileStatus,
-    KrakenStatusEntities,
-    KrakenStatusValues,
-    RawFile,
-)
+from shared.db.models import RawFile
+from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 from shared.yamlsettings import (
     S3_SWITCH,
     get_purging_verification_type,

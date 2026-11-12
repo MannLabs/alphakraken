@@ -35,8 +35,8 @@ from shared.db.interface import (
     get_project_settings,
     unassign_settings_from_project,
 )
-from shared.db.models import ProjectStatus
 from shared.display_paths import DISPLAY_PATHS
+from shared.domain.projects import ProjectStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys

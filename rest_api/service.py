@@ -8,13 +8,13 @@ from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import (
     Project,
     ProjectSettings,
-    ProjectStatus,
     RawFile,
     Settings,
-    SettingsStatus,
     split_unique_settings_name,
 )
 from shared.display_paths import get_display_backup_path, get_display_output_path
+from shared.domain.projects import ProjectStatus
+from shared.domain.settings import SettingsStatus
 
 METRICS_EXCLUDED_KEYS = {
     "_id",

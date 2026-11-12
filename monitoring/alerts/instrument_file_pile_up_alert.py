@@ -3,7 +3,8 @@
 from datetime import datetime
 
 from shared.db.interface import get_raw_files_by_instrument_file_status
-from shared.db.models import KrakenStatus, KrakenStatusEntities
+from shared.db.models import KrakenStatus
+from shared.domain.status import KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
 from .config import (

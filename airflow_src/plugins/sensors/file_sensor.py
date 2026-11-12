@@ -20,7 +20,7 @@ from file_handling import get_disk_usage
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
-from shared.db.models import KrakenStatusEntities, KrakenStatusValues
+from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 from shared.keys import InternalPaths
 
 # to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.

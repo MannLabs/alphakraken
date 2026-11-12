@@ -16,7 +16,8 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import InstrumentFileStatus, RawFile
+from shared.db.models import RawFile
+from shared.domain.raw_files import InstrumentFileStatus
 
 # Note: the parent DAG does not have callbacks configured yet
 

@@ -39,7 +39,8 @@ from plugins.common.keys import (
 )
 
 from airflow_src.tests.helpers import container_locations, runner_view
-from shared.db.models import RawFile, RawFileStatus
+from shared.db.models import RawFile
+from shared.domain.raw_files import RawFileStatus
 from shared.keys import JobEngines
 from shared.path_views import Locations, View
 from shared.runners import RUNNERS, OperatingSystems, Runner, get_runner

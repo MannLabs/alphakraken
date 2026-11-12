@@ -7,7 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.s3_upload_failure_alert import S3UploadFailureAlert
-from shared.db.models import BackupStatus
+from shared.domain.raw_files import BackupStatus
 
 NOW = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
 

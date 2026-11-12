@@ -10,7 +10,8 @@ from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
 from plugins.s3.s3_utils import parse_s3_upload_path
 from raw_file_wrapper_factory import CopyPathProvider
 
-from shared.db.models import BackupStatus, RawFile
+from shared.db.models import RawFile
+from shared.domain.raw_files import BackupStatus
 
 
 class AbstractFileIdentifier(ABC):

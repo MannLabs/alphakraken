@@ -9,7 +9,8 @@ from typing import Any
 from utils import short_digest
 
 from shared.db.interface import augment_raw_files_with_metrics
-from shared.db.models import KrakenStatus, KrakenStatusEntities, RawFile
+from shared.db.models import KrakenStatus, RawFile
+from shared.domain.status import KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
 from .config import (

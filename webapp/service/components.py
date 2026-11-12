@@ -21,7 +21,8 @@ from service.session_state import SessionStateKeys, copy_session_state
 from service.timezone import DISPLAY_TIMEZONE, DISPLAY_TIMEZONE_NAME, display_now
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
-from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileStatus
+from shared.domain.raw_files import TERMINAL_STATUSES, RawFileStatus
+from shared.domain.status import KrakenStatusEntities
 from shared.keys import EnvVars, InstrumentTypes
 
 

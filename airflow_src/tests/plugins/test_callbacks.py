@@ -6,7 +6,7 @@ import pytest
 from common.exceptions import QuantingFailedException, S3UploadFailedException
 from plugins.callbacks import on_failure_callback
 
-from shared.db.models import BackupStatus, RawFileStatus
+from shared.domain.raw_files import BackupStatus, RawFileStatus
 
 
 @patch("plugins.callbacks.update_raw_file")

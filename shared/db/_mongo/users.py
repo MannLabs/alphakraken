@@ -32,6 +32,12 @@ def project_owner(raw_file_id: str) -> User | None:
 
 
 @db_backend_function
+def get(email: str) -> User:
+    """Return the user with the email, active or not."""
+    return to_user(models.User.objects.get(email=email))
+
+
+@db_backend_function
 def email_taken(email: str) -> bool:
     """Return whether a user, active or not, has the email."""
     return models.User.objects(email=email).count() > 0

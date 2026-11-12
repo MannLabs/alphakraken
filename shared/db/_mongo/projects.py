@@ -6,7 +6,7 @@ from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_project
 from shared.domain.errors import NotFoundError
-from shared.domain.projects import Project, ProjectStatus
+from shared.domain.projects import NewProject, Project, ProjectStatus
 
 
 def _query(
@@ -51,13 +51,11 @@ def count(
 
 
 @db_backend_function
-def add(
-    *, project_id: str, name: str, description: str, owner_email: str | None
-) -> None:
+def add(new: NewProject) -> None:
     """Insert a new project, cf. `shared.db.projects`."""
-    owner = models.User.objects.get(email=owner_email) if owner_email else None
+    owner = models.User.objects.get(email=new.owner_email) if new.owner_email else None
     project = models.Project(
-        id=project_id, name=name, description=description, owner=owner
+        id=new.project_id, name=new.name, description=new.description, owner=owner
     )
     # this will fail if the project id already exists
     project.save(force_insert=True)

@@ -6,7 +6,7 @@ from typing import Any
 from shared.db._mongo import users as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.users import NewUser, User, UserUpdate
+from shared.domain.users import NewUser, User, UserStatus, UserUpdate
 
 
 def find(*, include_inactive: bool = False) -> list[User]:
@@ -17,6 +17,18 @@ def find(*, include_inactive: bool = False) -> list[User]:
 def project_owner(raw_file_id: str) -> User | None:
     """Return the active owner of the project of a raw file, None if there is none."""
     return _backend.project_owner(raw_file_id)
+
+
+def require_active(email: str) -> None:
+    """Raise unless there is an active user with the email.
+
+    Raises:
+        NotFoundError: if there is no such user.
+        ValidationError: if the user is inactive.
+
+    """
+    if _backend.get(email).status != UserStatus.ACTIVE:
+        raise ValidationError([f"User '{email}' is inactive."])
 
 
 def add(**fields: Any) -> User:

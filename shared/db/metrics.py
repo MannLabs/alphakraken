@@ -1,6 +1,8 @@
 """Metrics queries."""
 
+import logging
 from datetime import datetime
+from typing import Any
 
 from shared.db._mongo import metrics as _backend
 from shared.domain.metrics import Metrics
@@ -46,3 +48,33 @@ def latest_by_raw_file(
         if metrics.type not in per_type:
             per_type[metrics.type] = metrics
     return result
+
+
+def add(  # noqa: PLR0913
+    raw_file_id: str,
+    *,
+    metrics_type: str,
+    values: dict[str, Any],
+    settings_name: str,
+    settings_version: int,
+    relative_output_path: str,
+    output_display_base_path: str,
+) -> None:
+    """Add metrics of one type for a raw file.
+
+    Raises:
+        NotFoundError: if the raw file does not exist.
+
+    """
+    logging.info(
+        f"Adding to DB: {raw_file_id=} <- {values=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=} {output_display_base_path=}"
+    )
+    _backend.add(
+        raw_file_id,
+        metrics_type=metrics_type,
+        values=values,
+        settings_name=settings_name,
+        settings_version=settings_version,
+        relative_output_path=relative_output_path,
+        output_display_base_path=output_display_base_path,
+    )

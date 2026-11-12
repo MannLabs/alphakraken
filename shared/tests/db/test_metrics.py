@@ -9,7 +9,7 @@ import pytest
 
 from shared.db import models
 from shared.db._mongo import metrics as backend
-from shared.db.metrics import find, latest_by_raw_file
+from shared.db.metrics import add, find, latest_by_raw_file
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics
 
@@ -169,3 +169,30 @@ def test_find_requires_a_condition() -> None:
     """Loading all metrics of the database is not offered."""
     with pytest.raises(ValueError, match="raw_file_ids or created_after"):
         find()
+
+
+@patch("shared.db._mongo.metrics.ensure_connected")
+@patch("shared.db._mongo.metrics.models")
+def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa: ARG001
+    """Metrics are stored for an existing raw file, with the values as fields of the document."""
+    add(
+        "f1",
+        metrics_type="alphadia",
+        values={"proteins": 5000},
+        settings_name="fallback",
+        settings_version=1,
+        relative_output_path="P1/out_f1/fallback_v1",
+        output_display_base_path="/output",
+    )
+
+    mock_models.RawFile.objects.get.assert_called_once_with(id="f1")
+    mock_models.Metrics.assert_called_once_with(
+        raw_file=mock_models.RawFile.objects.get.return_value,
+        type="alphadia",
+        settings_name="fallback",
+        settings_version=1,
+        relative_output_path="P1/out_f1/fallback_v1",
+        output_display_base_path="/output",
+        proteins=5000,
+    )
+    mock_models.Metrics.return_value.save.assert_called_once()

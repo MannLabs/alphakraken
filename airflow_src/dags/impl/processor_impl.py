@@ -49,10 +49,10 @@ from shared.config_params import (
     substitute_dummy_values,
     substitute_placeholders,
 )
+from shared.db import metrics as metrics_store
 from shared.db import project_settings as project_settings_store
 from shared.db import settings as settings_store
 from shared.db.interface import (
-    add_metrics_to_raw_file,
     get_raw_file_by_id,
     update_raw_file,
 )
@@ -479,9 +479,9 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
             # TODO: this seems not quite right
             errors = ["OUT_OF_MEMORY"]
 
-        add_metrics_to_raw_file(
+        metrics_store.add(
             raw_file.id,
-            metrics={TIME_ELAPSED_METRIC: time_elapsed},
+            values={TIME_ELAPSED_METRIC: time_elapsed},
             settings_name=quanting_env.settings_name,
             settings_version=quanting_env.settings_version,
             metrics_type=quanting_env.metrics_type,
@@ -530,10 +530,10 @@ def compute_metrics(
     if time_elapsed is not None:  # TODO: find a better way to handle this also for msqc
         metrics[TIME_ELAPSED_METRIC] = time_elapsed
 
-    add_metrics_to_raw_file(
+    metrics_store.add(
         quanting_env.raw_file_id,
         metrics_type=quanting_env.metrics_type,
-        metrics=metrics,
+        values=metrics,
         settings_name=quanting_env.settings_name,
         settings_version=quanting_env.settings_version,
         relative_output_path=quanting_env.relative_output_path,

@@ -181,7 +181,7 @@ dataclass is not needed before slice 5 either, `instrument_ids()` returns string
 **Business value**: the whole monitoring process is fenced, including the lease and its
 fail-open rule, and catches domain errors only.
 
-**Technical scope**: `shared/db/{status,alerts,users,leases}.py` and backends,
+**Technical scope**: `shared/db/{status,alerts,users,alerting_leases}.py` and backends,
 `shared/db/raw_files.py` (`latest_per_instrument`, `count_by_status`), `monitoring/**`.
 
 **Implementation details**:
@@ -195,7 +195,7 @@ fail-open rule, and catches domain errors only.
 - `AlertIssue`, `AlertSuppression`, `User` dataclasses; `alerts.find_issues/add_issue/
   set_issue_notified(issue_id, at)`, `alerts.find_suppressions(active_only)`,
   `users.find(include_inactive)`, `users.project_owner(raw_file_id)`.
-- `leases.try_acquire(name, holder, ttl, now) -> bool`, raising `DatabaseError`;
+- `alerting_leases.try_acquire(name, holder, ttl, now) -> bool`, raising `DatabaseError`;
   `ActiveInstanceElection` keeps the fail-open rule by catching it. Delete the pymongo code
   in `active_instance.py`.
 - `monitoring/main.py` catches `DatabaseUnavailableError` from `shared.db.ping()` instead of
@@ -204,43 +204,66 @@ fail-open rule, and catches domain errors only.
   dataclasses; `ensure_utc` calls removed where the value now comes from a mapper.
 
 **Testing**: `pytest monitoring shared`; on the stack: stop the DB container for one loop,
-the monitoring must log "acting as active" and keep the last suppressions; restart it, the
-next loop must run the DB-backed checks; add a suppression in the webapp and see the next
-loop mute the issue.
+the monitoring must send one "db_connection_error" message (the ping fails before the
+election, so no "acting as active") and keep the last suppressions; restart it, the next
+loop must run the DB-backed checks; add a suppression in the webapp and see the next loop
+mute the issue. Revoke the alerting role's write access to the lease collection for one
+loop to see "acting as active".
 
-**Exit**: `monitoring/**` off the exemption list. ❗ CI runs `pytest shared webapp
-airflow_src rest_api`; monitoring and MCP tests are not in CI today. Add `monitoring` and
-`mcp_server` to the unit-tests job in this slice (needs `apprise` in the CI requirements).
+**Exit**: `monitoring/**` off the exemption list. `monitoring` is added to the unit-tests
+job as a run of its own, with its requirements. `mcp_server` has no tests.
 
-### Slice 6: webapp overview and status pages (2 days)
+Slices 6, 8 and 9 are split (2026-11-10): slice 5 touched 58 files, and these three were
+planned as large or larger. Each part is one PR.
 
-**Business value**: the two data-heavy pages read dataclasses; the per-type
+### Slice 6a: webapp status page and throughput (0.5 day)
+
+**Business value**: the status page reads dataclasses only.
+
+**Technical scope**: `webapp/service/{db,status}.py`, `webapp/pages_/status.py`.
+
+**Implementation details**:
+- `get_status_data` on `status.find()`, `get_raw_files_for_throughput_per_day` on
+  `raw_files.find` (needs the `statuses` filter, exists); `df_from_db_data` takes
+  dataclasses for these callers.
+- `_id` becomes `id` in `webapp/service/status.py`.
+
+**Testing**: `pytest webapp`; on the stack: the status page with its throughput charts.
+Compare the status page render time with the value recorded in slice 2 (design 4.2).
+
+**Exit**: `webapp/pages_/status.py` off the exemption list (`webapp/pages_/**` becomes an
+explicit file list).
+
+### Slice 6b: webapp overview page (1.5 days)
+
+**Business value**: the overview reads dataclasses; the per-type
 `filter_dict`/`drop_duplicates` merge and the `_id` column disappear from the webapp.
 
-**Technical scope**: `webapp/service/{db,data_handling,components,status}.py`,
-`webapp/pages_/{overview,status}.py`, `webapp/pages_/impl/*`.
+**Technical scope**: `webapp/service/{db,data_handling,components}.py`,
+`webapp/pages_/overview.py`, `webapp/pages_/impl/overview_*`.
 
 **Implementation details**:
 - `get_raw_file_and_metrics_data` becomes `raw_files.find(RawFileFilter(ids | created_after,
   instrument_ids))` plus `metrics.latest_by_raw_file`; the DataFrame is built from
   `vars(row)`; `_merge_metrics_by_type` builds from the dict of dicts.
-- `get_full_raw_file_data` (`include_file_info=True`), `get_raw_files_for_throughput_per_day`,
-  `get_output_folders` (`metrics.latest_by_raw_file`, all types, no `fields`),
-  `get_status_data` (`status.find()`) on the new API; `df_from_db_data` takes dataclasses.
-- `_id` becomes `id` in `components.py`, `status.py`, `overview_plotting.py`,
-  `data_handling.py` (merge keys, index).
+  `latest_by_raw_file` gains `created_after` and `types` here, for their first callers.
+- `get_full_raw_file_data` (`include_file_info=True`), `get_output_folders`
+  (`metrics.latest_by_raw_file`, all types, no `fields`) on the new API.
+- `_id` becomes `id` in `components.py`, `overview_plotting.py`, `data_handling.py` (merge
+  keys, index).
+- Decide whether the webapp's `msqc_` prefix stripping and `quanting_time_elapsed` rename
+  move into the legacy key map of `_mongo/metrics.py` (left in the webapp by slice 4).
 - Delete `connect_db` and the model imports from `webapp/service/db.py`; what remains there
   are DataFrame helpers.
 
 **Behaviour change**: the overview's metrics per type were "natural order"; now newest.
 
 **Testing**: `pytest webapp`; on the stack: overview with and without `max_age`, with a
-`raw_file_ids` query param, the baseline selection, the download of full raw file data, the
-status page; compare row counts with the current version. Compare the status page render
-time with the value recorded in slice 2 (design 4.2).
+`raw_file_ids` query param, the baseline selection, the download of full raw file data;
+compare row counts with the current version.
 
-**Exit**: `webapp/service/{db,data_handling}.py`, `webapp/pages_/{overview,status}.py`,
-`webapp/service/components.py` off the exemption list.
+**Exit**: `webapp/service/{db,data_handling}.py`, `webapp/pages_/overview.py` off the
+exemption list.
 
 ### Slice 7: projects and settings read side, REST off mongoengine (1.5 days)
 
@@ -248,7 +271,7 @@ time with the value recorded in slice 2 (design 4.2).
 `unique_name` as the settings id; the REST API is fully fenced.
 
 **Technical scope**: `shared/domain/{projects,settings}.py`, `shared/db/{projects,settings,
-project_settings}.py` and backends, `rest_api/service.py`,
+project_settings}.py` and backends, `rest_api/{service,main}.py`,
 `shared/{settings_scope_resolver,path_layout,display_paths}.py`.
 
 **Implementation details**:
@@ -259,9 +282,12 @@ project_settings}.py` and backends, `rest_api/service.py`,
   `project_settings.for_project(project_id)` (one assignments query plus one `in` query for
   the settings).
 - REST projects and settings endpoints on these; `_project_to_dict`, `_settings_to_dict`,
-  `_assignment_to_dict` become `vars()` plus the field renames the schema needs.
+  `_assignment_to_dict` become `vars()` plus the field renames the schema needs;
+  `rest_api/main.py` lifespan calls `shared.db.ping()`.
 - `settings_scope_resolver`, `path_layout`, `display_paths` type-hint the dataclasses;
-  bodies unchanged; `_unique_by_id` keys on `unique_name`.
+  bodies unchanged; `_unique_by_id` keys on `unique_name`. ❗ Airflow passes documents to
+  these until slice 9b: the signatures take the document or the dataclass until then, as
+  the raw file ones do since slice 4, or `ty` fails on the Airflow callers.
 - The legacy `get_project_settings`, `get_settings_by_id`, `get_all_settings`,
   `get_latest_active_settings_by_name`, `get_active_project_ids` stay in `interface.py`
   for their webapp and Airflow callers until slice 8; they return documents, as today.
@@ -269,104 +295,169 @@ project_settings}.py` and backends, `rest_api/service.py`,
 **Testing**: `pytest rest_api shared`; on the stack: `/projects/`, `/projects/{id}`,
 `/settings/`, `/settings/{name}_v{n}`, diff the JSON against the current version.
 
-**Exit**: `rest_api/service.py`, the three `shared/*.py` modules off the exemption list.
+**Exit**: `rest_api/{service,main}.py` off the exemption list. The three `shared/*.py`
+modules stay on it until slice 9b for the document half of their signatures.
 
-### Slice 8: webapp projects, settings and admin pages, settings id = unique_name (3 days)
+### Slice 8a: users and alert suppressions, admin page (1 day)
 
-**Business value**: the webapp is fully fenced; ObjectIds no longer appear in page state;
-the write functions live with their aggregates, ready for the validation refactoring.
+**Business value**: the admin page is fenced; no ObjectId in its page state.
 
-**Technical scope**: `shared/db/{projects,settings,project_settings,users,alerts}.py`
-(write functions), `webapp/pages_/{projects,settings,admin}.py`, `webapp/pages_/impl/*`,
-`webapp/service/owner.py`, `airflow_src/dags/impl/processor_impl.py`.
+**Technical scope**: `shared/db/{users,alerts}.py` (write functions),
+`webapp/pages_/admin.py`, `webapp/pages_/impl/admin_utils.py`, `webapp/service/owner.py`.
+
+**Implementation details**:
+- Move `add_user`, `update_user`, `set_user_status`, `add_alert_suppression`,
+  `delete_alert_suppression` into `users.py` and `alerts.py`; the last readers of
+  `get_all_users` and `get_alert_suppressions` move to `users.find` and
+  `alerts.find_suppressions`, and both are deleted from `interface.py`.
+- Keyword-only parameters named like the domain fields (design 4.8). Invariant checks stay
+  in the functions, marked `# moves to shared/services, cf. VALIDATION_DESIGN.md`. Their
+  `ValueError`s become `ValidationError([message])`.
+- `add_owner_initials`, `show_owner_selectbox` on `users.find`.
+
+**Testing**: `pytest webapp shared`; on the stack: add and edit a user, deactivate one, add
+and delete a suppression and see the monitoring honour it.
+
+**Exit**: `webapp/pages_/admin.py`, `webapp/service/owner.py` and their tests off the
+exemption list.
+
+### Slice 8b: project and settings writes (1 day)
+
+**Business value**: the write functions live with their aggregates, ready for the
+validation refactoring. No change of identifiers yet.
+
+**Technical scope**: `shared/db/{projects,settings,project_settings}.py` (write
+functions), `webapp/pages_/{projects,settings}.py`, `webapp/pages_/impl/*`.
 
 **Implementation details**:
 - Move `add_project`, `archive_project`, `delete_project`, `create_settings`,
   `archive_settings`, `delete_settings`, `assign_settings_to_project`,
-  `check_not_assigned_with_same_filters(project_id, settings_unique_name, ...)`,
-  `unassign_settings_from_project`, `add_user`, `update_user`, `set_user_status`,
-  `add_alert_suppression`, `delete_alert_suppression` into the per-aggregate modules.
-  Keyword-only parameters named like the domain fields (design 4.8). Invariant checks stay
-  in the functions, marked `# moves to shared/services, cf. VALIDATION_DESIGN.md`. Their
-  `ValueError`s become `ValidationError([message])`.
+  `check_not_assigned_with_same_filters`, `unassign_settings_from_project` with their
+  callers; the settings functions still take the ids the pages pass today. Same rules for
+  parameters, invariant checks and `ValidationError` as in 8a.
+- `get_project_data`, `get_settings_data` on `projects.find`, `settings.find`.
+- Delete the moved functions from `interface.py`.
+
+**Testing**: `pytest webapp shared`; on the stack: create a project, create settings,
+assign with scopes and filters, update the assignment to a new version, archive and delete
+both.
+
+**Exit**: no entry leaves the list yet: the two pages still hold ObjectIds and
+`ProjectSettings.objects`.
+
+### Slice 8c: settings id = unique_name (1 day)
+
+**Business value**: ObjectIds no longer appear in page state or XCom; the webapp is fully
+fenced.
+
+**Technical scope**: `shared/db/{settings,project_settings}.py`,
+`webapp/pages_/{projects,settings}.py`, `airflow_src/dags/impl/processor_impl.py`.
+
+**Implementation details**:
 - Settings functions take `unique_name`. Pages: `str(row["_id"])`, `str(ps.id)`,
   `str(latest.id)`, `str(s.id)` become the unique name; `ProjectSettings.objects.all()` in
   `settings.py:580` becomes `project_settings.find()`; `ps.project.id` becomes
   `ps.project_id`; `projects.py:92` loop becomes one `project_settings.find()` grouped by
   project.
-- `get_project_data`, `get_settings_data`, `add_owner_initials`, `show_owner_selectbox` on
-  `projects.find`, `settings.find`, `users.find`.
 - Airflow `processor_impl.py`: `resolve_settings` returns unique names; `prepare_job` calls
   `settings.get(unique_name)`. **Deploy note**: in-flight processor runs carry ObjectIds in
   XCom and fail at `prepare_job` with `NotFoundError`; deploy with the quanting queue
-  drained or re-trigger them. No dual-format lookup.
-- Delete the moved functions from `interface.py`.
+  drained or re-trigger them. No dual-format lookup. This is the only part of slice 8 with
+  a deploy constraint, hence its own PR.
 
-**Testing**: `pytest webapp airflow_src shared`; on the stack: create a project, create
-settings, assign with scopes and filters, update the assignment to a new version, archive
-and delete both, add and edit a user, add and delete a suppression, trigger a quanting run
-and check it resolves the settings by name.
+**Testing**: `pytest webapp airflow_src shared`; on the stack: the 8b walk-through again,
+then trigger a quanting run and check it resolves the settings by name.
 
 **Exit**: `webapp/**` off the exemption list.
 
-### Slice 9: Airflow raw file and job writes, fence closed (2 days)
+### Slice 9a: slurm jobs and metrics writes (0.5 day)
 
-**Business value**: the last client is fenced; `interface.py`, `engine.py` and the
-top-level `models.py` are gone; a provider switch now means a new `_mongo`-like package.
+**Business value**: the two small Airflow aggregates are off `interface.py`.
 
-**Technical scope**: `shared/db/{raw_files,metrics,slurm_jobs}.py` write functions,
-`shared/db/_mongo/models.py`, `airflow_src/dags/impl/*`, `airflow_src/plugins/**`.
+**Technical scope**: `shared/db/{slurm_jobs,metrics}.py`, `airflow_src/dags/impl/{poller,
+processor}_impl.py`, `airflow_src/plugins/jobs/slurm_ssh_job_handler.py`.
+
+**Implementation details**:
+- `slurm_jobs.upsert_states`, `slurm_jobs.get` with a `SlurmJob` dataclass (the
+  `replace(tzinfo=...)` in `slurm_ssh_job_handler.py` goes); `metrics.add(raw_file_id,
+  Metrics)`.
+
+**Testing**: `pytest airflow_src shared`; on the stack: one quanting run on the cluster or
+the local job engine, its job state and metrics appear.
+
+### Slice 9b: Airflow raw files (1 day)
+
+**Business value**: the last client reads and writes dataclasses.
+
+**Technical scope**: `shared/db/raw_files.py` write functions, `airflow_src/dags/impl/*`,
+`airflow_src/plugins/**`, `shared/{path_layout,display_paths,settings_scope_resolver}.py`.
 
 **Implementation details**:
 - `raw_files.add/update/delete` (typed `update` with the `NO_UPDATE` sentinel),
   `raw_files.get(raw_file_id, include_file_info)` replacing `get_raw_file_by_id` (13 call
   sites, `NotFoundError` instead of `None`), `raw_files.find(RawFileFilter(original_names=..))`,
-  `RawFileFilter(instrument_file_status=.., created_before=..)` for
-  `get_raw_files_by_instrument_file_status` and `get_purge_candidates_by_age`,
-  `include_file_info=True` at the four readers (design 4.2).
-- `metrics.add(raw_file_id, Metrics)`; `slurm_jobs.upsert_states`, `slurm_jobs.get`.
+  the filter for `get_purge_candidates_by_age`, `include_file_info=True` at the four
+  readers (design 4.2).
 - `watcher_impl.py:335` catches `AlreadyExistsError`, `processor_impl.py:84`
   `NotFoundError`.
-- `shared/db/models.py` moves to `shared/db/_mongo/models.py`, `engine.py` into
-  `_mongo/connection.py`; `interface.py` is deleted; `shared/tests/db/test_interface.py`
-  is gone by now, its surviving call-side assertions having moved slice by slice to
-  `shared/tests/db/test_<aggregate>.py`.
-- The migration scripts under `shared/_migrations` and `airflow_src/plugins/_db_migrations`
-  import `shared.db._mongo.models`; they stay exempt.
+- The transitional document-or-dataclass signatures of the path helpers collapse to the
+  dataclass; `get_created_at_year_month` and `parse_file_info_item` move to `shared/domain`.
 
 **Testing**: `pytest airflow_src shared`; on the stack: a full acquisition through watcher,
 handler, mover, processor, remover with one file; a second file with the same name
 (collision path); the S3 uploader with the local MinIO if configured.
 
-**Exit**: exemption list contains only `shared/db/_mongo/**`, its tests, the migration
-scripts and `celery_config.py`. Done.
+**Exit**: `airflow_src/**` and the three `shared/*.py` modules off the exemption list.
+
+### Slice 9c: fence closed (0.5 day)
+
+**Business value**: `interface.py`, `engine.py` and the top-level `models.py` are gone; a
+provider switch now means a new `_mongo`-like package. No logic changes in this PR.
+
+**Technical scope**: `shared/db/`, the ban list in `pyproject.toml`, the migration scripts.
+
+**Implementation details**:
+- `shared/db/models.py` moves to `shared/db/_mongo/models.py`, `engine.py` into
+  `_mongo/connection.py`; `interface.py` is deleted; `shared/tests/db/test_interface.py`
+  is gone by now, its surviving call-side assertions having moved slice by slice to
+  `shared/tests/db/test_<aggregate>.py`.
+- The three legacy modules leave the ban list; the `shared/db/*.py` exemption stays for
+  the API modules.
+- The migration scripts under `shared/_migrations` and `airflow_src/plugins/_db_migrations`
+  import `shared.db._mongo.models`; they stay exempt.
+
+**Testing**: `pytest shared webapp airflow_src rest_api`, `pytest monitoring`; on the
+stack: every service starts and the 9b walk-through passes once more.
+
+**Exit**: exemption list contains only `shared/db/*.py`, `shared/db/_mongo/**`, its tests,
+the migration scripts and `celery_config.py`. Done.
 
 ### After slice 9
 
 - Design doc section 6 (deferred): real-database test suite in CI, Protocol layer. Not
   scheduled.
-- `VALIDATION_DESIGN.md` gets its own plan; its prerequisites are met after slice 8.
+- `VALIDATION_DESIGN.md` gets its own plan; its prerequisites are met after slice 8c.
 
 ## Order and dependencies
 
 ```
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
-            └───────────→ 7 (4 and 7 are independent of 5 and 6)
+1 → 2 → 3 → 4 → 5 → 6a → 6b → 7 → 8a → 8b → 8c → 9a → 9b → 9c
+            └──────────────────→ 7 (independent of 5 and 6)
 ```
 
-Slices 4 and 7 can be pulled forward if the REST API matters more than the monitoring.
-Slice 6 needs 4. Slice 8 needs 7. Slice 9 needs 8 (settings id in Airflow).
+Slices 1 to 5 are done. 6a, 7, 8a and 9a are independent of each other and can be taken in
+any order. 6b needs 4. 8b needs 7. 8c needs 8b. 9b needs 8c (settings id in Airflow). 9c
+is last.
 
-Total: about 15 days.
+Total: about 15 days, of which about 8.5 remain.
 
 ## Risks
 
 - **Real-database behaviour is only checked by the per-slice smoke test** on the local
   stack, as CI has no MongoDB (design 6.0). Each slice names its smoke test; do not merge
   without it.
-- **Slice 8 is the largest and touches the Airflow deploy.** If it grows, split it at the
-  write functions: 8a moves them with their callers unchanged in shape, 8b changes the
-  settings id.
-- **`shared/tests/db/test_interface.py` (1754 lines)** is dismantled across slices 4 to 9.
-  Its call-side assertions move, its return-side assertions on `MagicMock` documents are
+- **Slice 8c touches the Airflow deploy.** It is cut small so that nothing else rides on
+  the drained queue.
+- **`shared/tests/db/test_interface.py`** is dismantled across slices 4 to 9c. Its
+  call-side assertions move, its return-side assertions on `MagicMock` documents are
   rewritten against documents with real field values (design, tests paragraph).

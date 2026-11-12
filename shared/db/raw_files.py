@@ -29,7 +29,9 @@ class RawFileFilter:
     updated_after: datetime | None = None
     status: str | None = None
     statuses: list[str] | None = None
+    statuses_not: list[str] | None = None
     backup_status: str | None = None
+    instrument_file_status: str | None = None
 
 
 def find(
@@ -59,3 +61,18 @@ def find(
 def count(where: RawFileFilter) -> int:
     """Return the number of raw files matching `where`."""
     return _backend.count(where)
+
+
+def latest_per_instrument(
+    n: int, *, created_after: datetime
+) -> dict[str, list[RawFile]]:
+    """Return the `n` newest raw files created at or after `created_after` per instrument, newest first.
+
+    Instruments without such files have no entry. `file_info` is not loaded.
+    """
+    return _backend.latest_per_instrument(n, created_after=created_after)
+
+
+def count_by_status(where: RawFileFilter) -> dict[str, int]:
+    """Return the number of raw files matching `where` per status."""
+    return _backend.count_by_status(where)

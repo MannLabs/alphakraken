@@ -3,9 +3,12 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from shared.domain.alerts import AlertIssue, AlertSuppression
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import InstrumentFileStatus, RawFile, RawFileStatus
-from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes
+from shared.domain.status import KrakenStatus, KrakenStatusEntities, KrakenStatusValues
+from shared.domain.users import User, UserStatus
+from shared.keys import ALERT_SUPPRESSION_WILDCARD, FALLBACK_PROJECT_ID, MetricsTypes
 
 SOME_TIME = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
@@ -47,3 +50,56 @@ def metrics(**overrides: Any) -> Metrics:
         "values": {"proteins": 5000},
     }
     return Metrics(**{**values, **overrides})
+
+
+def kraken_status(**overrides: Any) -> KrakenStatus:
+    """Return the status of a healthy instrument."""
+    values: dict[str, Any] = {
+        "id": "inst1",
+        "status": KrakenStatusValues.OK,
+        "status_details": None,
+        "free_space_gb": 100,
+        "entity_type": KrakenStatusEntities.INSTRUMENT,
+        "updated_at_": SOME_TIME,
+    }
+    return KrakenStatus(**{**values, **overrides})
+
+
+def alert_issue(**overrides: Any) -> AlertIssue:
+    """Return an alert issue that was never notified."""
+    values: dict[str, Any] = {
+        "id": "issue1",
+        "alert": "DiskSpaceAlert",
+        "key": "inst1",
+        "first_seen": SOME_TIME,
+        "last_notified": None,
+    }
+    return AlertIssue(**{**values, **overrides})
+
+
+def alert_suppression(**overrides: Any) -> AlertSuppression:
+    """Return an alert suppression that matches everything and never expires."""
+    values: dict[str, Any] = {
+        "id": "suppression1",
+        "alert": ALERT_SUPPRESSION_WILDCARD,
+        "instrument_id": ALERT_SUPPRESSION_WILDCARD,
+        "identifier": ALERT_SUPPRESSION_WILDCARD,
+        "details": ALERT_SUPPRESSION_WILDCARD,
+        "comment": "comment",
+        "expires_at": None,
+        "created_by": None,
+        "created_at_": SOME_TIME,
+    }
+    return AlertSuppression(**{**values, **overrides})
+
+
+def user(**overrides: Any) -> User:
+    """Return an active user with a messenger id."""
+    values: dict[str, Any] = {
+        "email": "masc@example.org",
+        "initials": "MaSc",
+        "messenger_id": "U_MASC",
+        "status": UserStatus.ACTIVE,
+        "created_at_": SOME_TIME,
+    }
+    return User(**{**values, **overrides})

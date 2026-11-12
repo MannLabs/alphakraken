@@ -114,7 +114,7 @@ webapp / mcp_server / rest_api / monitoring / airflow
    [ shared/services/   reserved for VALIDATION_DESIGN.md: validate, then call shared.db ]
         v
 shared/db/raw_files.py  metrics.py  projects.py  settings.py  users.py
-          status.py  alerts.py  slurm_jobs.py  leases.py
+          status.py  alerts.py  slurm_jobs.py  alerting_leases.py
         |
         v
 shared/db/_mongo/   models.py (mongoengine), mappers.py, connection.py
@@ -193,7 +193,7 @@ def find(filter: RawFileFilter, *, order: str = "-created_at", limit: int | None
 def count(filter: RawFileFilter) -> int
 def get(raw_file_id: str, *, include_file_info: bool = False) -> RawFile   # raises NotFoundError
 def latest_per_instrument(n: int, *, created_after: datetime) -> dict[str, list[RawFile]]
-def count_by_status(instrument_id: str, *, statuses_not: list[str]) -> dict[str, int]
+def count_by_status(filter: RawFileFilter) -> dict[str, int]
 def add(...) -> str                                  # raises AlreadyExistsError
 def update(raw_file_id: str, *, status=NO_UPDATE, ...) -> None   # today's typed signature with the sentinel
 def delete(raw_file_id: str) -> None
@@ -261,7 +261,7 @@ these changes:
   `display_paths` and `settings_scope_resolver` type-hint the domain types. They only read
   attributes, so their bodies are unchanged.
 
-`leases.py`: `try_acquire(name: str, holder: str, ttl: timedelta, now: datetime) -> bool`
+`alerting_leases.py`: `try_acquire(name: str, holder: str, ttl: timedelta, now: datetime) -> bool`
 replaces `active_instance.py`'s pymongo call. It returns False when another holder has the
 lease and raises `DatabaseError` on any other error, including permission errors. The
 fail-open rule of today's `ActiveInstanceElection` (act as active when the claim cannot be
@@ -387,7 +387,7 @@ all `_id`), REST, and Airflow: `processor_impl.py:101` puts `str(settings.id)` i
 this deploy carry ObjectIds in XCom and fail at `prepare_job` with `NotFoundError`. Deploy with
 the quanting queue drained, or re-trigger the failed runs; no dual-format lookup.
 
-5.7. `leases.py`, hidden connection. Delete `active_instance.py`'s pymongo code and all
+5.7. `alerting_leases.py`, hidden connection. Delete `active_instance.py`'s pymongo code and all
 client-side `connect_db` calls.
 
 5.8. Enable the ruff ban (4.7).

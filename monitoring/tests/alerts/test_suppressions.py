@@ -7,7 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import BaseAlert, Issue
 from monitoring.alerts.suppressions import is_muted
-from shared.db.models import AlertSuppression
+from shared.tests.factories import alert_suppression
 
 ISSUE = Issue("inst1", "copy failed: disk full", instrument_id="inst1")
 
@@ -72,7 +72,7 @@ def test_is_muted_requires_all_fields_to_match(
 ) -> None:
     """Every field of a suppression must match, the wildcard matches anything."""
     # given
-    suppression = AlertSuppression(comment="c", **fields)
+    suppression = alert_suppression(**fields)
 
     # when / then
     assert is_muted(ALERT, ISSUE, [suppression]) is expected
@@ -82,8 +82,8 @@ def test_is_muted_with_any_matching_suppression() -> None:
     """One matching suppression among several mutes the issue."""
     # given
     suppressions = [
-        AlertSuppression(comment="c", alert="OtherAlert"),
-        AlertSuppression(comment="c", identifier="inst1"),
+        alert_suppression(alert="OtherAlert"),
+        alert_suppression(identifier="inst1"),
     ]
 
     # when / then
@@ -97,12 +97,12 @@ def test_issue_without_instrument_only_matches_wildcard() -> None:
     issue = Issue("backup", 100)
 
     # when / then
-    assert is_muted(ALERT, issue, [AlertSuppression(comment="c")]) is True
+    assert is_muted(ALERT, issue, [alert_suppression()]) is True
     assert (
         is_muted(
             ALERT,
             issue,
-            [AlertSuppression(comment="c", instrument_id="inst1")],
+            [alert_suppression(instrument_id="inst1")],
         )
         is False
     )
@@ -111,7 +111,7 @@ def test_issue_without_instrument_only_matches_wildcard() -> None:
 def test_empty_message_matches_nothing() -> None:
     """An empty details is not a wildcard."""
     # given
-    suppression = AlertSuppression(comment="c", details="")
+    suppression = alert_suppression(details="")
 
     # when / then
     assert is_muted(ALERT, ISSUE, [suppression]) is False
@@ -123,9 +123,5 @@ def test_details_match_the_rendered_issue() -> None:
     issue = Issue("inst1", datetime(2024, 1, 15, tzinfo=pytz.UTC))
 
     # when / then
-    assert is_muted(
-        StaleStatusAlert(), issue, [AlertSuppression(comment="c", details="stale")]
-    )
-    assert not is_muted(
-        StaleStatusAlert(), issue, [AlertSuppression(comment="c", details="UTC")]
-    )
+    assert is_muted(StaleStatusAlert(), issue, [alert_suppression(details="stale")])
+    assert not is_muted(StaleStatusAlert(), issue, [alert_suppression(details="UTC")])

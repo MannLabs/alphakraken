@@ -3,9 +3,9 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from pymongo.errors import ServerSelectionTimeoutError
 
 from monitoring.main import main
+from shared.domain.errors import DatabaseUnavailableError
 
 
 class _StopLoopError(Exception):
@@ -20,7 +20,7 @@ def _sent_keys(mock_alert_manager_cls: Mock) -> list[str]:
 
 @pytest.mark.parametrize("is_active", [True, False])
 @patch("monitoring.main.sleep", side_effect=_StopLoopError)
-@patch("monitoring.main.connect_db")
+@patch("shared.db.ping")
 @patch("monitoring.main.ActiveInstanceElection")
 @patch("monitoring.main.AlertManager")
 def test_main_runs_db_backed_checks_only_when_active(
@@ -42,7 +42,7 @@ def test_main_runs_db_backed_checks_only_when_active(
     # then
     manager = mock_alert_manager_cls.return_value
     manager.check_db_free_alerts.assert_called_once()
-    mock_connect_db.assert_called_once_with(raise_on_error=True)
+    mock_connect_db.assert_called_once_with()
     assert manager.check_for_issues.called is is_active
     mock_election_cls.return_value.try_become_active.assert_called_once()
     assert _sent_keys(mock_alert_manager_cls) == ["startup"]
@@ -50,7 +50,7 @@ def test_main_runs_db_backed_checks_only_when_active(
 
 
 @patch("monitoring.main.sleep", side_effect=_StopLoopError)
-@patch("monitoring.main.connect_db", side_effect=ServerSelectionTimeoutError("no db"))
+@patch("shared.db.ping", side_effect=DatabaseUnavailableError("no db"))
 @patch("monitoring.main.ActiveInstanceElection")
 @patch("monitoring.main.AlertManager")
 def test_main_skips_check_when_db_connection_fails(
@@ -72,7 +72,7 @@ def test_main_skips_check_when_db_connection_fails(
 
 
 @patch("monitoring.main.sleep", side_effect=_StopLoopError)
-@patch("monitoring.main.connect_db")
+@patch("shared.db.ping")
 @patch("monitoring.main.ActiveInstanceElection")
 @patch("monitoring.main.AlertManager")
 def test_main_reports_exceptions_during_checks(
@@ -97,7 +97,7 @@ def test_main_reports_exceptions_during_checks(
 
 
 @patch("monitoring.main.sleep", side_effect=_StopLoopError)
-@patch("monitoring.main.connect_db")
+@patch("shared.db.ping")
 @patch("monitoring.main.ActiveInstanceElection")
 @patch("monitoring.main.AlertManager")
 def test_main_runs_db_checks_when_a_db_free_check_fails(

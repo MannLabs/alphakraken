@@ -2,9 +2,6 @@
 
 import hashlib
 import traceback
-from datetime import datetime
-
-import pytz
 
 
 def extract_error_line(exception: Exception, line: int = 4) -> str:
@@ -25,13 +22,6 @@ def extract_error_line(exception: Exception, line: int = 4) -> str:
         return non_empty_lines[-line].strip()
 
     return "n/a"
-
-
-def ensure_utc(value: datetime) -> datetime:
-    """Return the datetime as UTC-aware, treating naive datetimes as UTC."""
-    if value.tzinfo is None:
-        return pytz.utc.localize(value)
-    return value
 
 
 def short_digest(text: str) -> str:

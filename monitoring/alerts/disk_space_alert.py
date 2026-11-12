@@ -2,8 +2,7 @@
 
 from datetime import datetime
 
-from shared.db.models import KrakenStatus
-from shared.domain.status import KrakenStatusEntities
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
 
 from . import config
 from .base_alert import BaseAlert, Issue, get_instrument_id

@@ -25,15 +25,12 @@ from alerts.config import Destinations
 from alerts.recipients import get_messenger_ids_by_initials, get_recipients
 from alerts.suppressions import is_muted
 from messenger import Message, send
-from utils import ensure_utc, extract_error_line
+from utils import extract_error_line
 
-from shared.db.interface import (
-    add_alert_issue,
-    get_active_alert_suppressions,
-    get_alert_issues,
-    set_alert_issue_notified,
-)
-from shared.db.models import AlertIssue, AlertSuppression, KrakenStatus
+from shared.db import alerts as alerts_store
+from shared.db import status as status_store
+from shared.domain.alerts import AlertIssue, AlertSuppression
+from shared.domain.status import KrakenStatus
 
 
 class AlertManager:
@@ -70,8 +67,8 @@ class AlertManager:
         The suppressions are those read by `check_db_free_alerts`.
         """
         logging.info("Checking for issues...")
-        status_objects = list(KrakenStatus.objects)
-        records = {(r.alert, r.key): r for r in get_alert_issues()}
+        status_objects = status_store.find()
+        records = {(r.alert, r.key): r for r in alerts_store.find_issues()}
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
@@ -97,7 +94,7 @@ class AlertManager:
                 continue
             record = records.get((alert.name, issue.key))
             if record is None:
-                record = add_alert_issue(
+                record = alerts_store.add_issue(
                     alert=alert.name, key=issue.key, first_seen=now
                 )
             if _is_due(record, alert.get_cooldown_minutes(issue), now):
@@ -110,7 +107,7 @@ class AlertManager:
         )
         for issue, record in due:
             if issue in delivered:
-                set_alert_issue_notified(record, now)
+                alerts_store.set_issue_notified(record.id, now)
 
     def report_exception(
         self, e: Exception, now: datetime, scope: str = "checks"
@@ -127,7 +124,7 @@ class AlertManager:
     def _refresh_suppressions(self) -> None:
         """Read the active suppressions, keeping the last known ones if the DB is unreachable."""
         try:
-            self._suppressions = get_active_alert_suppressions()
+            self._suppressions = alerts_store.find_suppressions(active_only=True)
         except Exception:  # noqa: BLE001
             logging.warning(
                 "Could not read the alert suppressions, using the last known ones"
@@ -177,7 +174,7 @@ def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> 
         return True
     if cooldown_minutes is None:
         return False
-    return now > ensure_utc(record.last_notified) + timedelta(minutes=cooldown_minutes)
+    return now > record.last_notified + timedelta(minutes=cooldown_minutes)
 
 
 def _message(alert: BaseAlert, issues: list[Issue]) -> Message:

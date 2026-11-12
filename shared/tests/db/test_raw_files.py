@@ -9,12 +9,19 @@ import mongoengine
 import pymongo.errors
 import pytest
 
+from shared import db
 from shared.db import models
 from shared.db._mongo import raw_files as backend
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
-from shared.db.raw_files import RawFileFilter, count, find
+from shared.db.raw_files import (
+    RawFileFilter,
+    count,
+    count_by_status,
+    find,
+    latest_per_instrument,
+)
 from shared.domain.errors import (
     AlreadyExistsError,
     DatabaseError,
@@ -214,6 +221,45 @@ def test_count(mock_objects: MagicMock) -> None:
     mock_objects.assert_called_once_with(project_id="P1")
 
 
+def test_latest_per_instrument(mock_objects: MagicMock) -> None:
+    """Per instrument with recent files, the newest ones are loaded without file info."""
+    query = mock_objects.return_value
+    query.distinct.return_value = ["inst1", "inst2"]
+    query.filter.return_value = query
+
+    result = latest_per_instrument(3, created_after=AWARE_TIME)
+
+    expected = [to_raw_file(_document(), file_info_loaded=False)]
+    assert result == {"inst1": expected, "inst2": expected}
+    mock_objects.assert_called_once_with(created_at__gte=AWARE_TIME)
+    query.distinct.assert_called_once_with("instrument_id")
+    assert [c.kwargs for c in query.filter.call_args_list] == [
+        {"instrument_id": "inst1"},
+        {"instrument_id": "inst2"},
+    ]
+    query.order_by.assert_called_with("-created_at")
+    query.exclude.assert_called_with("file_info")
+    query.limit.assert_called_with(3)
+
+
+def test_count_by_status(mock_objects: MagicMock) -> None:
+    """The files of an instrument are counted per status in the database."""
+    mock_objects.return_value.aggregate.return_value = [
+        {"_id": "quanting", "count": 3},
+        {"_id": "copying", "count": 1},
+    ]
+
+    result = count_by_status(
+        RawFileFilter(instrument_id="inst1", statuses_not=["done"])
+    )
+
+    assert result == {"quanting": 3, "copying": 1}
+    mock_objects.assert_called_once_with(instrument_id="inst1", status__nin=["done"])
+    mock_objects.return_value.aggregate.assert_called_once_with(
+        [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+    )
+
+
 def test_find_rejects_unknown_order_field() -> None:
     """Ordering is restricted to the fields of the domain type."""
     with pytest.raises(ValueError, match="Unknown order field: -_id"):
@@ -302,3 +348,28 @@ def test_ensure_connected_retries_after_failure(mock_connect_db: MagicMock) -> N
     ensure_connected()
 
     assert mock_connect_db.call_count == 2
+
+
+@patch("shared.db._mongo.connection.get_db")
+@patch("shared.db._mongo.connection.connect_db")
+def test_ping(mock_connect_db: MagicMock, mock_get_db: MagicMock) -> None:
+    """A ping connects and asks the server."""
+    db.ping()
+
+    mock_connect_db.assert_called_once()
+    mock_get_db.return_value.command.assert_called_once_with("ping")
+
+
+@patch("shared.db._mongo.connection.get_db")
+@patch("shared.db._mongo.connection.connect_db")
+def test_ping_raises_when_database_is_unreachable(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_get_db: MagicMock,
+) -> None:
+    """An unreachable server is reported as the domain error clients catch."""
+    mock_get_db.return_value.command.side_effect = (
+        pymongo.errors.ServerSelectionTimeoutError("down")
+    )
+
+    with pytest.raises(DatabaseUnavailableError, match="down"):
+        db.ping()

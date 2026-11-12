@@ -7,7 +7,7 @@ from http import HTTPStatus
 import requests
 import requests.exceptions
 
-from shared.db.models import KrakenStatus
+from shared.domain.status import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
 from .base_alert import BaseAlert, Issue

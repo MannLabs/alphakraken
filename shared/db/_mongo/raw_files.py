@@ -11,6 +11,8 @@ from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from shared.db.raw_files import RawFileFilter
     from shared.domain.raw_files import RawFile
 
@@ -26,7 +28,9 @@ _QUERY_KEYS = {
     "updated_after": "updated_at___gte",
     "status": "status",
     "statuses": "status__in",
+    "statuses_not": "status__nin",
     "backup_status": "backup_status",
+    "instrument_file_status": "instrument_file_status",
 }
 
 
@@ -70,3 +74,32 @@ def count(where: RawFileFilter) -> int:
     """Return the number of raw files matching `where`, cf. `shared.db.raw_files.count`."""
     ensure_connected()
     return models.RawFile.objects(**_conditions(where)).count()
+
+
+@translate_errors
+def latest_per_instrument(
+    n: int, *, created_after: datetime
+) -> dict[str, list[RawFile]]:
+    """Return the newest raw files per instrument, cf. `shared.db.raw_files.latest_per_instrument`."""
+    ensure_connected()
+    recent = models.RawFile.objects(created_at__gte=created_after)
+    return {
+        instrument_id: [
+            to_raw_file(doc, file_info_loaded=False)
+            for doc in recent.filter(instrument_id=instrument_id)
+            .order_by("-created_at")
+            .exclude("file_info")
+            .limit(n)
+        ]
+        for instrument_id in recent.distinct("instrument_id")
+    }
+
+
+@translate_errors
+def count_by_status(where: RawFileFilter) -> dict[str, int]:
+    """Return the number of raw files per status, cf. `shared.db.raw_files.count_by_status`."""
+    ensure_connected()
+    rows = models.RawFile.objects(**_conditions(where)).aggregate(
+        [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+    )
+    return {row["_id"]: row["count"] for row in rows}

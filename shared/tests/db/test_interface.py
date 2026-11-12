@@ -10,7 +10,6 @@ import pytz
 from pymongo import UpdateOne
 
 from shared.db.interface import (
-    add_alert_issue,
     add_alert_suppression,
     add_metrics_to_raw_file,
     add_project,
@@ -22,23 +21,17 @@ from shared.db.interface import (
     delete_alert_suppression,
     delete_project,
     delete_settings,
-    get_active_alert_suppressions,
     get_active_project_ids,
-    get_alert_issues,
     get_all_settings,
     get_all_users,
     get_latest_active_settings_by_name,
-    get_project_owner,
     get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
-    get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
-    set_alert_issue_notified,
     set_user_status,
     unassign_settings_from_project,
-    update_kraken_status,
     update_raw_file,
     update_slurm_jobs,
     update_user,
@@ -696,33 +689,6 @@ def test_get_project_settings(
 
 
 @patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.KrakenStatus")
-@patch("shared.db.interface.datetime")
-def test_update_kraken_status(
-    mock_datetime: MagicMock, mock_krakenstatus: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that update_kraken_status updates the status correctly."""
-    # when
-    update_kraken_status(
-        id_="instrument1",
-        status="error",
-        status_details="some details",
-        free_space_gb=123,
-    )
-
-    # then
-    mock_krakenstatus.assert_called_once_with(
-        id="instrument1",
-        status="error",
-        updated_at_=mock_datetime.now.return_value,
-        status_details="some details",
-        free_space_gb=123,
-        entity_type="instrument",
-    )
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.SlurmJob")
 @patch("shared.db.interface.datetime")
 def test_update_slurm_jobs_upserts_queued_and_marks_left_jobs(
@@ -788,69 +754,6 @@ def test_get_slurm_job(mock_slurm_job: MagicMock, mock_connect_db: MagicMock) ->
     mock_slurm_job.objects.assert_called_once_with(id="cluster1/123")
     assert result == mock_slurm_job.objects.return_value.first.return_value
     mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.RawFile")
-def test_get_raw_files_by_instrument_file_status_basic_query(
-    mock_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that get_raw_files_by_instrument_file_status queries correctly with basic parameters."""
-    # given
-    mock_query = MagicMock()
-    mock_raw_file.objects.filter.return_value = mock_query
-    mock_query.order_by.return_value = [MagicMock(), MagicMock()]
-
-    # when
-    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.INITIAL)
-
-    # then
-    mock_raw_file.objects.filter.assert_called_once_with(
-        instrument_file_status=InstrumentFileStatus.INITIAL
-    )
-    mock_query.order_by.assert_called_once_with("created_at")
-    assert len(result) == 2
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.RawFile")
-@patch("shared.db.interface.datetime")
-def test_get_raw_files_by_instrument_file_status_with_filters(
-    mock_datetime: MagicMock,
-    mock_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that get_raw_files_by_instrument_file_status applies filters correctly."""
-    # given
-    mock_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-    mock_datetime.now.return_value = mock_now
-
-    # Create a chain of mock queries
-    mock_query1 = MagicMock()
-    mock_query2 = MagicMock()
-    mock_query3 = MagicMock()
-    mock_final_result = [MagicMock()]
-
-    mock_raw_file.objects.filter.return_value = mock_query1
-    mock_query1.filter.return_value = mock_query2
-    mock_query2.filter.return_value = mock_query3
-    mock_query3.order_by.return_value = mock_final_result
-
-    # when
-    result = get_raw_files_by_instrument_file_status(
-        InstrumentFileStatus.MOVED, instrument_id="test_instrument", min_age_hours=6
-    )
-
-    # then
-    mock_raw_file.objects.filter.assert_called_once_with(
-        instrument_file_status=InstrumentFileStatus.MOVED
-    )
-    expected_cutoff = mock_now - timedelta(hours=6)
-    mock_query1.filter.assert_called_once_with(instrument_id="test_instrument")
-    mock_query2.filter.assert_called_once_with(created_at__lt=expected_cutoff)
-    mock_query3.order_by.assert_called_once_with("created_at")
-    assert result == mock_final_result
 
 
 @patch("shared.db.interface.connect_db")
@@ -1000,66 +903,6 @@ def test_get_all_users(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
-@patch("shared.db.interface.RawFile")
-def test_get_project_owner(
-    mock_raw_file: MagicMock,
-    mock_project: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """The active owner of the file's project is returned."""
-    # given
-    mock_raw_file.objects.return_value.only.return_value.first.return_value = MagicMock(
-        has_project=True, project_id="P1"
-    )
-    owner = MagicMock(status=UserStatus.ACTIVE)
-    mock_project.objects.return_value.only.return_value.first.return_value = MagicMock(
-        owner=owner
-    )
-
-    # when
-    result = get_project_owner("file1.raw")
-
-    # then
-    assert result is owner
-    mock_raw_file.objects.assert_called_once_with(id="file1.raw")
-    mock_project.objects.assert_called_once_with(id="P1")
-
-
-@pytest.mark.parametrize(
-    ("raw_file", "project"),
-    [
-        (None, None),
-        (MagicMock(has_project=False, project_id="_FALLBACK"), None),
-        (MagicMock(has_project=True, project_id="P1"), None),
-        (MagicMock(has_project=True, project_id="P1"), MagicMock(owner=None)),
-        (
-            MagicMock(has_project=True, project_id="P1"),
-            MagicMock(owner=MagicMock(status=UserStatus.INACTIVE)),
-        ),
-    ],
-    ids=["no file", "no project", "project missing", "no owner", "inactive owner"],
-)
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Project")
-@patch("shared.db.interface.RawFile")
-def test_get_project_owner_returns_none(
-    mock_raw_file: MagicMock,
-    mock_project: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-    raw_file: MagicMock | None,
-    project: MagicMock | None,
-) -> None:
-    """No file, project, owner or active owner means no owner."""
-    # given
-    mock_raw_file.objects.return_value.only.return_value.first.return_value = raw_file
-    mock_project.objects.return_value.only.return_value.first.return_value = project
-
-    # when / then
-    assert get_project_owner("file1.raw") is None
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Project")
 def test_archive_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
     """Test that archive_project sets the project status to INACTIVE."""
     archive_project("P1234")
@@ -1204,57 +1047,6 @@ def test_delete_assigned_settings_raises(
     mock_settings.objects.assert_not_called()
 
 
-@patch("shared.db.interface.AlertIssue")
-@patch("shared.db.interface.connect_db")
-def test_get_alert_issues(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-    mock_alert_issue: MagicMock,
-) -> None:
-    """Test that all issues are returned."""
-    # given
-    mock_alert_issue.objects = ["a", "b"]
-
-    # when / then
-    assert get_alert_issues() == ["a", "b"]
-
-
-@patch("shared.db.interface.AlertIssue")
-@patch("shared.db.interface.connect_db")
-def test_add_alert_issue(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-    mock_alert_issue: MagicMock,
-) -> None:
-    """Test that an issue is inserted, never upserted."""
-    # given
-    first_seen = datetime(2024, 1, 1, tzinfo=pytz.UTC)
-
-    # when
-    result = add_alert_issue(alert="DiskSpaceAlert", key="inst1", first_seen=first_seen)
-
-    # then
-    mock_alert_issue.assert_called_once_with(
-        alert="DiskSpaceAlert", key="inst1", first_seen=first_seen
-    )
-    mock_alert_issue.return_value.save.assert_called_once_with(force_insert=True)
-    assert result == mock_alert_issue.return_value
-
-
-@patch("shared.db.interface.connect_db")
-def test_set_alert_issue_notified(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that the notification time is written to the issue."""
-    # given
-    issue = MagicMock()
-    notified_at = datetime(2024, 1, 1, tzinfo=pytz.UTC)
-
-    # when
-    set_alert_issue_notified(issue, notified_at)
-
-    # then
-    issue.update.assert_called_once_with(set__last_notified=notified_at)
-
-
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.AlertSuppression")
 def test_add_alert_suppression(
@@ -1302,28 +1094,3 @@ def test_delete_alert_suppression(
     # then
     mock_suppression.objects.assert_called_once_with(id="abc")
     mock_suppression.objects.return_value.delete.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.AlertSuppression")
-@patch("shared.db.interface.datetime")
-def test_get_active_alert_suppressions_excludes_expired(
-    mock_datetime: MagicMock,
-    mock_suppression: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Only suppressions without expiry or expiring in the future are returned."""
-    # given
-    now = datetime(2026, 1, 1, tzinfo=pytz.UTC)
-    mock_datetime.now.return_value = now
-    mock_suppression.objects.return_value = ["s1"]
-
-    # when
-    result = get_active_alert_suppressions()
-
-    # then
-    assert result == ["s1"]
-    (query,) = mock_suppression.objects.call_args.args
-    assert query.to_query(None) == {
-        "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}]
-    }

@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pymongo import UpdateOne
 
-from shared.db import models, slurm_jobs
+from shared.db import slurm_jobs
+from shared.db._mongo import models
 from shared.domain.slurm_jobs import SlurmJob, SlurmJobQueueStates
 
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)

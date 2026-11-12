@@ -31,8 +31,8 @@ from datetime import datetime
 from mongoengine import get_db
 from mongoengine.errors import DoesNotExist, NotUniqueError
 
-from shared.db.engine import connect_db
-from shared.db.models import Project, Settings
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Project, Settings
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import SettingsStatus
 

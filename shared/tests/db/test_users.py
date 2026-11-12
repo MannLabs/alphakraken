@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shared.db import models, users
+from shared.db import users
+from shared.db._mongo import models
 from shared.db._mongo import users as backend
 from shared.domain.errors import ValidationError
 from shared.domain.users import UserStatus

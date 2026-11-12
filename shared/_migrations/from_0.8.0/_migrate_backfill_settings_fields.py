@@ -26,8 +26,8 @@ but legacy settings must be backfilled before they are used by new jobs).
 import argparse
 import logging
 
-from shared.db.engine import connect_db
-from shared.db.models import Settings
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Settings
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     JobEngines,

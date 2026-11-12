@@ -1,6 +1,6 @@
 """Queries on the assignments of settings to projects on MongoDB."""
 
-from shared.db import models
+from shared.db._mongo import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_project_settings, to_settings

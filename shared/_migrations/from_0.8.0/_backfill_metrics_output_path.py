@@ -15,8 +15,9 @@ from pathlib import Path
 
 from mongoengine import DoesNotExist
 
-from shared.db.engine import connect_db
-from shared.db.models import Metrics, RawFile, get_created_at_year_month
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Metrics, RawFile
+from shared.domain.raw_files import get_created_at_year_month
 
 OUTPUT_FOLDER_PREFIX = "out_"
 LOG_FILE_NAME = "backfill_metrics_output_path.csv"
@@ -32,7 +33,10 @@ def _get_output_path(
 ) -> str:
     """Construct the output path for a metrics document."""
     optional_sub_folder = (
-        get_created_at_year_month(raw_file) if not raw_file.has_project else ""
+        # the helper only reads `created_at`, which the document has too
+        get_created_at_year_month(raw_file)  # type: ignore[invalid-argument-type]
+        if not raw_file.has_project
+        else ""
     )
     project_id = (
         raw_file.project_id

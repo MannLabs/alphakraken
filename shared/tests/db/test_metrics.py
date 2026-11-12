@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shared.db import models
 from shared.db._mongo import metrics as backend
+from shared.db._mongo import models
 from shared.db.metrics import add, find, latest_by_raw_file
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics

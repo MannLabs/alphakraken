@@ -26,8 +26,8 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from shared.db.engine import connect_db
-from shared.db.models import ProjectSettings, Settings
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import ProjectSettings, Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 

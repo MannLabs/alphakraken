@@ -19,8 +19,8 @@ import logging
 from collections import Counter
 from typing import Any
 
-from shared.db.engine import connect_db
-from shared.db.models import Metrics, RawFile
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Metrics, RawFile
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)

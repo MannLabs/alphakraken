@@ -3,7 +3,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from shared.db import models
+from shared.db._mongo import models
 from shared.db.status import find, instrument_ids, update
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 from shared.tests.factories import kraken_status

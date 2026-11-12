@@ -11,7 +11,7 @@ import pytest
 from mongoengine import Q
 
 from shared import db
-from shared.db import models
+from shared.db._mongo import models
 from shared.db._mongo import raw_files as backend
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors

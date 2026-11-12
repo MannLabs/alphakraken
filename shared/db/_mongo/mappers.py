@@ -5,7 +5,7 @@ from typing import Any, cast, overload
 
 from mongoengine import Document
 
-from shared.db import models
+from shared.db._mongo import models
 from shared.domain.alerts import AlertIssue, AlertSuppression
 from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import FileInfoItem, RawFile

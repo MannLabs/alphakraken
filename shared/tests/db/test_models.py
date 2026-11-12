@@ -6,7 +6,7 @@ import pytest
 import pytz
 from mongoengine import Document, ValidationError
 
-from shared.db.models import (
+from shared.db._mongo.models import (
     AlertIssue,
     AlertSuppression,
     KrakenStatus,

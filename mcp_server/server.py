@@ -13,10 +13,11 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from shared.api_responses import METRICS_TYPE_KEY, to_metrics_dict
 from shared.db import metrics as metrics_store
 from shared.db import raw_files as raw_file_store
 from shared.db import status as status_store
-from shared.domain.metrics import Metrics
+from shared.domain.metrics import GRADIENT_LENGTH_KEY
 from shared.domain.raw_files import RawFile
 
 mcp = FastMCP(
@@ -65,8 +66,7 @@ raw_file_keys_whitelist = [
     "size",
     "created_at",
 ]
-basic_metrics_keys = ["proteins", "gradient_length"]
-GRADIENT_LENGTH_KEY = "gradient_length"
+basic_metrics_keys = ["proteins", GRADIENT_LENGTH_KEY]
 # relative tolerance of the gradient length filter
 GRADIENT_LENGTH_TOLERANCE = 0.05
 
@@ -109,7 +109,8 @@ def get_raw_files_by_names(
         list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
                               Each dictionary has the keys:
                               - "raw_file": A dictionary with raw file details.
-                              - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
+                              - "metrics": A list with the latest metrics of each type, one dictionary per type with its
+                                "type" key, or an empty list if none exist.
                               If an error occurs, the list contains one dictionary with an "error" key.
 
     """
@@ -152,7 +153,8 @@ def get_raw_files_for_instrument(
         list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
                               Each dictionary has the keys:
                               - "raw_file": A dictionary with raw file details.
-                              - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
+                              - "metrics": A list with the latest metrics of each type, one dictionary per type with its
+                                "type" key, or an empty list if none exist.
                               If an error occurs, the list contains one dictionary with an "error" key.
 
     """
@@ -179,37 +181,6 @@ def get_raw_files_for_instrument(
         results = [{"error": msg}]
 
     return results
-
-
-def _flatten_metrics(by_type: dict[str, Metrics]) -> dict[str, Any]:
-    """Flatten metrics from different types into a single dict with type prefixes for conflicts.
-
-    On key collisions, only the new key will carry a prefix.
-    The assumption is that collisions are rare and only happen for very generic keys like "proteins".
-    """
-    flattened: dict[str, Any] = {}
-    for metrics_type, type_metrics in by_type.items():
-        for key, value in {
-            **_metadata(type_metrics),
-            **type_metrics.values,
-        }.items():
-            if key not in flattened:
-                flattened[key] = value
-            else:
-                flattened[f"{metrics_type}_{key}"] = value
-
-    return flattened
-
-
-def _metadata(type_metrics: Metrics) -> dict[str, Any]:
-    """Return the metadata of the metrics that is exposed next to the values, skipping unset ones."""
-    metadata = {
-        "settings_name": type_metrics.settings_name,
-        "settings_version": type_metrics.settings_version,
-        "relative_output_path": type_metrics.relative_output_path,
-        "output_display_base_path": type_metrics.output_display_base_path,
-    }
-    return {k: v for k, v in metadata.items() if v is not None}
 
 
 def _matches_gradient_length(gradient_length: Any, target: float) -> bool:
@@ -241,7 +212,8 @@ def _with_latest_metrics(
         list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
                               Each dictionary has the keys:
                               - "raw_file": A dictionary with raw file details.
-                              - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
+                              - "metrics": A list with the latest metrics of each type, one dictionary per type with its
+                                "type" key, or an empty list if none exist.
 
     """
     latest_metrics = metrics_store.latest_by_raw_file(
@@ -250,10 +222,16 @@ def _with_latest_metrics(
 
     results = []
     for raw_file in found:
-        flattened = _flatten_metrics(latest_metrics.get(raw_file.id, {}))
+        metrics = [
+            to_metrics_dict(type_metrics)
+            for type_metrics in latest_metrics.get(raw_file.id, {}).values()
+        ]
 
-        if gradient_length_filter and not _matches_gradient_length(
-            flattened.get(GRADIENT_LENGTH_KEY), gradient_length_filter
+        if gradient_length_filter and not any(
+            _matches_gradient_length(
+                type_metrics.get(GRADIENT_LENGTH_KEY), gradient_length_filter
+            )
+            for type_metrics in metrics
         ):
             continue
 
@@ -265,11 +243,15 @@ def _with_latest_metrics(
                     if k in raw_file_keys_whitelist and v is not None
                 }
                 | {"name": raw_file.id},
-                "metrics": {
-                    k: _format(v)
-                    for k, v in flattened.items()
-                    if k in basic_metrics_keys or not only_basic_metrics
-                },
+                "metrics": [
+                    {
+                        k: _format(v)
+                        for k, v in type_metrics.items()
+                        if k in (METRICS_TYPE_KEY, *basic_metrics_keys)
+                        or not only_basic_metrics
+                    }
+                    for type_metrics in metrics
+                ],
             }
         )
     return results

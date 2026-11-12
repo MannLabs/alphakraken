@@ -3,14 +3,14 @@
 from datetime import datetime
 from typing import Any
 
+from shared.api_responses import to_metrics_dict
 from shared.db import metrics as metrics_store
 from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import raw_files as raw_file_store
 from shared.db import settings as settings_store
-from shared.display_paths import get_display_backup_path, get_display_output_path
+from shared.display_paths import get_display_backup_path
 from shared.domain.errors import NotFoundError
-from shared.domain.metrics import Metrics
 from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import RawFile
 from shared.domain.settings import Settings, SettingsStatus
@@ -18,8 +18,6 @@ from shared.domain.settings import Settings, SettingsStatus
 FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
-OUTPUT_PATH_KEY = "output_path"
-METRICS_TYPE_KEY = "type"
 
 RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
 
@@ -52,16 +50,6 @@ def _query_raw_files(  # noqa: PLR0913
         where, limit=limit, offset=offset, include_file_info=include_file_info
     )
     return found, raw_file_store.count(where)
-
-
-def _to_metrics_dict(type_metrics: Metrics) -> dict[str, Any]:
-    """Build a metrics response dict: the type, the values and the output folder as users see it."""
-    data = {METRICS_TYPE_KEY: type_metrics.type, **type_metrics.values}
-    if type_metrics.relative_output_path is not None:
-        data[OUTPUT_PATH_KEY] = get_display_output_path(
-            type_metrics.relative_output_path, type_metrics.output_display_base_path
-        )
-    return data
 
 
 def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
@@ -122,7 +110,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
         )
         for raw_file, result in zip(found, results, strict=True):
             result["metrics"] = [
-                _to_metrics_dict(type_metrics)
+                to_metrics_dict(type_metrics)
                 for type_metrics in latest_metrics.get(raw_file.id, {}).values()
             ]
 

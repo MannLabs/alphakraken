@@ -11,7 +11,7 @@ from utils import short_digest
 
 from shared.db import metrics as metrics_store
 from shared.db import raw_files as raw_file_store
-from shared.domain.metrics import Metrics
+from shared.domain.metrics import GRADIENT_LENGTH_KEY, Metrics
 from shared.domain.raw_files import RawFile
 from shared.domain.status import KrakenStatus, KrakenStatusEntities
 from shared.keys import MetricsTypes
@@ -29,7 +29,6 @@ from .config import (
 # temporary hack to bypass bug in pump pressure extraction
 MAX_PRESSURE_TO_CONSIDER = 1000
 
-GRADIENT_LENGTH_KEY = "gradient_length"
 PRESSURE_KEY = "evosep_pump_hp_pressure_max"
 
 

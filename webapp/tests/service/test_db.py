@@ -156,7 +156,8 @@ def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
 
 @patch(
     "service.db.get_display_output_path",
-    side_effect=lambda p, base: f"{base or '/out'}/{p}",
+    side_effect=lambda m: m.relative_output_path
+    and f"{m.output_display_base_path or '/out'}/{m.relative_output_path}",
 )
 @patch("shared.db.metrics.find")
 def test_get_output_folders(

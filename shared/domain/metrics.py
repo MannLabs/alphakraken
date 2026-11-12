@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+# metric names that clients read by name
+GRADIENT_LENGTH_KEY = "gradient_length"
+
 
 @dataclass(frozen=True)
 class Metrics:

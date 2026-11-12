@@ -1,6 +1,5 @@
 """Settings management page."""
 
-import re
 from collections import defaultdict
 from typing import Any
 
@@ -21,7 +20,6 @@ from service.db import (
 )
 from service.owner import OWNER_COLUMN, add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
-from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -30,20 +28,13 @@ from service.utils import (
     toast_result,
 )
 
-from shared.config_params import (
-    check_for_unknown_placeholders,
-    substitute_dummy_values,
-)
 from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
+from shared.domain.inputs import max_length
 from shared.domain.projects import ProjectStatus
-from shared.domain.settings import (
-    SLURM_MEM_REGEX,
-    SLURM_TIME_REGEX,
-    SettingsStatus,
-)
+from shared.domain.settings import NewSettings, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     SOFTWARE_TYPE_TO_METRICS_TYPES,
@@ -53,7 +44,6 @@ from shared.keys import (
 )
 from shared.path_views import Locations
 from shared.runners import RUNNERS, get_runner
-from shared.validation import check_for_malicious_content
 
 SHOW_RUNNER_SELECT = True
 
@@ -405,13 +395,13 @@ with c1.expander("Resource parameters"):
     )
     slurm_mem = st.text_input(
         label="Memory (e.g. '62G') [Slurm only]",
-        max_chars=16,
+        max_chars=max_length(NewSettings, "slurm_mem"),
         value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
         help="Mapped to --mem",
     )
     slurm_time = st.text_input(
         label="Time limit (HH:MM:SS) [Slurm only]",
-        max_chars=16,
+        max_chars=max_length(NewSettings, "slurm_time"),
         value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
         help="Mapped to --time",
     )
@@ -485,73 +475,28 @@ submit = c1.button(
 
 
 if submit:
-    validation_errors = []
-    for to_validate in [
-        fasta_file_name,
-        speclib_file_name,
-        software,
-        config_file_name,
-    ]:
-        if to_validate:
-            validation_errors.extend(check_for_malicious_content(to_validate))
-    validation_errors.extend(
-        check_runner_supports_software_type(runner_name, software_type)
-    )
-    if config_params:
-        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
-        # they currently pass validation and fail silently at runtime
-        placeholder_errors = check_for_unknown_placeholders(config_params)
-        validation_errors.extend(
-            placeholder_errors
-            or check_for_malicious_content(
-                substitute_dummy_values(config_params), allow_spaces=True
-            )
-        )
-    if slurm_mem:
-        validation_errors.extend(check_for_malicious_content(slurm_mem))
-        if not re.match(SLURM_MEM_REGEX, slurm_mem):
-            validation_errors.append(
-                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
-            )
-    if slurm_time and not re.match(SLURM_TIME_REGEX, slurm_time):
-        validation_errors.append("SLURM time must be in HH:MM:SS format.")
-
-    if software_type == SoftwareTypes.ALPHADIA and (
-        empty_to_none(fasta_file_name) is None
-        and empty_to_none(speclib_file_name) is None
-    ):
-        validation_errors.append(
-            "At least one of the fasta and speclib file names must be given."
-        )
-
     with toast_result(
         f"Created new settings '{name}'. Assign it to projects on the Projects page."
     ):
-        if validation_errors:
-            errors_str = "\n- ".join(validation_errors)
-            raise ValueError(
-                f"Found {len(validation_errors)} Input validation error:\n- {errors_str}"
-            )
-
         if not upload_checkbox:
             raise ValueError(
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
         settings_store.create(
-            name=empty_to_none(name),
-            description=empty_to_none(description),
+            name=name,
+            description=description,
             fasta_file_name=fasta_file_name,
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
             config_params=config_params,
-            software_type=empty_to_none(software_type),
-            software=empty_to_none(software),
+            software_type=software_type,
+            software=software,
             runner_name=runner_name,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
-            slurm_mem=empty_to_none(slurm_mem),
-            slurm_time=empty_to_none(slurm_time),
+            slurm_mem=slurm_mem,
+            slurm_time=slurm_time,
             num_threads=num_threads,
             owner_email=owner_email,
             archive_previous=is_update and archive_previous,

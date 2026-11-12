@@ -31,3 +31,30 @@ def project_owner(raw_file_id: str) -> User | None:
     if owner is None or owner.status != UserStatus.ACTIVE:
         return None
     return to_user(owner)
+
+
+@translate_errors
+def add(*, email: str, initials: str, messenger_id: str | None) -> User:
+    """Add a new active user, cf. `shared.db.users`."""
+    ensure_connected()
+    user = models.User(email=email, initials=initials, messenger_id=messenger_id)
+    user.save(force_insert=True)
+    return to_user(user)
+
+
+@translate_errors
+def update(email: str, *, initials: str, messenger_id: str | None) -> None:
+    """Update the initials and messenger id of a user, cf. `shared.db.users`."""
+    ensure_connected()
+    user = models.User.objects.get(email=email)
+    user.initials = initials
+    user.messenger_id = messenger_id
+    # save() instead of update() to run the field validation
+    user.save()
+
+
+@translate_errors
+def set_status(email: str, status: str) -> None:
+    """Set the status of a user, cf. `shared.db.users`."""
+    ensure_connected()
+    models.User.objects(email=email).update_one(status=status)

@@ -43,3 +43,34 @@ def find_suppressions(*, active_only: bool) -> list[AlertSuppression]:
         now = datetime.now(tz=UTC)
         query = query.filter(Q(expires_at=None) | Q(expires_at__gt=now))
     return [to_alert_suppression(doc) for doc in query]
+
+
+@translate_errors
+def add_suppression(  # noqa: PLR0913
+    *,
+    alert: str,
+    instrument_id: str,
+    identifier: str,
+    details: str,
+    comment: str,
+    expires_at: datetime | None,
+    created_by: str | None,
+) -> None:
+    """Add an alert suppression, cf. `shared.db.alerts`."""
+    ensure_connected()
+    models.AlertSuppression(
+        alert=alert,
+        instrument_id=instrument_id,
+        identifier=identifier,
+        details=details,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    ).save()
+
+
+@translate_errors
+def delete_suppression(suppression_id: str) -> None:
+    """Delete an alert suppression, cf. `shared.db.alerts`."""
+    ensure_connected()
+    models.AlertSuppression.objects(id=suppression_id).delete()

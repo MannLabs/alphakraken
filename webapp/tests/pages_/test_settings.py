@@ -241,7 +241,7 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
 OWNER_SELECT_LABEL = "Owner"
 
 
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 @patch("shared.db.models.ProjectSettings.objects")
 @patch("service.db.get_project_data")
 @patch("service.db.get_settings_data")
@@ -295,7 +295,7 @@ def test_settings_without_users_shows_no_owner_select(
 
 
 @patch("shared.db.interface.create_settings")
-@patch("service.owner.get_all_users")
+@patch("shared.db.users.find")
 @patch("shared.db.models.ProjectSettings.objects")
 @patch("service.db.get_project_data")
 @patch("service.db.get_settings_data")

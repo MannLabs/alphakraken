@@ -63,14 +63,9 @@ ignore = [
 "shared/tests/test_display_paths.py" = ["TID251"]
 "shared/tests/test_runners.py" = ["TID251"]
 "webapp/service/db.py" = ["TID251"]
-"webapp/service/owner.py" = ["TID251"]
-"webapp/pages_/admin.py" = ["TID251"]
 "webapp/pages_/projects.py" = ["TID251"]
 "webapp/pages_/settings.py" = ["TID251"]
-"webapp/pages_/impl/admin_utils.py" = ["TID251"]
 "webapp/pages_/impl/projects_utils.py" = ["TID251"]
-"webapp/tests/pages_/test_admin_page.py" = ["TID251"]
-"webapp/tests/pages_/impl/test_admin_utils.py" = ["TID251"]
 "airflow_src/**" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected

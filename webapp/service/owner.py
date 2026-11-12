@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 import streamlit.delta_generator
 
-from shared.db.interface import get_all_users
+from shared.db import users as user_store
 
 NO_OWNER_LABEL = "(none)"
 OWNER_COLUMN = "owner"
@@ -16,7 +16,7 @@ def add_owner_initials(df: pd.DataFrame) -> pd.DataFrame:
     if OWNER_COLUMN not in df.columns:
         return df
 
-    initials = {u.email: u.initials for u in get_all_users(include_inactive=True)}
+    initials = {u.email: u.initials for u in user_store.find(include_inactive=True)}
     return df.assign(
         **{OWNER_COLUMN: df[OWNER_COLUMN].map(lambda email: initials.get(email, ""))}
     )
@@ -30,11 +30,11 @@ def show_owner_selectbox(
 
     Nothing is shown if there are no active users.
     """
-    users = get_all_users()
-    if not users:
+    active_users = user_store.find()
+    if not active_users:
         return None
 
-    labels = {u.email: f"{u.initials} ({u.email})" for u in users}
+    labels = {u.email: f"{u.initials} ({u.email})" for u in active_users}
     options = [None, *labels]
     return st_display.selectbox(
         label="Owner",

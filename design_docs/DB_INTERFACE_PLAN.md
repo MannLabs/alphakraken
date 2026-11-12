@@ -314,9 +314,13 @@ project_settings}.py` and backends, `rest_api/{service,main}.py`.
   `delete_alert_suppression` into `users.py` and `alerts.py`; the last readers of
   `get_all_users` and `get_alert_suppressions` move to `users.find` and
   `alerts.find_suppressions`, and both are deleted from `interface.py`.
-- Keyword-only parameters named like the domain fields (design 4.8). Invariant checks stay
-  in the functions, marked `# moves to shared/services, cf. VALIDATION_DESIGN.md`. Their
-  `ValueError`s become `ValidationError([message])`.
+- Keyword-only parameters named like the domain fields (design 4.8). Their `ValueError`s
+  become `ValidationError([message])`.
+- ❗ Invariant checks do not go into `_mongo`: a provider only stores. They live in the
+  provider-free API module (`shared/db/users.py`), built on its read functions, marked
+  `# moves to shared/services, cf. VALIDATION_DESIGN.md`. Until that move, the field
+  constraints of the Mongo models (regex, lengths, ranges) remain the only validation that
+  just the provider knows; the validation plan gives them a provider-free home.
 - `add_owner_initials`, `show_owner_selectbox` on `users.find`.
 
 **Testing**: `pytest webapp shared`; on the stack: add and edit a user, deactivate one, add
@@ -338,7 +342,11 @@ functions), `webapp/pages_/{projects,settings}.py`, `webapp/pages_/impl/*`.
   `archive_settings`, `delete_settings`, `assign_settings_to_project`,
   `check_not_assigned_with_same_filters`, `unassign_settings_from_project` with their
   callers; the settings functions still take the ids the pages pass today. Same rules for
-  parameters, invariant checks and `ValidationError` as in 8a.
+  parameters and `ValidationError` as in 8a.
+- Their eight invariant checks (project id taken, archived project, duplicate filters,
+  settings still assigned, ...) go into the API modules `shared/db/{projects,settings,
+  project_settings}.py`, not into `_mongo`, as in 8a. Where a check needs data, the API
+  module reads it through its own find functions; add a read function if one is missing.
 - `get_project_data`, `get_settings_data` on `projects.find`, `settings.find`.
 - Delete the moved functions from `interface.py`.
 

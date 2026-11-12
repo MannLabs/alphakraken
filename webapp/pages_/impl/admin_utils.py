@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 import pandas as pd
 from service.timezone import DISPLAY_TIMEZONE, display_now
 
-from shared.db.models import AlertSuppression
+from shared.domain.alerts import AlertSuppression
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 

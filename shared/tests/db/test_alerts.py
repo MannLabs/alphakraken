@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -84,3 +85,31 @@ def test_find_suppressions(mock_models: MagicMock, *, active_only: bool) -> None
         "-created_at_"
     )
     assert query.filter.called is active_only
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_add_suppression(mock_models: MagicMock) -> None:
+    """A new suppression is saved with the given fields."""
+    fields: dict[str, Any] = {
+        "alert": "PumpPressureAlert",
+        "instrument_id": "astral1",
+        "identifier": "*",
+        "details": "*",
+        "comment": "maintenance",
+        "expires_at": AWARE_TIME,
+        "created_by": "me",
+    }
+
+    alerts.add_suppression(**fields)
+
+    mock_models.AlertSuppression.assert_called_once_with(**fields)
+    mock_models.AlertSuppression.return_value.save.assert_called_once()
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_delete_suppression(mock_models: MagicMock) -> None:
+    """The suppression with the given id is deleted."""
+    alerts.delete_suppression("abc")
+
+    mock_models.AlertSuppression.objects.assert_called_once_with(id="abc")
+    mock_models.AlertSuppression.objects.return_value.delete.assert_called_once()

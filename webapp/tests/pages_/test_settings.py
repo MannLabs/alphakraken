@@ -47,16 +47,11 @@ def _settings_df() -> pd.DataFrame:
 @patch("service.db.df_from_db_data")
 def test_settings(
     mock_df: MagicMock,
-    mock_get: MagicMock,
-    mock_project_get: MagicMock,
-    mock_ps_objects: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """A test for the settings page."""
-    mock_settings_db = MagicMock()
-    mock_get.return_value = mock_settings_db
-    mock_projects_db = MagicMock()
-    mock_project_get.return_value = mock_projects_db
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -89,10 +84,9 @@ def test_settings_runner_selectbox_offers_the_declared_runners(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the runner selectbox lists the runners of alphakraken.yaml in declaration order."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -113,10 +107,9 @@ def test_settings_without_runners_shows_notice_instead_of_form(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that a deployment without runners still lists settings but cannot create any."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -169,10 +162,9 @@ def test_settings_software_selectbox_offers_the_used_software(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the software of the selected type and runner is offered, youngest first, archived included."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df_with_software()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -199,10 +191,9 @@ def test_settings_software_selectbox_without_used_software_offers_adding_one(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that a deployment without matching settings falls back to entering the software by hand."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()  # has no software_type and runner_name
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -224,10 +215,9 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that updating settings whose software is not in the list selects it rather than 'add new'."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df_with_software()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -256,11 +246,10 @@ def test_settings_owner_is_shown_and_prefilled_for_new_version(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
     mock_get_users: MagicMock,
 ) -> None:
     """Test that the owner initials are shown and a new version is prefilled with the previous owner."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df().assign(owner=["a@b.de", None])
     user = MagicMock(initials="AB", email="a@b.de")
     mock_get_users.return_value = [user]
@@ -284,14 +273,39 @@ def test_settings_owner_is_shown_and_prefilled_for_new_version(
 @patch("shared.db.projects.find", return_value=[])
 @patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
+def test_settings_unset_fields_are_prefilled_empty_for_new_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that fields the previous version left unset are prefilled empty, not with "None"."""
+    mock_df.return_value = _settings_df().assign(
+        description=[None, None],
+        speclib_file_name=[None, "speclib_file2"],
+        config_params=[None, None],
+    )
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    prefilled = [w.value for w in [*at.text_input, *at.text_area]]
+    assert "fasta_file1" in prefilled
+    assert not {"None", "nan"} & set(prefilled)
+
+
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
 def test_settings_without_users_shows_no_owner_select(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that there is no owner selectbox without users."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -310,12 +324,11 @@ def test_create_settings_passes_selected_owner(  # noqa: PLR0913
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
     mock_get_users: MagicMock,
     mock_create_settings: MagicMock,
 ) -> None:
     """Test that the owner selected in the form is passed on when creating settings."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
     mock_get_users.return_value = [MagicMock(initials="AB", email="a@b.de")]
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)

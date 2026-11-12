@@ -131,20 +131,6 @@ def test_df_from_db_data() -> None:
     pd.testing.assert_frame_equal(expected_data, result)
 
 
-def test_df_from_db_data_all_parameters() -> None:
-    """Test the df_from_db_data function with all parameters."""
-    rows = [
-        SimpleNamespace(a=1, b=2, created_at_=3),
-        SimpleNamespace(a=1, b=5, created_at_=6),
-    ]
-
-    # when
-    result = df_from_db_data(rows, drop_duplicates=["a"], drop_columns=["b"])
-
-    expected_data = pd.DataFrame({"a": [1], "created_at_": [6]})
-    pd.testing.assert_frame_equal(expected_data, result)
-
-
 @patch("service.timezone.DISPLAY_TIMEZONE", pytz.timezone("Europe/Berlin"))
 def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
     """Test that the db timestamps are shifted to the configured timezone."""

@@ -58,6 +58,11 @@ def _check_initials_unique(initials: str, users: list[User]) -> None:
 
 
 def set_status(email: str, status: str) -> None:
-    """Set the status of a user, used for soft-deleting."""
+    """Set the status of a user, used for soft-deleting.
+
+    Raises:
+        NotFoundError: if there is no such user.
+
+    """
     _backend.set_status(email, status)
     logging.info(f"Set user status: {email=} {status=}")

@@ -228,44 +228,18 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
 def df_from_db_data(
     rows: list,
     *,
-    filter_dict: dict | None = None,
-    drop_duplicates: list[str] | None = None,
-    drop_columns: list[str] | None = None,
     drop_none_columns: bool = False,
 ) -> pd.DataFrame:
     """Create a DataFrame from database results.
 
     :param rows: the domain objects to convert to a DataFrame, one row each
-    :param filter_dict: optional dictionary to filter the DataFrame, e.g {"status": "done"}
-    :param drop_duplicates: optional list of columns to drop duplicates on after applying the filter
-        (youngest created_at_ will be kept)
-    :param drop_columns: optional list of columns to drop
     :param drop_none_columns: if True, drop columns that contain only None values
     :return: dataframe with one column per field of the domain objects
     """
     query_set_df = pd.DataFrame([vars(row) for row in rows])
 
-    if filter_dict:
-        for key, value in filter_dict.items():
-            if key not in query_set_df.columns:
-                _log(
-                    f"Warning: Key '{key}' not found in DataFrame columns '{query_set_df.columns}'."
-                )
-                continue
-            query_set_df = query_set_df[query_set_df[key] == value]
-
     if "created_at_" in query_set_df.columns:
         query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
-
-    if drop_duplicates:
-        query_set_df.drop_duplicates(subset=drop_duplicates, keep="first", inplace=True)
-
-    if drop_columns:
-        query_set_df.drop(
-            columns=drop_columns,
-            inplace=True,
-            errors="ignore",
-        )
 
     if drop_none_columns:
         # this is required for the Metrics, as e.g. custom metrics may not have all columns

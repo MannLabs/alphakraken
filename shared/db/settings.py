@@ -2,7 +2,6 @@
 
 import logging
 
-from shared.db import project_settings
 from shared.db._mongo import settings as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.settings import (
@@ -14,6 +13,7 @@ from shared.domain.settings import (
 def find(
     *,
     name: str | None = None,
+    statuses: list[str] | None = None,
     include_deleted: bool = False,
     limit: int | None = None,
     offset: int = 0,
@@ -21,15 +21,25 @@ def find(
     """Return the settings, newest first.
 
     :param name: only the versions of the settings with this name
+    :param statuses: only the settings with one of these statuses; deleted ones also need `include_deleted`
     """
     return _backend.find(
-        name=name, include_deleted=include_deleted, limit=limit, offset=offset
+        name=name,
+        statuses=statuses,
+        include_deleted=include_deleted,
+        limit=limit,
+        offset=offset,
     )
 
 
-def count(*, name: str | None = None, include_deleted: bool = False) -> int:
+def count(
+    *,
+    name: str | None = None,
+    statuses: list[str] | None = None,
+    include_deleted: bool = False,
+) -> int:
     """Return the number of settings that `find` returns without limit and offset."""
-    return _backend.count(name=name, include_deleted=include_deleted)
+    return _backend.count(name=name, statuses=statuses, include_deleted=include_deleted)
 
 
 def get(unique_name: str) -> Settings:
@@ -44,7 +54,7 @@ def get(unique_name: str) -> Settings:
 
 def latest_active(name: str) -> Settings | None:
     """Return the latest active version of the settings with the given name, None if there is none."""
-    active = [s for s in find(name=name) if s.status == SettingsStatus.ACTIVE]
+    active = find(name=name, statuses=[SettingsStatus.ACTIVE])
     return max(active, key=lambda s: s.version, default=None)
 
 
@@ -103,7 +113,12 @@ def create(  # noqa: PLR0913
 
 
 def archive(unique_name: str) -> None:
-    """Archive settings by setting their status to INACTIVE."""
+    """Archive settings by setting their status to INACTIVE.
+
+    Raises:
+        NotFoundError: if there are no such settings.
+
+    """
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 
@@ -121,13 +136,7 @@ def delete(unique_name: str) -> None:
     label = f"'{settings.name}' version {settings.version}"
     if settings.status == SettingsStatus.INACTIVE:
         raise ValidationError([f"Cannot delete archived settings {label}"])
-    project_ids = sorted(
-        {
-            ps.project_id
-            for ps in project_settings.find()
-            if ps.settings.id == unique_name
-        }
-    )
+    project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
         raise ValidationError(
             [

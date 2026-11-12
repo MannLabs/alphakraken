@@ -31,6 +31,19 @@ def find(project_ids: list[str] | None) -> list[ProjectSettings]:
 
 
 @translate_errors
+def get_project_id(assignment_id: str) -> str:
+    """Return the id of the project of a settings assignment.
+
+    The settings are not loaded, so this also works for an assignment whose settings no longer exist.
+    """
+    ensure_connected()
+    doc = models.ProjectSettings.objects(id=assignment_id).first()
+    if doc is None:
+        raise NotFoundError(f"No settings assignment {assignment_id}")
+    return doc.to_mongo()["project"]
+
+
+@translate_errors
 def assign(  # noqa: PLR0913
     project_id: str,
     settings_id: str,

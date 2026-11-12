@@ -9,7 +9,7 @@ import pytest
 from shared.db import users
 from shared.db._mongo import models
 from shared.db._mongo import users as backend
-from shared.domain.errors import ValidationError
+from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.users import UserStatus
 from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests.factories import user
@@ -215,3 +215,12 @@ def test_set_status(mock_models: MagicMock) -> None:
     mock_models.User.objects.return_value.update_one.assert_called_once_with(
         status=UserStatus.INACTIVE
     )
+
+
+@patch("shared.db._mongo.users.models")
+def test_set_status_of_unknown_user_raises(mock_models: MagicMock) -> None:
+    """Setting the status of a user that does not exist is an error."""
+    mock_models.User.objects.return_value.update_one.return_value = 0
+
+    with pytest.raises(NotFoundError, match="a@b.de"):
+        users.set_status("a@b.de", UserStatus.INACTIVE)

@@ -1,7 +1,4 @@
-"""Database models for the MongoDB.
-
-Note: this module must not have any dependencies on the rest of the codebase.
-"""
+"""Database models for the MongoDB."""
 
 from __future__ import annotations
 

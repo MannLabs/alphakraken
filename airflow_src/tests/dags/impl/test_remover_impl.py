@@ -1,6 +1,7 @@
 """Tests for the file_remover module."""
 # ruff: noqa:  PLR2004  # Magic value used in comparison
 
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -23,6 +24,8 @@ from dags.impl.remover_impl import (
 )
 from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
+from shared.db.raw_files import RawFileFilter
+from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.status import KrakenStatusValues
 
 
@@ -236,6 +239,7 @@ def test_get_raw_files_to_remove_handle_error(
     )
 
 
+@patch("dags.impl.remover_impl.datetime")
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
 @patch("shared.db.raw_files.find")
 @patch("dags.impl.remover_impl._get_total_size")
@@ -245,8 +249,10 @@ def test_decide_on_raw_files_to_remove_ok(
     mock_get_total_size: MagicMock,
     mock_get_purge_candidates_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
+    mock_datetime: MagicMock,
 ) -> None:
-    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    """Test that _decide_on_raw_files_to_remove queries the purge candidates and returns the correct files to remove."""
+    mock_datetime.now.return_value = datetime(2024, 3, 31, 12, tzinfo=UTC)
     mock_get_disk_usage.return_value = (0, 0, 200)
 
     mock_get_total_size.side_effect = [
@@ -275,6 +281,19 @@ def test_decide_on_raw_files_to_remove_ok(
     )
 
     assert result == ["file1", "file2"]
+    mock_get_purge_candidates_by_age.assert_called_once_with(
+        RawFileFilter(
+            instrument_id="instrument1",
+            created_before=datetime(2024, 3, 1, 12, tzinfo=UTC),
+            instrument_file_statuses_not=[
+                InstrumentFileStatus.PURGED,
+                InstrumentFileStatus.RENAMED,
+                InstrumentFileStatus.DISAPPEARED,
+            ],
+        ),
+        order="created_at",
+        include_file_info=True,
+    )
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")

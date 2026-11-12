@@ -238,9 +238,7 @@ with c_assign1:
         else:
             st.info("No settings assigned to this project.")
 
-        all_settings = [
-            s for s in settings_store.find() if s.status == SettingsStatus.ACTIVE
-        ]
+        all_settings = settings_store.find(statuses=[SettingsStatus.ACTIVE])
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")

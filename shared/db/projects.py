@@ -10,6 +10,7 @@ from shared.domain.projects import Project, ProjectStatus
 def find(
     *,
     ids: list[str] | None = None,
+    statuses: list[str] | None = None,
     include_deleted: bool = False,
     limit: int | None = None,
     offset: int = 0,
@@ -17,15 +18,25 @@ def find(
     """Return the projects, newest first.
 
     :param ids: only the projects with these ids
+    :param statuses: only the projects with one of these statuses; deleted ones also need `include_deleted`
     """
     return _backend.find(
-        ids=ids, include_deleted=include_deleted, limit=limit, offset=offset
+        ids=ids,
+        statuses=statuses,
+        include_deleted=include_deleted,
+        limit=limit,
+        offset=offset,
     )
 
 
-def count(*, ids: list[str] | None = None, include_deleted: bool = False) -> int:
+def count(
+    *,
+    ids: list[str] | None = None,
+    statuses: list[str] | None = None,
+    include_deleted: bool = False,
+) -> int:
     """Return the number of projects that `find` returns without limit and offset."""
-    return _backend.count(ids=ids, include_deleted=include_deleted)
+    return _backend.count(ids=ids, statuses=statuses, include_deleted=include_deleted)
 
 
 def get(project_id: str) -> Project:
@@ -71,7 +82,12 @@ def add(
 
 
 def archive(project_id: str) -> None:
-    """Archive a project by setting its status to INACTIVE."""
+    """Archive a project by setting its status to INACTIVE.
+
+    Raises:
+        NotFoundError: if there is no such project.
+
+    """
     _backend.set_status(project_id, ProjectStatus.INACTIVE)
     logging.info(f"Archived project: {project_id=}")
 

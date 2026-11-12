@@ -219,9 +219,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     )
 
     all_project_ids = [
-        project.id
-        for project in project_store.find()
-        if project.status == ProjectStatus.ACTIVE
+        project.id for project in project_store.find(statuses=[ProjectStatus.ACTIVE])
     ]
 
     raw_file_names_with_decisions: dict[str, tuple[str, bool, bool]] = {}

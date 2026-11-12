@@ -12,10 +12,14 @@ from shared.domain.errors import NotFoundError
 from shared.domain.settings import Settings, SettingsStatus, split_unique_settings_name
 
 
-def _query(*, name: str | None, include_deleted: bool) -> QuerySet:
+def _query(
+    *, name: str | None, statuses: list[str] | None, include_deleted: bool
+) -> QuerySet:
     conditions = {}
     if not include_deleted:
         conditions["status__ne"] = SettingsStatus.DELETED
+    if statuses is not None:
+        conditions["status__in"] = statuses
     if name is not None:
         conditions["name"] = name
     return models.Settings.objects(**conditions)
@@ -23,11 +27,18 @@ def _query(*, name: str | None, include_deleted: bool) -> QuerySet:
 
 @translate_errors
 def find(
-    *, name: str | None, include_deleted: bool, limit: int | None, offset: int
+    *,
+    name: str | None,
+    statuses: list[str] | None,
+    include_deleted: bool,
+    limit: int | None,
+    offset: int,
 ) -> list[Settings]:
     """Return the settings, cf. `shared.db.settings`."""
     ensure_connected()
-    query = _query(name=name, include_deleted=include_deleted).order_by("-created_at_")
+    query = _query(
+        name=name, statuses=statuses, include_deleted=include_deleted
+    ).order_by("-created_at_")
     if offset:
         query = query.skip(offset)
     if limit is not None:
@@ -36,10 +47,12 @@ def find(
 
 
 @translate_errors
-def count(*, name: str | None, include_deleted: bool) -> int:
+def count(
+    *, name: str | None, statuses: list[str] | None, include_deleted: bool
+) -> int:
     """Return the number of settings, cf. `shared.db.settings`."""
     ensure_connected()
-    return _query(name=name, include_deleted=include_deleted).count()
+    return _query(name=name, statuses=statuses, include_deleted=include_deleted).count()
 
 
 @translate_errors
@@ -62,6 +75,18 @@ def settings_by_unique_name(unique_name: str) -> QuerySet:
 
 
 @translate_errors
+def assigned_project_ids(unique_name: str) -> list[str]:
+    """Return the ids of the projects the settings are assigned to, sorted."""
+    ensure_connected()
+    settings = settings_by_unique_name(unique_name).first()
+    if settings is None:
+        raise NotFoundError(f"No settings {unique_name}")
+    # only these assignments are read, so that a broken one of other settings does not matter
+    assignments = models.ProjectSettings.objects(settings=settings)
+    return sorted({doc.to_mongo()["project"] for doc in assignments})
+
+
+@translate_errors
 def create(*, owner_email: str | None, **fields: Any) -> Settings:
     """Insert new settings, cf. `shared.db.settings`."""
     ensure_connected()
@@ -75,4 +100,5 @@ def create(*, owner_email: str | None, **fields: Any) -> Settings:
 def set_status(unique_name: str, status: str) -> None:
     """Set the status of the settings with the given unique name."""
     ensure_connected()
-    settings_by_unique_name(unique_name).update_one(status=status)
+    if not settings_by_unique_name(unique_name).update_one(status=status):
+        raise NotFoundError(f"No settings {unique_name}")

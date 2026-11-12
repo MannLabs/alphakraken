@@ -66,6 +66,7 @@ def test_unique_name() -> None:
         ("fallback_v7", ("fallback", 7)),
         ("fallback_v2_v3", ("fallback_v2", 3)),
         ("a_v10", ("a", 10)),
+        ("dia-default-v1.8_v1", ("dia-default-v1.8", 1)),
     ],
 )
 def test_split_unique_settings_name(
@@ -77,7 +78,7 @@ def test_split_unique_settings_name(
 
 @pytest.mark.parametrize(
     "unique_name",
-    ["fallback", "fallback_v", "fallback_v0", "fallback_vx", "fall-back_v1", "_v1"],
+    ["fallback", "fallback_v", "fallback_v0", "fallback_vx", "_v1"],
 )
 def test_split_unique_settings_name_raises_on_invalid(unique_name: str) -> None:
     """Strings not of the form <name>_v<version> are rejected."""

@@ -98,11 +98,7 @@ def test_fallback_assignment_only_for_admins(  # noqa: PLR0913
 ) -> None:
     """Test that only admins can assign settings to _FALLBACK."""
     mock_find_projects.return_value = [project(id=FALLBACK_PROJECT_ID)]
-    mock_find_settings.return_value = [
-        settings(),
-        # archived settings are not offered
-        settings(id="old_v1", name="old", version=1, status=SettingsStatus.INACTIVE),
-    ]
+    mock_find_settings.return_value = [settings()]
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py")
     if is_admin:
@@ -114,6 +110,8 @@ def test_fallback_assignment_only_for_admins(  # noqa: PLR0913
 
     assert not at.exception
     assert len(at.selectbox(key="assign_settings_select").options) == 1
+    # archived settings are not offered
+    mock_find_settings.assert_called_with(statuses=[SettingsStatus.ACTIVE])
     assign_button = next(b for b in at.button if b.label == ASSIGN_BUTTON_LABEL)
     assert assign_button.disabled != is_admin
 

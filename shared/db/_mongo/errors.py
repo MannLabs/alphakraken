@@ -6,6 +6,7 @@ from typing import ParamSpec, TypeVar
 
 import mongoengine
 import pymongo.errors
+from mongoengine.errors import MongoEngineException
 
 from shared.domain.errors import (
     AlreadyExistsError,
@@ -34,7 +35,12 @@ def translate_errors(func: Callable[P, R]) -> Callable[P, R]:
             raise ValidationError(_messages(e)) from e
         except pymongo.errors.ConnectionFailure as e:
             raise DatabaseUnavailableError(str(e)) from e
-        except (pymongo.errors.PyMongoError, mongoengine.ConnectionFailure) as e:
+        except (
+            pymongo.errors.PyMongoError,
+            mongoengine.ConnectionFailure,
+            # on writes mongoengine wraps pymongo's OperationFailure in its own OperationError
+            MongoEngineException,
+        ) as e:
             raise DatabaseError(str(e)) from e
 
     return wrapper

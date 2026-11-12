@@ -15,7 +15,7 @@ class SettingsStatus:
 
 SETTINGS_VERSION_SEPARATOR = "_v"
 _UNIQUE_SETTINGS_NAME_REGEX = re.compile(
-    rf"^(?P<name>[a-zA-Z0-9_]+){SETTINGS_VERSION_SEPARATOR}(?P<version>[1-9][0-9]*)$"
+    rf"^(?P<name>.+){SETTINGS_VERSION_SEPARATOR}(?P<version>[1-9][0-9]*)$"
 )
 
 

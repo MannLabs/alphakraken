@@ -274,32 +274,33 @@ stays until slice 8b, which ports its project and settings queries.
 `unique_name` as the settings id; the REST API is fully fenced.
 
 **Technical scope**: `shared/domain/{projects,settings}.py`, `shared/db/{projects,settings,
-project_settings}.py` and backends, `rest_api/{service,main}.py`,
-`shared/{settings_scope_resolver,path_layout,display_paths}.py`.
+project_settings}.py` and backends, `rest_api/{service,main}.py`.
 
 **Implementation details**:
 - `Project` (`owner_email`), `Settings` (`id = unique_name`), `ProjectSettings`
-  (`project_id`, embedded `settings`) dataclasses; `projects.find(include_deleted, ids,
-  limit, offset)`, `projects.count`, `settings.find(name, include_archived, include_deleted,
-  limit, offset)`, `settings.get(unique_name)`, `settings.latest_active(name)`,
-  `project_settings.for_project(project_id)` (one assignments query plus one `in` query for
-  the settings).
-- REST projects and settings endpoints on these; `_project_to_dict`, `_settings_to_dict`,
-  `_assignment_to_dict` become `vars()` plus the field renames the schema needs;
-  `rest_api/main.py` lifespan calls `shared.db.ping()`.
-- `settings_scope_resolver`, `path_layout`, `display_paths` type-hint the dataclasses;
-  bodies unchanged; `_unique_by_id` keys on `unique_name`. ❗ Airflow passes documents to
-  these until slice 9b: the signatures take the document or the dataclass until then, as
-  the raw file ones do since slice 4, or `ty` fails on the Airflow callers.
+  (`project_id`, embedded `settings`) dataclasses; `projects.find(ids, include_deleted,
+  limit, offset)`, `projects.count`, `settings.find(name, include_deleted, limit, offset)`,
+  `settings.count`, `settings.get(unique_name)`, `project_settings.find(project_ids)` (one
+  assignments query plus one `in` query for the settings). Only what REST uses:
+  `settings.latest_active` and `include_archived` arrive with the webapp in slice 8b.
+- `split_unique_settings_name` and its separator move to `shared/domain/settings.py`.
+- REST projects and settings endpoints on these; the dicts are `vars()` without unset
+  fields. `rest_api/main.py` drops its `connect_db()` call and the lifespan: the backend
+  connects on first use. No `ping()` at startup, the API would refuse to start while the
+  database is briefly down, which it tolerates today.
 - The legacy `get_project_settings`, `get_settings_by_id`, `get_all_settings`,
   `get_latest_active_settings_by_name`, `get_active_project_ids` stay in `interface.py`
   for their webapp and Airflow callers until slice 8; they return documents, as today.
+- ❗ Moved to slice 8c: `settings_scope_resolver`, `path_layout`, `display_paths` type-hint
+  the dataclasses there, where their first dataclass caller appears. Airflow passes
+  documents to them until slice 9b, so the signatures take the document or the dataclass
+  in between, as the raw file ones do since slice 4, or `ty` fails on the Airflow callers.
 
 **Testing**: `pytest rest_api shared`; on the stack: `/projects/`, `/projects/{id}`,
-`/settings/`, `/settings/{name}_v{n}`, diff the JSON against the current version.
+`/settings/`, `/settings/{name}_v{n}`, diff the JSON against the current version
+(timestamps now carry the UTC offset).
 
-**Exit**: `rest_api/{service,main}.py` off the exemption list. The three `shared/*.py`
-modules stay on it until slice 9b for the document half of their signatures.
+**Exit**: `rest_api/**` off the exemption list.
 
 ### Slice 8a: users and alert suppressions, admin page (1 day)
 
@@ -362,6 +363,8 @@ fenced.
   `settings.py:580` becomes `project_settings.find()`; `ps.project.id` becomes
   `ps.project_id`; `projects.py:92` loop becomes one `project_settings.find()` grouped by
   project.
+- `settings_scope_resolver`, `path_layout`, `display_paths` type-hint the dataclasses next to
+  the documents (moved here from slice 7); `_unique_by_id` keys on `unique_name`.
 - Airflow `processor_impl.py`: `resolve_settings` returns unique names; `prepare_job` calls
   `settings.get(unique_name)`. **Deploy note**: in-flight processor runs carry ObjectIds in
   XCom and fail at `prepare_job` with `NotFoundError`; deploy with the quanting queue

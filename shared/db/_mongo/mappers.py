@@ -1,11 +1,15 @@
 """Mapping of Mongo documents to domain dataclasses."""
 
 from datetime import UTC, datetime
-from typing import cast, overload
+from typing import Any, cast, overload
+
+from mongoengine import Document
 
 from shared.db import models
 from shared.domain.alerts import AlertIssue, AlertSuppression
+from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import FileInfoItem, RawFile
+from shared.domain.settings import Settings
 from shared.domain.status import KrakenStatus
 from shared.domain.users import User
 
@@ -100,3 +104,62 @@ def to_user(doc: models.User) -> User:
         status=doc.status,
         created_at_=as_utc(doc.created_at_),
     )
+
+
+def to_project(doc: models.Project) -> Project:
+    """Map a project document."""
+    return Project(
+        id=doc.id,
+        name=doc.name,
+        description=doc.description,
+        status=doc.status,
+        owner_email=_reference_id(doc, "owner"),
+        created_at_=as_utc(doc.created_at_),
+    )
+
+
+def to_settings(doc: models.Settings) -> Settings:
+    """Map a settings document; its id is the unique name."""
+    return Settings(
+        id=doc.unique_name,
+        number=doc.number,
+        name=doc.name,
+        version=doc.version,
+        description=doc.description,
+        fasta_file_name=doc.fasta_file_name,
+        speclib_file_name=doc.speclib_file_name,
+        config_file_name=doc.config_file_name,
+        config_params=doc.config_params,
+        software_type=doc.software_type,
+        software=doc.software,
+        runner_name=doc.runner_name,
+        metrics_type=doc.metrics_type,
+        slurm_cpus_per_task=doc.slurm_cpus_per_task,
+        slurm_mem=doc.slurm_mem,
+        slurm_time=doc.slurm_time,
+        num_threads=doc.num_threads,
+        status=doc.status,
+        owner_email=_reference_id(doc, "owner"),
+        created_at_=as_utc(doc.created_at_),
+    )
+
+
+def to_project_settings(
+    doc: models.ProjectSettings, settings: Settings
+) -> ProjectSettings:
+    """Map a project settings document, with its already loaded settings."""
+    return ProjectSettings(
+        id=str(doc.pk),
+        project_id=_reference_id(doc, "project"),
+        settings=settings,
+        scopes=list(doc.scopes),
+        excluded_scopes=list(doc.excluded_scopes),
+        raw_file_id_filter=list(doc.raw_file_id_filter),
+        raw_file_id_exclude_filter=list(doc.raw_file_id_exclude_filter),
+        created_at_=as_utc(doc.created_at_),
+    )
+
+
+def _reference_id(doc: Document, field: str) -> Any:
+    """Return the id a reference field points to, None if unset, without loading the referenced document."""
+    return doc.to_mongo().get(field)

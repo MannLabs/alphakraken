@@ -23,7 +23,7 @@ def _settings_df() -> pd.DataFrame:
     """Get two active settings entries as the page reads them from the DB."""
     return pd.DataFrame(
         {
-            "_id": [1, 2],
+            "id": ["new settings_v1", "another settings_v1"],
             "created_at_": ["2021-01-01", "2021-01-02"],
             "created_at": [
                 datetime.fromtimestamp(0, tz=pytz.utc),
@@ -41,9 +41,9 @@ def _settings_df() -> pd.DataFrame:
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings(
     mock_df: MagicMock,
@@ -81,9 +81,9 @@ def test_settings(
     assert expected_data == at.table[0].value.to_dict()
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_runner_selectbox_offers_the_declared_runners(
     mock_df: MagicMock,
@@ -105,9 +105,9 @@ def test_settings_runner_selectbox_offers_the_declared_runners(
 
 
 @patch.dict(RUNNERS, {}, clear=True)
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_without_runners_shows_notice_instead_of_form(
     mock_df: MagicMock,
@@ -131,7 +131,13 @@ def _settings_df_with_software() -> pd.DataFrame:
     """Get settings entries of mixed software type and runner, youngest first, as df_from_db_data sorts them."""
     return pd.DataFrame(
         {
-            "_id": [1, 2, 3, 4, 5],
+            "id": [
+                "young_v2",
+                "old_v1",
+                "other_type_v1",
+                "other_runner_v1",
+                "retired_runner_v1",
+            ],
             "created_at_": [
                 "2021-01-05",
                 "2021-01-04",
@@ -155,9 +161,9 @@ def _settings_df_with_software() -> pd.DataFrame:
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_offers_the_used_software(
     mock_df: MagicMock,
@@ -185,9 +191,9 @@ def test_settings_software_selectbox_offers_the_used_software(
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_without_used_software_offers_adding_one(
     mock_df: MagicMock,
@@ -210,9 +216,9 @@ def test_settings_software_selectbox_without_used_software_offers_adding_one(
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
     mock_df: MagicMock,
@@ -242,9 +248,9 @@ OWNER_SELECT_LABEL = "Owner"
 
 
 @patch("shared.db.users.find")
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_owner_is_shown_and_prefilled_for_new_version(
     mock_df: MagicMock,
@@ -274,9 +280,9 @@ def test_settings_owner_is_shown_and_prefilled_for_new_version(
     assert owner_select.value == "a@b.de"
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_without_users_shows_no_owner_select(
     mock_df: MagicMock,
@@ -294,11 +300,11 @@ def test_settings_without_users_shows_no_owner_select(
     assert OWNER_SELECT_LABEL not in [s.label for s in at.selectbox]
 
 
-@patch("shared.db.interface.create_settings")
+@patch("shared.db.settings.create")
 @patch("shared.db.users.find")
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_create_settings_passes_selected_owner(  # noqa: PLR0913
     mock_df: MagicMock,

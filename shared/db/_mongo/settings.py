@@ -1,5 +1,7 @@
 """Settings queries on MongoDB."""
 
+from typing import Any
+
 from mongoengine import QuerySet
 
 from shared.db import models
@@ -43,13 +45,34 @@ def count(*, name: str | None, include_deleted: bool) -> int:
 @translate_errors
 def get(unique_name: str) -> Settings:
     """Return the settings with the given unique name, cf. `shared.db.settings`."""
+    ensure_connected()
+    doc = _by_unique_name(unique_name).first()
+    if doc is None:
+        raise NotFoundError(f"No settings {unique_name}")
+    return to_settings(doc)
+
+
+def _by_unique_name(unique_name: str) -> QuerySet:
+    """Return the query for the settings with the given unique name, e.g. `fallback_v7`."""
     try:
         name, version = split_unique_settings_name(unique_name)
     except ValueError as e:
         raise NotFoundError(str(e)) from e
+    return models.Settings.objects(name=name, version=version)
 
+
+@translate_errors
+def create(*, owner_email: str | None, **fields: Any) -> Settings:
+    """Insert new settings, cf. `shared.db.settings`."""
     ensure_connected()
-    doc = models.Settings.objects(name=name, version=version).first()
-    if doc is None:
-        raise NotFoundError(f"No settings {unique_name}")
-    return to_settings(doc)
+    owner = models.User.objects.get(email=owner_email) if owner_email else None
+    settings = models.Settings(owner=owner, **fields)
+    settings.save(force_insert=True)
+    return to_settings(settings)
+
+
+@translate_errors
+def set_status(unique_name: str, status: str) -> None:
+    """Set the status of the settings with the given unique name."""
+    ensure_connected()
+    _by_unique_name(unique_name).update_one(status=status)

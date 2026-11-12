@@ -10,6 +10,7 @@ from bson import ObjectId
 
 from shared.db import alerts
 from shared.db._mongo import models
+from shared.domain.errors import ValidationError
 from shared.tests.factories import alert_issue, alert_suppression
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo
@@ -90,7 +91,7 @@ def test_find_suppressions(mock_models: MagicMock, *, active_only: bool) -> None
 
 @patch("shared.db._mongo.alerts.models")
 def test_add_suppression(mock_models: MagicMock) -> None:
-    """A new suppression is saved with the given fields."""
+    """A new suppression is saved with the given fields, stripped."""
     fields: dict[str, Any] = {
         "alert": "PumpPressureAlert",
         "instrument_id": "astral1",
@@ -101,10 +102,21 @@ def test_add_suppression(mock_models: MagicMock) -> None:
         "created_by": "me",
     }
 
-    alerts.add_suppression(**fields)
+    alerts.add_suppression(**{**fields, "alert": " PumpPressureAlert "})
 
     mock_models.AlertSuppression.assert_called_once_with(**fields)
     mock_models.AlertSuppression.return_value.save.assert_called_once()
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_add_invalid_suppression_raises(mock_models: MagicMock) -> None:
+    """An invalid suppression is rejected before anything is stored."""
+    with pytest.raises(ValidationError, match="comment: Field required"):
+        alerts.add_suppression(
+            alert="PumpPressureAlert", instrument_id="*", identifier="*", details="*"
+        )
+
+    mock_models.AlertSuppression.assert_not_called()
 
 
 @patch("shared.db._mongo.alerts.models")

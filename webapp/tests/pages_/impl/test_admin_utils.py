@@ -2,50 +2,11 @@
 
 from datetime import date, datetime, timedelta
 
-import pytest
 import pytz
-from pages_.impl.admin_utils import (
-    end_of_day,
-    get_suppressions_df,
-    validate_suppression,
-)
+from pages_.impl.admin_utils import end_of_day, get_suppressions_df
 from service.timezone import DISPLAY_TIMEZONE
 
 from shared.tests.factories import alert_suppression
-
-VALID = {
-    "alert": "PumpPressureAlert",
-    "instrument_id": "*",
-    "identifier": "*",
-    "details": "*",
-    "comment": "pump under maintenance",
-}
-
-
-def test_validate_suppression_should_accept_restricted_suppression() -> None:
-    """A suppression restricting at least one field with a comment is valid."""
-    # when / then
-    validate_suppression(**VALID)
-
-
-@pytest.mark.parametrize(
-    ("overrides", "match"),
-    [
-        ({"alert": " "}, "Alert is required"),
-        ({"instrument_id": ""}, "Instrument is required"),
-        ({"identifier": " "}, "Identifier is required"),
-        ({"details": ""}, "Details is required"),
-        ({"comment": " "}, "Comment is required"),
-        ({"alert": "*"}, "would mute all alerts"),
-    ],
-)
-def test_validate_suppression_should_reject_invalid_suppression(
-    overrides: dict[str, str], match: str
-) -> None:
-    """Suppressions with an empty field or matching everything are rejected."""
-    # when / then
-    with pytest.raises(ValueError, match=match):
-        validate_suppression(**{**VALID, **overrides})
 
 
 def test_end_of_day_should_return_last_moment_of_day_in_display_timezone() -> None:

@@ -2,6 +2,12 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from shared.domain.inputs import empty_to_none
+from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
 
@@ -38,3 +44,44 @@ class AlertSuppression:
     expires_at: datetime | None
     created_by: str | None
     created_at_: datetime
+
+
+class NewSuppression(BaseModel):
+    """An alert suppression to add, cf. `AlertSuppression`. Strings are stripped."""
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    alert: str = Field(max_length=64)
+    instrument_id: str = Field(max_length=64)
+    identifier: str = Field(max_length=256)
+    details: str = Field(max_length=256)
+    comment: str = Field(max_length=512)
+    expires_at: datetime | None = None
+    created_by: str | None = Field(default=None, max_length=64)
+
+    _empty_to_none = field_validator("created_by", mode="before")(empty_to_none)
+
+    @field_validator("alert", "instrument_id", "identifier", "details")
+    @classmethod
+    def _match_field_given(cls, value: str) -> str:
+        if not value:
+            raise ValueError(
+                f"is required, use '{ALERT_SUPPRESSION_WILDCARD}' for any."
+            )
+        return value
+
+    @field_validator("comment")
+    @classmethod
+    def _comment_given(cls, value: str) -> str:
+        if not value:
+            raise ValueError("is required: state why the alerts are muted.")
+        return value
+
+    @model_validator(mode="after")
+    def _not_all_wildcards(self) -> Self:
+        if all(
+            field == ALERT_SUPPRESSION_WILDCARD
+            for field in (self.alert, self.instrument_id, self.identifier, self.details)
+        ):
+            raise ValueError("This would mute all alerts. Restrict at least one field.")
+        return self

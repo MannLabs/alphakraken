@@ -7,7 +7,7 @@ from mongoengine import Q
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_alert_issue, to_alert_suppression
-from shared.domain.alerts import AlertIssue, AlertSuppression
+from shared.domain.alerts import AlertIssue, AlertSuppression, NewSuppression
 
 
 @db_backend_function
@@ -41,26 +41,9 @@ def find_suppressions(*, active_only: bool) -> list[AlertSuppression]:
 
 
 @db_backend_function
-def add_suppression(  # noqa: PLR0913
-    *,
-    alert: str,
-    instrument_id: str,
-    identifier: str,
-    details: str,
-    comment: str,
-    expires_at: datetime | None,
-    created_by: str | None,
-) -> None:
+def add_suppression(new: NewSuppression) -> None:
     """Add an alert suppression, cf. `shared.db.alerts`."""
-    models.AlertSuppression(
-        alert=alert,
-        instrument_id=instrument_id,
-        identifier=identifier,
-        details=details,
-        comment=comment,
-        expires_at=expires_at,
-        created_by=created_by,
-    ).save()
+    models.AlertSuppression(**new.model_dump()).save()
 
 
 @db_backend_function

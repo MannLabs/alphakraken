@@ -17,8 +17,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.db import alerts as alert_store
@@ -86,16 +85,12 @@ with c1.form("add_user_form"):
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
 if add_submit:
-    try:
+    with toast_result(f"Added user '{clean_initials(new_initials)}'."):
         user_store.add(
             email=new_email,
             initials=clean_initials(new_initials),
             messenger_id=clean_messenger_id(new_messenger_id),
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast(f"Added user '{clean_initials(new_initials)}'.")
 
 # cleared, as the report lists the failed rows
 with c1.form("bulk_add_users_form"):
@@ -160,16 +155,12 @@ if all_users:
 
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
-        try:
+        with toast_result(f"Updated user '{clean_initials(initials)}'."):
             user_store.update(
                 selected_email,
                 initials=clean_initials(initials),
                 messenger_id=clean_messenger_id(messenger_id),
             )
-        except Exception as e:  # noqa: BLE001
-            show_error_toast(str(e))
-        else:
-            show_success_toast(f"Updated user '{clean_initials(initials)}'.")
 
     is_active = user.status == UserStatus.ACTIVE
     if col_status.button(
@@ -177,12 +168,12 @@ if all_users:
         disabled=DISABLE_WRITE,
         help="Inactive users can't be selected as owner, but stay owner of existing projects and settings.",
     ):
-        user_store.set_status(
-            selected_email, UserStatus.INACTIVE if is_active else UserStatus.ACTIVE
-        )
-        show_success_toast(
+        with toast_result(
             f"{'Deactivated' if is_active else 'Reactivated'} user '{user.initials}'."
-        )
+        ):
+            user_store.set_status(
+                selected_email, UserStatus.INACTIVE if is_active else UserStatus.ACTIVE
+            )
 
 
 # ########################################### ALERT SUPPRESSIONS
@@ -228,12 +219,8 @@ else:
                 disabled=DISABLE_WRITE,
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result("Deleted alert suppression."):
                     alert_store.delete_suppression(suppression_id)
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
-                else:
-                    show_success_toast("Deleted alert suppression.")
 
 st.markdown("### Add suppression")
 
@@ -283,7 +270,7 @@ with st.form("add_suppression_form"):
     )
 
 if form_submit:
-    try:
+    with toast_result("Added alert suppression."):
         validate_suppression(
             alert=alert,
             instrument_id=instrument_id,
@@ -300,7 +287,3 @@ if form_submit:
             expires_at=end_of_day(expires_on) if expires_on else None,
             created_by=empty_to_none(created_by),
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast("Added alert suppression.")

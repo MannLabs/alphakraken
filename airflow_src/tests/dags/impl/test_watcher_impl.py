@@ -22,7 +22,9 @@ from mongoengine import NotUniqueError
 from plugins.common.keys import OpArgs, XComKeys
 
 from shared.db.models import RawFile
+from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
+from shared.tests.factories import project
 
 SOME_INSTRUMENT_ID = "_test1_"
 
@@ -295,7 +297,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 
-@patch("dags.impl.watcher_impl.get_active_project_ids")
+@patch("shared.db.projects.find")
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl.get_unique_project_id")
 @patch("dags.impl.watcher_impl._file_meets_age_criterion")
@@ -310,7 +312,12 @@ def test_decide_raw_file_handling(
     """A test for the decide_raw_file_handling function."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = {"file1": "", "file2": "", "file3": "123-"}
-    mock_get_project_ids.return_value = ["project1", "project2"]
+    # archived projects do not take new raw files
+    mock_get_project_ids.return_value = [
+        project(id="project1"),
+        project(id="project2"),
+        project(id="archived", status=ProjectStatus.INACTIVE),
+    ]
     mock_get_unique.side_effect = [None, "project1", "project2"]
     mock_file_meets.side_effect = [True, True, False]
 

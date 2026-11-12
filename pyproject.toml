@@ -58,7 +58,6 @@ ignore = [
 # legacy, cf. design_docs/DB_INTERFACE_PLAN.md: remove an entry once the module is ported
 "shared/path_layout.py" = ["TID251"]
 "shared/display_paths.py" = ["TID251"]
-"shared/settings_scope_resolver.py" = ["TID251"]
 "shared/tests/test_path_layout.py" = ["TID251"]
 "shared/tests/test_display_paths.py" = ["TID251"]
 "shared/tests/test_runners.py" = ["TID251"]

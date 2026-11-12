@@ -1,40 +1,19 @@
 """Scope resolution for project-settings assignments."""
 
 import logging
-from typing import TypeVar, overload
 
-from shared.db import models
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
 
-# documents are passed by Airflow until it reads through `shared.db`, cf. DB_INTERFACE_PLAN.md slice 8d
-S = TypeVar("S", Settings, models.Settings)
 
-
-@overload
 def resolve_scoped_settings(
     project_settings: list[ProjectSettings],
     *,
     instrument_id: str,
     instrument_type: str,
     raw_file_id: str | None = None,
-) -> list[Settings]: ...
-@overload
-def resolve_scoped_settings(
-    project_settings: list[models.ProjectSettings],
-    *,
-    instrument_id: str,
-    instrument_type: str,
-    raw_file_id: str | None = None,
-) -> list[models.Settings]: ...
-def resolve_scoped_settings(
-    project_settings: list[ProjectSettings] | list[models.ProjectSettings],
-    *,
-    instrument_id: str,
-    instrument_type: str,
-    raw_file_id: str | None = None,
-) -> list[Settings] | list[models.Settings]:
+) -> list[Settings]:
     """Filter project-settings down to those applying to the given instrument and raw file.
 
     An assignment applies if any of its `scopes` matches the instrument, none of its
@@ -45,7 +24,7 @@ def resolve_scoped_settings(
 
     Settings with status "inactive" are deliberately not excluded here.
     """
-    result = []
+    result: list[Settings] = []
     for ps in project_settings:
         prefix = f"  [{ps.settings.name}] scopes={list(ps.scopes)!r}"
 
@@ -107,14 +86,14 @@ def _name_excluded(filters: list[str], raw_file_id: str) -> bool:
     return any(f.lower() in raw_file_id.lower() for f in filters or [])
 
 
-def _unique_by_id(settings_list: list[S]) -> list[S]:
+def _unique_by_id(settings_list: list[Settings]) -> list[Settings]:
     """Drop repeated settings, keeping first occurrence order."""
     seen: set = set()
-    unique: list[S] = []
+    unique: list[Settings] = []
     for s in settings_list:
-        if s.id in seen:  # type: ignore[unresolved-attribute]
+        if s.id in seen:
             logging.info(f"  [{s.name}] -> DROPPED (already resolved)")
             continue
-        seen.add(s.id)  # type: ignore[unresolved-attribute]
+        seen.add(s.id)
         unique.append(s)
     return unique

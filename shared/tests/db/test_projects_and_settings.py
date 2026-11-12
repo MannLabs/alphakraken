@@ -647,3 +647,22 @@ def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:
     )
     mock_models.ProjectSettings.objects.assert_called_once_with(id="some_id")
     mock_models.ProjectSettings.objects.return_value.delete.assert_called_once()
+
+
+def test_find_project_settings_raises_for_missing_settings(
+    mock_models: MagicMock,
+) -> None:
+    """An assignment whose settings no longer exist is reported, as dereferencing it was before."""
+    assignment = models.ProjectSettings(
+        id=ASSIGNMENT_OBJECT_ID,
+        project=_project_document("P1"),
+        settings=_settings_document(),
+        created_at_=NAIVE_TIME,
+    )
+    mock_models.ProjectSettings.objects.return_value.__iter__.return_value = [
+        assignment
+    ]
+    mock_models.Settings.objects.return_value = []
+
+    with pytest.raises(NotFoundError, match=str(ASSIGNMENT_OBJECT_ID)):
+        project_settings.find(["P1"])

@@ -31,7 +31,6 @@ from dags.impl.processor_impl import (
     resolve_settings,
     submit_job,
 )
-from mongoengine import DoesNotExist
 from plugins.common.keys import (
     JobStates,
     Tasks,
@@ -40,6 +39,7 @@ from plugins.common.keys import (
 
 from airflow_src.tests.helpers import container_locations, runner_view
 from shared.db.models import RawFile
+from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFileStatus
 from shared.keys import JobEngines
 from shared.path_views import Locations, View
@@ -207,7 +207,7 @@ def test_create_quanting_env_custom_software(
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_project_settings")
+@patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_resolve_settings(
@@ -238,7 +238,7 @@ def test_resolve_settings(
     result = resolve_settings(raw_file_id="test_file.raw")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_settings.assert_called_once_with("some_project_id")
+    mock_get_settings.assert_called_once_with(["some_project_id"])
     mock_resolve_scoped.assert_called_once()
     mock_get_internal_output_path.assert_called_once_with(mock_raw_file)
     mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
@@ -248,7 +248,7 @@ def test_resolve_settings(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_project_settings")
+@patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_resolve_settings_no_project_raise(
     mock_get_instrument_settings: MagicMock,
@@ -266,14 +266,14 @@ def test_resolve_settings_no_project_raise(
 
     mock_get_instrument_settings.return_value = "thermo"
 
-    mock_get_settings.side_effect = DoesNotExist
+    mock_get_settings.side_effect = NotFoundError("gone")
 
     with pytest.raises(AirflowFailException):
         resolve_settings(raw_file_id="test_file.raw")
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_project_settings")
+@patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_resolve_settings_no_settings_raise(
@@ -301,7 +301,7 @@ def test_resolve_settings_no_settings_raise(
 
 
 @patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("shared.db.settings.get")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job(
@@ -357,7 +357,7 @@ _WINDOWS_RUNNER = Runner(
 
 
 @patch.dict(RUNNERS, {"win_box": _WINDOWS_RUNNER})
-@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("shared.db.settings.get")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 def test_prepare_job_windows_runner_yields_windows_paths(
     mock_get_raw_file_by_id: MagicMock,
@@ -552,7 +552,7 @@ def test_check_content_rejects_malicious_field(
 
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("shared.db.settings.get")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_validation_error_raises(
@@ -590,7 +590,7 @@ def test_prepare_job_validation_error_raises(
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
 
 
-@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("shared.db.settings.get")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 def test_prepare_job_unknown_runner_raises(
     mock_get_raw_file_by_id: MagicMock,
@@ -766,7 +766,7 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("shared.db.settings.get")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_add_mode(  # noqa: PLR0913

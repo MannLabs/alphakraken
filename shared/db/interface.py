@@ -12,15 +12,10 @@ from pymongo import UpdateOne
 from shared.db.engine import connect_db
 from shared.db.models import (
     Metrics,
-    Project,
-    ProjectSettings,
     RawFile,
-    Settings,
     SlurmJob,
-    User,
     get_slurm_job_db_id,
 )
-from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
 from shared.domain.slurm_jobs import SlurmJobQueueStates
 
@@ -193,29 +188,6 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
         output_display_base_path=output_display_base_path,
         **metrics,
     ).save()
-
-
-def get_active_project_ids() -> list[str]:
-    """Get the ids of all projects that are neither archived nor deleted."""
-    connect_db()
-    return [p.id for p in Project.objects(status=ProjectStatus.ACTIVE)]
-
-
-def get_project_settings(project_id: str) -> list[ProjectSettings]:
-    """Get all project-settings assignments for a project."""
-    connect_db()
-    return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
-
-
-def _get_owner(owner_email: str | None) -> User | None:
-    """Get the user to set as owner, raises if it does not exist."""
-    return User.objects.get(email=owner_email) if owner_email else None
-
-
-def get_settings_by_id(settings_id: str) -> Settings:
-    """Get a settings entry by its ID."""
-    connect_db()
-    return Settings.objects.get(id=settings_id)
 
 
 def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:

@@ -12,8 +12,6 @@ from pymongo import UpdateOne
 from shared.db.interface import (
     add_metrics_to_raw_file,
     add_raw_file,
-    get_active_project_ids,
-    get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
     get_raw_files_by_names,
@@ -21,7 +19,6 @@ from shared.db.interface import (
     update_raw_file,
     update_slurm_jobs,
 )
-from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
 
 
@@ -258,47 +255,6 @@ def test_add_metrics_to_raw_file_happy_path(
         metric1=1,
         metric2=2,
     )
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Project")
-def test_get_active_project_ids(
-    mock_project: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """get_active_project_ids returns the ids of all projects that are neither archived nor deleted."""
-    # given
-    mock_project.objects.return_value = [
-        MagicMock(id="P1234"),
-        MagicMock(id="P1235"),
-    ]
-
-    # when
-    result = get_active_project_ids()
-
-    # then
-    assert result == ["P1234", "P1235"]
-    mock_project.objects.assert_called_once_with(status=ProjectStatus.ACTIVE)
-
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-def test_get_project_settings(
-    mock_project_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that get_project_settings returns all assignments for a project."""
-    mock_ps1 = MagicMock()
-    mock_ps2 = MagicMock()
-    mock_project_settings.objects.return_value.order_by.return_value = [
-        mock_ps1,
-        mock_ps2,
-    ]
-
-    result = get_project_settings("P1234")
-
-    assert result == [mock_ps1, mock_ps2]
-    mock_connect_db.assert_called_once()
 
 
 @patch("shared.db.interface.connect_db")

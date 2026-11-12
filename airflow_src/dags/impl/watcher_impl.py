@@ -25,12 +25,13 @@ from impl.project_id_handler import get_unique_project_id
 from mongoengine import NotUniqueError
 from raw_file_wrapper_factory import RawFileWrapperFactory, get_main_file_size_from_db
 
+from shared.db import projects as project_store
 from shared.db.interface import (
     add_raw_file,
     delete_raw_file,
-    get_active_project_ids,
     get_raw_files_by_names,
 )
+from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
 
 
@@ -217,7 +218,11 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
     )
 
-    all_project_ids = get_active_project_ids()
+    all_project_ids = [
+        project.id
+        for project in project_store.find()
+        if project.status == ProjectStatus.ACTIVE
+    ]
 
     raw_file_names_with_decisions: dict[str, tuple[str, bool, bool]] = {}
     for raw_file_name, is_collision in raw_file_names_to_process.items():

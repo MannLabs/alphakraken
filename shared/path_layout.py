@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from shared.db.models import RawFile, Settings, get_created_at_year_month
+from shared.db.models import RawFile, get_created_at_year_month
 from shared.domain import raw_files
+from shared.domain.settings import Settings
 
 OUTPUT_FOLDER_PREFIX = "out_"
 

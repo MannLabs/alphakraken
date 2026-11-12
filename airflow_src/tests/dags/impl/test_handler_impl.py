@@ -1455,7 +1455,7 @@ def test_start_acquisition_processor_skipped_if_not_suitable(
 
 
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[MagicMock()])
-@patch("dags.impl.handler_impl.get_project_settings", return_value=[MagicMock()])
+@patch("shared.db.project_settings.find", return_value=[MagicMock()])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value="thermo")
 def test_is_settings_configured_returns_true_when_settings_exist(
     mock_get_instrument_settings: MagicMock,  # noqa: ARG001
@@ -1473,12 +1473,12 @@ def test_is_settings_configured_returns_true_when_settings_exist(
 
     # then
     assert result is True
-    mock_get_settings.assert_called_once_with("project1")
+    mock_get_settings.assert_called_once_with(["project1"])
     mock_resolve_scoped.assert_called_once()
 
 
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[])
-@patch("dags.impl.handler_impl.get_project_settings", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value="thermo")
 def test_is_settings_configured_returns_false_when_settings_do_not_exist(
     mock_get_instrument_settings: MagicMock,  # noqa: ARG001
@@ -1496,5 +1496,5 @@ def test_is_settings_configured_returns_false_when_settings_do_not_exist(
 
     # then
     assert result is False
-    mock_get_settings.assert_called_once_with("project1")
+    mock_get_settings.assert_called_once_with(["project1"])
     mock_resolve_scoped.assert_called_once()

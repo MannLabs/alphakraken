@@ -42,6 +42,12 @@ def get(unique_name: str) -> Settings:
     return _backend.get(unique_name)
 
 
+def latest_active(name: str) -> Settings | None:
+    """Return the latest active version of the settings with the given name, None if there is none."""
+    active = [s for s in find(name=name) if s.status == SettingsStatus.ACTIVE]
+    return max(active, key=lambda s: s.version, default=None)
+
+
 def create(  # noqa: PLR0913
     *,
     name: str,

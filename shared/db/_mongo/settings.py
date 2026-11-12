@@ -46,13 +46,13 @@ def count(*, name: str | None, include_deleted: bool) -> int:
 def get(unique_name: str) -> Settings:
     """Return the settings with the given unique name, cf. `shared.db.settings`."""
     ensure_connected()
-    doc = _by_unique_name(unique_name).first()
+    doc = settings_by_unique_name(unique_name).first()
     if doc is None:
         raise NotFoundError(f"No settings {unique_name}")
     return to_settings(doc)
 
 
-def _by_unique_name(unique_name: str) -> QuerySet:
+def settings_by_unique_name(unique_name: str) -> QuerySet:
     """Return the query for the settings with the given unique name, e.g. `fallback_v7`."""
     try:
         name, version = split_unique_settings_name(unique_name)
@@ -75,4 +75,4 @@ def create(*, owner_email: str | None, **fields: Any) -> Settings:
 def set_status(unique_name: str, status: str) -> None:
     """Set the status of the settings with the given unique name."""
     ensure_connected()
-    _by_unique_name(unique_name).update_one(status=status)
+    settings_by_unique_name(unique_name).update_one(status=status)

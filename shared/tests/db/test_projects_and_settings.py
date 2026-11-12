@@ -238,6 +238,72 @@ def test_find_all_project_settings(mock_models: MagicMock) -> None:
     mock_models.ProjectSettings.objects.assert_called_once_with()
 
 
+@pytest.fixture
+def updatable(assignable: dict[str, MagicMock]) -> Iterator[dict[str, MagicMock]]:
+    """Assignment `assignment1` of `fallback_v7` to `P1`, with `fallback_v8` as latest active version."""
+    assignable["find_assignments"].return_value = [
+        factories.project_settings(
+            scopes=["thermo"],
+            excluded_scopes=["test1"],
+            raw_file_id_filter=["a"],
+            raw_file_id_exclude_filter=["blank"],
+        )
+    ]
+    with patch(
+        "shared.db.settings.latest_active",
+        return_value=factories.settings(id="fallback_v8", version=8),
+    ) as latest_active:
+        yield {**assignable, "latest_active": latest_active}
+
+
+def test_update_assignment_to_latest(updatable: dict[str, MagicMock]) -> None:
+    """The latest version is assigned with the same scopes and filters, then the old assignment is removed."""
+    updatable["backend_assign"].side_effect = lambda *_, **__: updatable[
+        "backend_unassign"
+    ].assert_not_called()
+
+    project_settings.update_to_latest("assignment1")
+
+    updatable["latest_active"].assert_called_once_with("fallback")
+    updatable["backend_assign"].assert_called_once_with(
+        "P1",
+        "fallback_v8",
+        scopes=["thermo"],
+        excluded_scopes=["test1"],
+        raw_file_id_filter=["a"],
+        raw_file_id_exclude_filter=["blank"],
+    )
+    updatable["backend_unassign"].assert_called_once_with("assignment1")
+
+
+@pytest.mark.parametrize("latest", [None, factories.settings()])
+def test_update_assignment_without_newer_version_raises(
+    updatable: dict[str, MagicMock], latest: Any
+) -> None:
+    """Without a newer active version, the assignment is left alone."""
+    updatable["latest_active"].return_value = latest
+
+    with pytest.raises(ValidationError, match="No newer active version"):
+        project_settings.update_to_latest("assignment1")
+
+    updatable["backend_assign"].assert_not_called()
+    updatable["backend_unassign"].assert_not_called()
+
+
+def test_update_assignment_keeps_old_one_if_assigning_fails(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """A failed assignment of the latest version does not cost the current one."""
+    updatable["find_projects"].return_value = [
+        factories.project(status=ProjectStatus.INACTIVE)
+    ]
+
+    with pytest.raises(ValidationError, match="Cannot assign settings"):
+        project_settings.update_to_latest("assignment1")
+
+    updatable["backend_unassign"].assert_not_called()
+
+
 # settings writes: the rules are in the API module, the backend only stores
 
 CREATE_FIELDS: dict[str, Any] = {
@@ -284,6 +350,54 @@ def test_create_settings_first_version(
 
     stored = mock_backend_create.call_args.kwargs
     assert (stored["version"], stored["number"]) == (1, 1)
+
+
+@patch("shared.db._mongo.settings.set_status")
+@patch("shared.db._mongo.settings.create")
+@patch("shared.db.settings.count", return_value=2)
+@patch("shared.db.settings.find")
+def test_create_settings_archiving_previous(
+    mock_find: MagicMock,
+    mock_count: MagicMock,  # noqa: ARG001
+    mock_backend_create: MagicMock,
+    mock_set_status: MagicMock,
+) -> None:
+    """The latest non-deleted version of the name is archived after the new one is created."""
+    mock_find.return_value = [
+        factories.settings(id="fallback_v8", version=8, status=SettingsStatus.DELETED),
+        factories.settings(id="fallback_v7", version=7),
+        factories.settings(id="fallback_v6", version=6),
+    ]
+    mock_backend_create.side_effect = lambda **_: mock_set_status.assert_not_called()
+
+    settings.create(**CREATE_FIELDS, archive_previous=True)
+
+    mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.INACTIVE)
+
+
+@pytest.mark.parametrize(
+    ("existing", "archive_previous"),
+    [([], True), ([factories.settings()], False)],
+)
+@patch("shared.db._mongo.settings.set_status")
+@patch("shared.db._mongo.settings.create")
+@patch("shared.db.settings.count", return_value=0)
+@patch("shared.db.settings.find")
+def test_create_settings_without_archiving(  # noqa: PLR0913
+    mock_find: MagicMock,
+    mock_count: MagicMock,  # noqa: ARG001
+    mock_backend_create: MagicMock,  # noqa: ARG001
+    mock_set_status: MagicMock,
+    existing: list[Any],
+    *,
+    archive_previous: bool,
+) -> None:
+    """Nothing is archived without a previous version or without being asked to."""
+    mock_find.return_value = existing
+
+    settings.create(**CREATE_FIELDS, archive_previous=archive_previous)
+
+    mock_set_status.assert_not_called()
 
 
 def test_create_settings_requires_runner() -> None:

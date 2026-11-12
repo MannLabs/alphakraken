@@ -25,7 +25,13 @@ from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS
-from shared.domain.projects import ProjectStatus
+from shared.domain.projects import (
+    FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX,
+    PROJECT_ID_MAX_LENGTH,
+    PROJECT_ID_MIN_LENGTH,
+    SPECIAL_PROJECT_IDS,
+    ProjectStatus,
+)
 from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.path_views import Locations
@@ -213,25 +219,9 @@ with c_assign1:
                 ):
                     try:
                         _check_assignment_allowed(selected_project_id)
-                        project_settings_store.check_not_assigned_with_same_filters(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            list(ps.raw_file_id_filter),
-                            list(ps.raw_file_id_exclude_filter),
-                        )
-                        project_settings_store.unassign(ps_id)
-                        project_settings_store.assign(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            scopes=list(ps.scopes),
-                            excluded_scopes=list(ps.excluded_scopes),
-                            raw_file_id_filter=list(ps.raw_file_id_filter),
-                            raw_file_id_exclude_filter=list(
-                                ps.raw_file_id_exclude_filter
-                            ),
-                        )
+                        updated = project_settings_store.update_to_latest(ps_id)
                         show_success_toast(
-                            f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
+                            f"Updated '{ps.settings.name}' to version {updated.settings.version}."
                         )
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
@@ -356,7 +346,7 @@ with c_assign2:
 form_items = {
     "project_id": {
         "label": "Project Id*",
-        "max_chars": 16,
+        "max_chars": PROJECT_ID_MAX_LENGTH,
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
@@ -412,18 +402,14 @@ with c1.form("create_project_form"):
     )
 
 
-ALLOWED_CHARACTERS_IN_PROJECT_ID = r"[^A-Z0-9]"
-SPECIAL_PROJECT_IDS = ["_FALLBACK"]
-
-
 def _check_project_id(project_id: str) -> None:
     """Check if the project id is valid, raise ValueError if not."""
     if (
         project_id is None
-        or len(project_id) < 4  # noqa: PLR2004
-        or len(project_id) > 16  # noqa: PLR2004
+        or len(project_id) < PROJECT_ID_MIN_LENGTH
+        or len(project_id) > PROJECT_ID_MAX_LENGTH
         or project_id.isdigit()
-        or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
+        or re.findall(FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX, project_id)
     ) and project_id not in SPECIAL_PROJECT_IDS:
         raise ValueError(
             f"Invalid project id '{project_id}'. Please choose a different one."

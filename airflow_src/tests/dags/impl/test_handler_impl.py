@@ -1,9 +1,7 @@
 """Unit tests for handler_impl.py."""
 
-from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
@@ -26,24 +24,12 @@ from dags.impl.handler_impl import (
 )
 
 from shared.domain.raw_files import BackupStatus, InstrumentFileStatus, RawFileStatus
+from shared.tests.factories import raw_file
 
 FINALIZED_TS = 1786954471.0
 FINALIZED_AT = datetime.fromtimestamp(FINALIZED_TS, tz=pytz.utc)
 CREATION_TS = 1786953571.5998368
 CREATED_AT = datetime.fromtimestamp(CREATION_TS, tz=pytz.utc)
-
-
-@pytest.fixture(autouse=True)
-def _replace_on_mocks() -> Iterator[None]:
-    """Let `dataclasses.replace` set the changes on the mock raw files these tests use."""
-
-    def replace(obj: MagicMock, **changes: Any) -> MagicMock:
-        for name, value in changes.items():
-            setattr(obj, name, value)
-        return obj
-
-    with patch("dags.impl.handler_impl.dataclasses.replace", side_effect=replace):
-        yield
 
 
 @pytest.mark.parametrize(
@@ -75,9 +61,9 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = file_info
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info=file_info
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -118,7 +104,14 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_get_file_creation_timestamp.assert_called_once_with(
         mock_raw_file.original_name, mock_raw_file.instrument_id
     )
-    assert mock_raw_file.created_at == CREATED_AT
+    # the wrapper gets the raw file with the creation time re-read from the final file
+    wrapped_raw_file = (
+        mock_raw_file_wrapper_factory.create_write_wrapper.call_args.kwargs["raw_file"]
+    )
+    assert wrapped_raw_file.created_at == CREATED_AT
+    mock_get_raw_file_by_id.assert_called_once_with(
+        "test_file.raw", include_file_info=True
+    )
     mock_put_xcom.assert_has_calls(
         [
             call(ti, "target_folder_path", "/path/to/backup"),
@@ -167,9 +160,9 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = file_info
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info=file_info
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "some_etag", 1000)
@@ -253,9 +246,9 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     kwargs = {
         "params": {"raw_file_id": "test_file.wiff"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = file_info
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info=file_info
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.side_effect = [
@@ -347,9 +340,9 @@ def test_compute_checksum_main_file_missing(  # noqa: PLR0913
     kwargs = {
         "params": {"raw_file_id": "test_file.d"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info={}
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -396,9 +389,11 @@ def test_compute_checksum_different_file_info(
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {"test_file.raw": (1001, "some_other_hash")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw",
+        instrument_id="instrument1",
+        file_info={"test_file.raw": (1001, "some_other_hash")},
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -447,11 +442,11 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
         "params": {"raw_file_id": "test_file.raw"},
     }
     mock_get_airflow_variable.return_value = airflow_variable_value
-    mock_raw_file = MagicMock()
-    mock_raw_file.id = "test_file.raw"
-    mock_raw_file.instrument_id = "instrument1"
-    mock_raw_file.file_info = {"test_file.raw": (1000, "some_other_hash")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw",
+        instrument_id="instrument1",
+        file_info={"test_file.raw": (1000, "some_other_hash")},
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
@@ -560,9 +555,9 @@ def test_compute_checksum_no_files_found(
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = None
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info={}
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
@@ -596,10 +591,9 @@ def test_compute_checksum_no_files_found_accepted(
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.id = "test_file.raw"
-    mock_raw_file.file_info = None
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info={}
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
@@ -651,10 +645,9 @@ def test_compute_checksum_source_missing(  # noqa: PLR0913
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
-    mock_raw_file = MagicMock()
-    mock_raw_file.id = "test_file.raw"
-    mock_raw_file.file_info = None
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        id="test_file.raw", instrument_id="instrument1", file_info={}
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = airflow_variable_value
 

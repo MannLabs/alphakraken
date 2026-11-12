@@ -4,11 +4,13 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 from utils import short_digest
 
-from shared.db import metrics, raw_files
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
 from shared.domain.status import KrakenStatus, KrakenStatusEntities
@@ -54,19 +56,33 @@ class PressureChange:
         return self.younger.pressure - self.older.pressure
 
 
+@lru_cache(maxsize=1)
+def _pressure_data(
+    instrument_ids: tuple[str, ...], now: datetime
+) -> dict[str, list[PressureDataPoint]]:
+    """Return the pressure measurements, loaded once per check.
+
+    Both pump pressure alerts run in the same loop iteration with the same `now`, so the
+    second one gets the data the first one loaded.
+    """
+    return _load_pressure_data(list(instrument_ids), now)
+
+
 def _load_pressure_data(
     instrument_ids: list[str], now: datetime
 ) -> dict[str, list[PressureDataPoint]]:
     """Load the pressure measurements of the recent raw files per instrument, newest first."""
     cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
-    recent_files = raw_files.find(
-        raw_files.RawFileFilter(instrument_ids=instrument_ids, created_after=cutoff)
+    recent_files = raw_file_store.find(
+        raw_file_store.RawFileFilter(
+            instrument_ids=instrument_ids, created_after=cutoff
+        )
     )
     if not recent_files:
         logging.debug("No raw files found in lookback window")
         return {}
 
-    latest_metrics = metrics.latest_by_raw_file(
+    latest_metrics = metrics_store.latest_by_raw_file(
         [raw_file.id for raw_file in recent_files],
         fields=[GRADIENT_LENGTH_KEY, PRESSURE_KEY],
     )
@@ -174,7 +190,7 @@ class PumpPressureIncreaseAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             change = _detect_increase(
                 points, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
@@ -212,7 +228,7 @@ class PumpPressureHighAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             for point in _detect_high(points, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR):
                 issues.append(  # noqa: PERF401
                     Issue(

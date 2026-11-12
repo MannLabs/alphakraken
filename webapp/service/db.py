@@ -9,7 +9,8 @@ import pytz
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
-from shared.db import metrics, raw_files
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import TERMINAL_STATUSES, RawFile
@@ -29,7 +30,9 @@ def get_raw_files_for_status_df(
     """
     min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
 
-    raw_files_db = raw_files.find(raw_files.RawFileFilter(created_after=min_created_at))
+    raw_files_db = raw_file_store.find(
+        raw_file_store.RawFileFilter(created_after=min_created_at)
+    )
 
     df = pd.DataFrame(
         [
@@ -91,14 +94,14 @@ def get_raw_file_and_metrics_data(
 
     if raw_file_ids is not None:
         # selection by raw file ids takes precedence over max_age_in_days and instruments
-        found = raw_files.find(raw_files.RawFileFilter(ids=raw_file_ids))
-        latest_metrics = metrics.latest_by_raw_file(raw_file_ids)
+        found = raw_file_store.find(raw_file_store.RawFileFilter(ids=raw_file_ids))
+        latest_metrics = metrics_store.latest_by_raw_file(raw_file_ids)
     elif max_age_in_days is None:
         raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
     else:
         min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
-        found = raw_files.find(
-            raw_files.RawFileFilter(
+        found = raw_file_store.find(
+            raw_file_store.RawFileFilter(
                 created_after=min_created_at, instrument_ids=instruments
             )
         )
@@ -107,7 +110,7 @@ def get_raw_file_and_metrics_data(
         # raw files. Selecting them by raw file id instead would mean sending one id per
         # selected raw file to the database. The superset is discarded when joining, cf.
         # get_combined_raw_files_and_metrics_df().
-        latest_metrics = metrics.latest_by_raw_file(created_after=min_created_at)
+        latest_metrics = metrics_store.latest_by_raw_file(created_after=min_created_at)
 
     now = display_now().replace(microsecond=0)
 
@@ -125,8 +128,8 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     """
     _log(f"Retrieving all raw file data for {raw_file_ids}")
 
-    found = raw_files.find(
-        raw_files.RawFileFilter(ids=raw_file_ids), include_file_info=True
+    found = raw_file_store.find(
+        raw_file_store.RawFileFilter(ids=raw_file_ids), include_file_info=True
     )
 
     _log(f"Done retrieving all raw file data for {raw_file_ids}")
@@ -151,7 +154,7 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
     _log(f"Retrieving output folders for {raw_file_ids}")
 
     # no values needed, only the metadata
-    all_metrics = metrics.find(raw_file_ids, fields=[])
+    all_metrics = metrics_store.find(raw_file_ids, fields=[])
 
     rows = [
         {
@@ -190,8 +193,8 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     """
     min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=days)
 
-    raw_files_db = raw_files.find(
-        raw_files.RawFileFilter(
+    raw_files_db = raw_file_store.find(
+        raw_file_store.RawFileFilter(
             created_after=min_created_at, statuses=TERMINAL_STATUSES
         )
     )

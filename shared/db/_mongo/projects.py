@@ -3,8 +3,7 @@
 from mongoengine import QuerySet
 
 from shared.db._mongo import models
-from shared.db._mongo.connection import ensure_connected
-from shared.db._mongo.errors import translate_errors
+from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_project
 from shared.domain.errors import NotFoundError
 from shared.domain.projects import Project, ProjectStatus
@@ -23,7 +22,7 @@ def _query(
     return models.Project.objects(**conditions)
 
 
-@translate_errors
+@db_backend_function
 def find(
     *,
     ids: list[str] | None,
@@ -33,7 +32,6 @@ def find(
     offset: int,
 ) -> list[Project]:
     """Return the projects, cf. `shared.db.projects`."""
-    ensure_connected()
     query = _query(
         ids=ids, statuses=statuses, include_deleted=include_deleted
     ).order_by("-created_at_")
@@ -44,21 +42,19 @@ def find(
     return [to_project(doc) for doc in query]
 
 
-@translate_errors
+@db_backend_function
 def count(
     *, ids: list[str] | None, statuses: list[str] | None, include_deleted: bool
 ) -> int:
     """Return the number of projects, cf. `shared.db.projects`."""
-    ensure_connected()
     return _query(ids=ids, statuses=statuses, include_deleted=include_deleted).count()
 
 
-@translate_errors
+@db_backend_function
 def add(
     *, project_id: str, name: str, description: str, owner_email: str | None
 ) -> None:
     """Insert a new project, cf. `shared.db.projects`."""
-    ensure_connected()
     owner = models.User.objects.get(email=owner_email) if owner_email else None
     project = models.Project(
         id=project_id, name=name, description=description, owner=owner
@@ -67,9 +63,8 @@ def add(
     project.save(force_insert=True)
 
 
-@translate_errors
+@db_backend_function
 def set_status(project_id: str, status: str) -> None:
     """Set the status of a project."""
-    ensure_connected()
     if not models.Project.objects(id=project_id).update_one(status=status):
         raise NotFoundError(f"No project {project_id}")

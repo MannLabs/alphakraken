@@ -3,7 +3,11 @@
 from datetime import datetime
 from typing import Any
 
-from shared.db import metrics, project_settings, projects, raw_files, settings
+from shared.db import metrics as metrics_store
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import raw_files as raw_file_store
+from shared.db import settings as settings_store
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.errors import NotFoundError
 from shared.domain.metrics import Metrics
@@ -37,17 +41,17 @@ def _query_raw_files(  # noqa: PLR0913
         Tuple of (paginated raw files, total count matching the filters).
 
     """
-    where = raw_files.RawFileFilter(
+    where = raw_file_store.RawFileFilter(
         instrument_id=instrument_id,
         name_contains=name_contains,
         project_id=project_id,
         created_after=date_from,
         created_before=date_to,
     )
-    found = raw_files.find(
+    found = raw_file_store.find(
         where, limit=limit, offset=offset, include_file_info=include_file_info
     )
-    return found, raw_files.count(where)
+    return found, raw_file_store.count(where)
 
 
 def _to_metrics_dict(type_metrics: Metrics) -> dict[str, Any]:
@@ -113,7 +117,9 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     ]
 
     if include_metrics:
-        latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
+        latest_metrics = metrics_store.latest_by_raw_file(
+            [raw_file.id for raw_file in found]
+        )
         for raw_file, result in zip(found, results, strict=True):
             result["metrics"] = [
                 _to_metrics_dict(type_metrics)
@@ -154,11 +160,11 @@ def get_projects(
 
     """
     ids = None if project_id is None else [project_id]
-    found = projects.find(ids=ids, limit=limit, offset=offset)
-    total = projects.count(ids=ids)
+    found = project_store.find(ids=ids, limit=limit, offset=offset)
+    total = project_store.count(ids=ids)
 
     assignments: dict[str, list[dict[str, Any]]] = {p.id: [] for p in found}
-    for ps in project_settings.find(list(assignments)):
+    for ps in project_settings_store.find(list(assignments)):
         assignments[ps.project_id].append(_assignment_to_dict(ps))
 
     return [{**_to_dict(p), "settings": assignments[p.id]} for p in found], total
@@ -179,14 +185,14 @@ def get_settings(
         Tuple of (list of settings dicts, total count matching the filters).
 
     """
-    found = settings.find(name=name, limit=limit, offset=offset)
-    return [_to_dict(s) for s in found], settings.count(name=name)
+    found = settings_store.find(name=name, limit=limit, offset=offset)
+    return [_to_dict(s) for s in found], settings_store.count(name=name)
 
 
 def get_settings_by_unique_name(unique_name: str) -> dict[str, Any] | None:
     """Get non-deleted settings by unique name (e.g. `fallback_v7`), or None if it does not exist."""
     try:
-        found = settings.get(unique_name)
+        found = settings_store.get(unique_name)
     except NotFoundError:
         return None
     return None if found.status == SettingsStatus.DELETED else _to_dict(found)

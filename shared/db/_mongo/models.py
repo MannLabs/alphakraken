@@ -170,7 +170,7 @@ class AlertSuppression(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[AlertSuppression]]
 
-    # alert class name, e.g. "PumpPressureAlert"
+    # alert class name, e.g. "PumpPressureHighAlert"
     alert = StringField(
         required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )

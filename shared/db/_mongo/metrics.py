@@ -4,8 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from shared.db._mongo import models
-from shared.db._mongo.connection import ensure_connected
-from shared.db._mongo.errors import translate_errors
+from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import as_utc
 from shared.domain.metrics import Metrics
 
@@ -26,7 +25,7 @@ _METADATA_FIELDS = (
 )
 
 
-@translate_errors
+@db_backend_function
 def find(
     *,
     raw_file_ids: list[str] | None,
@@ -34,7 +33,6 @@ def find(
     fields: list[str] | None,
 ) -> list[Metrics]:
     """Return the metrics matching the conditions, newest first, cf. `shared.db.metrics`."""
-    ensure_connected()
     conditions: dict[str, Any] = {}
     if raw_file_ids is not None:
         conditions["raw_file__in"] = raw_file_ids
@@ -49,7 +47,7 @@ def find(
     return [_to_metrics(doc) for doc in query]
 
 
-@translate_errors
+@db_backend_function
 def add(  # noqa: PLR0913
     raw_file_id: str,
     *,
@@ -61,7 +59,6 @@ def add(  # noqa: PLR0913
     output_display_base_path: str,
 ) -> None:
     """Add metrics for a raw file, cf. `shared.db.metrics`."""
-    ensure_connected()
     raw_file = models.RawFile.objects.get(id=raw_file_id)
 
     models.Metrics(

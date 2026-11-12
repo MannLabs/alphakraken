@@ -15,6 +15,8 @@ _NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
 def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     """Return the settings assignments with their settings, oldest first.
 
+    An assignment whose settings no longer exist is left out.
+
     :param project_ids: only the assignments of these projects, None for all, also those of
         archived and deleted projects
     """
@@ -46,10 +48,10 @@ def assign(  # noqa: PLR0913
             [f"Cannot assign settings to archived or deleted project '{project_id}'"]
         )
     assigned = settings.get(settings_id)
-    if assigned.status == SettingsStatus.INACTIVE:
+    if assigned.status != SettingsStatus.ACTIVE:
         raise ValidationError(
             [
-                f"Cannot assign archived settings '{assigned.name}' version {assigned.version}"
+                f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
             ]
         )
 

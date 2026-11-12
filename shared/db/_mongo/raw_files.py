@@ -9,8 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from shared.db._mongo import models
-from shared.db._mongo.connection import ensure_connected
-from shared.db._mongo.errors import translate_errors
+from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_raw_file
 from shared.domain.errors import NotFoundError
 
@@ -64,7 +63,7 @@ def _conditions(where: RawFileFilter) -> dict[str, Any]:
     }
 
 
-@translate_errors
+@db_backend_function
 def find(
     where: RawFileFilter,
     *,
@@ -74,7 +73,6 @@ def find(
     include_file_info: bool,
 ) -> list[RawFile]:
     """Return the raw files matching `where`, cf. `shared.db.raw_files.find`."""
-    ensure_connected()
     query = models.RawFile.objects(**_conditions(where)).order_by(order)
     if not include_file_info:
         query = query.exclude("file_info")
@@ -85,19 +83,17 @@ def find(
     return [to_raw_file(doc, file_info_loaded=include_file_info) for doc in query]
 
 
-@translate_errors
+@db_backend_function
 def count(where: RawFileFilter) -> int:
     """Return the number of raw files matching `where`, cf. `shared.db.raw_files.count`."""
-    ensure_connected()
     return models.RawFile.objects(**_conditions(where)).count()
 
 
-@translate_errors
+@db_backend_function
 def latest_per_instrument(
     n: int, *, created_after: datetime
 ) -> dict[str, list[RawFile]]:
     """Return the newest raw files per instrument, cf. `shared.db.raw_files.latest_per_instrument`."""
-    ensure_connected()
     recent = models.RawFile.objects(created_at__gte=created_after)
     return {
         instrument_id: [
@@ -111,20 +107,18 @@ def latest_per_instrument(
     }
 
 
-@translate_errors
+@db_backend_function
 def count_by_status(where: RawFileFilter) -> dict[str, int]:
     """Return the number of raw files per status, cf. `shared.db.raw_files.count_by_status`."""
-    ensure_connected()
     rows = models.RawFile.objects(**_conditions(where)).aggregate(
         [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
     )
     return {row["_id"]: row["count"] for row in rows}
 
 
-@translate_errors
+@db_backend_function
 def get(raw_file_id: str, *, include_file_info: bool) -> RawFile:
     """Return the raw file with the given id, cf. `shared.db.raw_files.get`."""
-    ensure_connected()
     query = models.RawFile.objects(id=raw_file_id)
     if not include_file_info:
         query = query.exclude("file_info")
@@ -134,25 +128,22 @@ def get(raw_file_id: str, *, include_file_info: bool) -> RawFile:
     return to_raw_file(doc, file_info_loaded=include_file_info)
 
 
-@translate_errors
+@db_backend_function
 def add(raw_file_id: str, **fields_: Any) -> None:
     """Insert a new raw file, cf. `shared.db.raw_files.add`."""
-    ensure_connected()
     # this will fail if the file already exists
     models.RawFile(id=raw_file_id, **fields_).save(force_insert=True)
 
 
-@translate_errors
+@db_backend_function
 def delete(raw_file_id: str) -> None:
     """Remove a raw file, cf. `shared.db.raw_files.delete`."""
-    ensure_connected()
     models.RawFile.objects(id=raw_file_id).delete()
 
 
-@translate_errors
+@db_backend_function
 def update(raw_file_id: str, fields_: dict[str, Any]) -> None:
     """Set the given fields of a raw file, cf. `shared.db.raw_files.update`."""
-    ensure_connected()
     doc = models.RawFile.objects.with_id(raw_file_id)
     if doc is None:
         raise NotFoundError(f"No raw file {raw_file_id}")

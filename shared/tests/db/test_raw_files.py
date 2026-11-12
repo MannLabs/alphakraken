@@ -217,7 +217,7 @@ def mock_objects() -> Iterator[MagicMock]:
         getattr(query, method).return_value = query
     query.__iter__.return_value = [_document()]
     with (
-        patch("shared.db._mongo.raw_files.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.raw_files.models") as mock_models,
     ):
         mock_models.RawFile.objects.return_value = query
@@ -492,7 +492,7 @@ def test_add_prefixes_the_id_with_the_collision_flag(
 def test_backend_add_never_overwrites() -> None:
     """The backend inserts the raw file, failing if the id exists."""
     with (
-        patch("shared.db._mongo.raw_files.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.raw_files.models") as mock_models,
     ):
         backend.add("file.raw", original_name="file.raw")

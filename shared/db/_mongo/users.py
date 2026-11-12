@@ -1,17 +1,15 @@
 """User queries on MongoDB."""
 
 from shared.db._mongo import models
-from shared.db._mongo.connection import ensure_connected
-from shared.db._mongo.errors import translate_errors
+from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_user
 from shared.domain.errors import NotFoundError
 from shared.domain.users import User, UserStatus
 
 
-@translate_errors
+@db_backend_function
 def find(*, include_inactive: bool) -> list[User]:
     """Return the users, cf. `shared.db.users`."""
-    ensure_connected()
     query = (
         models.User.objects
         if include_inactive
@@ -20,10 +18,9 @@ def find(*, include_inactive: bool) -> list[User]:
     return [to_user(doc) for doc in query.order_by("initials")]
 
 
-@translate_errors
+@db_backend_function
 def project_owner(raw_file_id: str) -> User | None:
     """Return the active owner of the project of a raw file, cf. `shared.db.users`."""
-    ensure_connected()
     raw_file = models.RawFile.objects(id=raw_file_id).only("project_id").first()
     if raw_file is None or not raw_file.has_project:
         return None
@@ -34,19 +31,17 @@ def project_owner(raw_file_id: str) -> User | None:
     return to_user(owner)
 
 
-@translate_errors
+@db_backend_function
 def add(*, email: str, initials: str, messenger_id: str | None) -> User:
     """Add a new active user, cf. `shared.db.users`."""
-    ensure_connected()
     user = models.User(email=email, initials=initials, messenger_id=messenger_id)
     user.save(force_insert=True)
     return to_user(user)
 
 
-@translate_errors
+@db_backend_function
 def update(email: str, *, initials: str, messenger_id: str | None) -> None:
     """Update the initials and messenger id of a user, cf. `shared.db.users`."""
-    ensure_connected()
     user = models.User.objects.get(email=email)
     user.initials = initials
     user.messenger_id = messenger_id
@@ -54,9 +49,8 @@ def update(email: str, *, initials: str, messenger_id: str | None) -> None:
     user.save()
 
 
-@translate_errors
+@db_backend_function
 def set_status(email: str, status: str) -> None:
     """Set the status of a user, cf. `shared.db.users`."""
-    ensure_connected()
     if not models.User.objects(email=email).update_one(status=status):
         raise NotFoundError(f"No user {email}")

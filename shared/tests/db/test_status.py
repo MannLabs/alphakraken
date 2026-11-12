@@ -17,7 +17,7 @@ def test_instrument_ids(mock_models: MagicMock) -> None:
         models.KrakenStatus(id="inst2"),
     ]
 
-    with patch("shared.db._mongo.status.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         assert instrument_ids() == ["inst1", "inst2"]
     mock_models.KrakenStatus.objects.assert_called_once_with(
         entity_type=KrakenStatusEntities.INSTRUMENT
@@ -37,7 +37,7 @@ def test_find(mock_models: MagicMock) -> None:
         )
     ]
 
-    with patch("shared.db._mongo.status.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         assert find() == [kraken_status()]
 
 
@@ -45,7 +45,7 @@ def test_find(mock_models: MagicMock) -> None:
 @patch("shared.db._mongo.status.models")
 def test_update(mock_models: MagicMock, mock_datetime: MagicMock) -> None:
     """The status entry is saved with the current time, replacing an existing one."""
-    with patch("shared.db._mongo.status.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         update(
             "inst1",
             status=KrakenStatusValues.ERROR,

@@ -246,24 +246,27 @@ explicit file list).
 - `get_raw_file_and_metrics_data` becomes `raw_files.find(RawFileFilter(ids | created_after,
   instrument_ids))` plus `metrics.latest_by_raw_file`; the DataFrame is built from
   `vars(row)`; `_merge_metrics_by_type` builds from the dict of dicts.
-  `latest_by_raw_file` gains `created_after` and `types` here, for their first callers.
-- `get_full_raw_file_data` (`include_file_info=True`), `get_output_folders`
-  (`metrics.latest_by_raw_file`, all types, no `fields`) on the new API.
+  `latest_by_raw_file` gains `created_after` here, for its first caller; `types` has none.
+- `get_full_raw_file_data` (`include_file_info=True`) on the new API; `get_output_folders`
+  on `metrics.find(ids, fields=[])`: it needs every metrics entry of a file, not the latest
+  per type (design: `output_locations`). `latest_by_raw_file` is built on `find`.
 - `_id` becomes `id` in `components.py`, `overview_plotting.py`, `data_handling.py` (merge
   keys, index).
-- Decide whether the webapp's `msqc_` prefix stripping and `quanting_time_elapsed` rename
-  move into the legacy key map of `_mongo/metrics.py` (left in the webapp by slice 4).
+- The webapp's `msqc_` prefix stripping and `quanting_time_elapsed` rename stay in the
+  webapp: moving them into the legacy key map would change REST and MCP keys for old files.
 - Delete `connect_db` and the model imports from `webapp/service/db.py`; what remains there
   are DataFrame helpers.
 
-**Behaviour change**: the overview's metrics per type were "natural order"; now newest.
+**Behaviour change**: none for the metrics, the overview already kept the newest per type
+(`df_from_db_data` sorts by `created_at_`). The raw file id column is `id`, in the table,
+the CSV download and `columns_config.yaml`.
 
 **Testing**: `pytest webapp`; on the stack: overview with and without `max_age`, with a
 `raw_file_ids` query param, the baseline selection, the download of full raw file data;
 compare row counts with the current version.
 
-**Exit**: `webapp/service/{db,data_handling}.py`, `webapp/pages_/overview.py` off the
-exemption list.
+**Exit**: `webapp/service/data_handling.py` off the exemption list. `webapp/service/db.py`
+stays until slice 8b, which ports its project and settings queries.
 
 ### Slice 7: projects and settings read side, REST off mongoengine (1.5 days)
 

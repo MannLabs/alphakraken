@@ -1,16 +1,48 @@
 """Metrics queries."""
 
+from datetime import datetime
+
 from shared.db._mongo import metrics as _backend
 from shared.domain.metrics import Metrics
 
 
+def find(
+    raw_file_ids: list[str] | None = None,
+    *,
+    created_after: datetime | None = None,
+    fields: list[str] | None = None,
+) -> list[Metrics]:
+    """Return all metrics of the given raw files or written at or after `created_after`, newest first.
+
+    A raw file can have several metrics of one type, e.g. from different settings.
+
+    :param fields: the keys of `values` to load, None for all
+
+    Raises:
+        ValueError: if neither `raw_file_ids` nor `created_after` is given.
+
+    """
+    if raw_file_ids is None and created_after is None:
+        raise ValueError("Either raw_file_ids or created_after must be given.")
+    return _backend.find(
+        raw_file_ids=raw_file_ids, created_after=created_after, fields=fields
+    )
+
+
 def latest_by_raw_file(
-    raw_file_ids: list[str], *, fields: list[str] | None = None
+    raw_file_ids: list[str] | None = None,
+    *,
+    created_after: datetime | None = None,
+    fields: list[str] | None = None,
 ) -> dict[str, dict[str, Metrics]]:
     """Return the newest metrics per type of each raw file, keyed by raw file id, then by type.
 
-    Raw files without metrics have no entry.
-
-    :param fields: the keys of `values` to load, None for all
+    Raw files without metrics have no entry. The parameters are those of `find`.
     """
-    return _backend.latest_by_raw_file(raw_file_ids, fields=fields)
+    result: dict[str, dict[str, Metrics]] = {}
+    for metrics in find(raw_file_ids, created_after=created_after, fields=fields):
+        per_type = result.setdefault(metrics.raw_file_id, {})
+        # newest first, so the first one per type is the latest
+        if metrics.type not in per_type:
+            per_type[metrics.type] = metrics
+    return result

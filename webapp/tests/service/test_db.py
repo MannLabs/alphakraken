@@ -15,8 +15,9 @@ from service.db import (
 from service.timezone import DISPLAY_TIMEZONE
 
 from shared.db import status
+from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import TERMINAL_STATUSES
-from shared.tests.factories import kraken_status, raw_file
+from shared.tests.factories import kraken_status, metrics, raw_file
 
 
 @patch("shared.db.raw_files.find")
@@ -177,45 +178,43 @@ def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
     "service.db.get_display_output_path",
     side_effect=lambda p, base: f"{base or '/out'}/{p}",
 )
-@patch("service.db.connect_db")
-@patch("service.db.Metrics")
+@patch("shared.db.metrics.find")
 def test_get_output_folders(
-    mock_metrics: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_find: MagicMock,
     mock_get_display_output_path: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that get_output_folders returns one row per metrics doc, respecting the N:1 relation."""
-    m1, m2, m3 = MagicMock(), MagicMock(), MagicMock()
-    m1.to_mongo.return_value = {
-        "raw_file": "f1",
-        "settings_name": "s1",
-        "settings_version": 1,
-        "type": "alphadia",
-        "relative_output_path": "f1/alphadia",
-    }
-    m2.to_mongo.return_value = {
-        "raw_file": "f2",
-        "settings_name": "s1",
-        "settings_version": 1,
-        "type": "alphadia",
-        "relative_output_path": "f2/alphadia",
-    }
-    # same raw file f1 run with different settings -> its own output folder
-    m3.to_mongo.return_value = {
-        "raw_file": "f1",
-        "settings_name": "s2",
-        "settings_version": 3,
-        "type": "custom",
-        "relative_output_path": "f1/custom",
-        "output_display_base_path": "/old_out",
-    }
-    mock_metrics.objects.filter.return_value.only.return_value = [m1, m2, m3]
+    """Test that get_output_folders returns one row per metrics entry, respecting the N:1 relation."""
+    mock_find.return_value = [
+        metrics(
+            raw_file_id="f1",
+            settings_name="s1",
+            relative_output_path="f1/alphadia",
+            output_display_base_path=None,
+        ),
+        metrics(
+            raw_file_id="f2",
+            settings_name="s1",
+            relative_output_path="f2/alphadia",
+            output_display_base_path=None,
+        ),
+        # same raw file f1 run with different settings -> its own output folder
+        metrics(
+            raw_file_id="f1",
+            settings_name="s2",
+            settings_version=3,
+            type="custom",
+            relative_output_path="f1/custom",
+            output_display_base_path="/old_out",
+        ),
+        # written before output paths were recorded
+        metrics(raw_file_id="f2", relative_output_path=None),
+    ]
 
     # when
     result = get_output_folders(["f1", "f2"])
 
     # then
-    mock_metrics.objects.filter.assert_called_once_with(raw_file__in=["f1", "f2"])
+    mock_find.assert_called_once_with(["f1", "f2"], fields=[])
     assert list(result.columns) == [
         "raw_file_id",
         "settings_name",
@@ -223,23 +222,20 @@ def test_get_output_folders(
         "type",
         "output_path",
     ]
-    assert result["raw_file_id"].tolist() == ["f1", "f2", "f1"]
-    assert result["output_path"].tolist() == [
+    assert result["raw_file_id"].tolist() == ["f1", "f2", "f1", "f2"]
+    assert result["output_path"].tolist()[:3] == [
         "/out/f1/alphadia",
         "/out/f2/alphadia",
         "/old_out/f1/custom",
     ]
+    assert pd.isna(result["output_path"][3])
 
 
-@patch("service.db.connect_db")
-@patch("service.db.Metrics")
+@patch("shared.db.metrics.find", return_value=[])
 def test_get_output_folders_no_metrics(
-    mock_metrics: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_find: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_output_folders returns an empty, well-formed DataFrame when no metrics exist."""
-    mock_metrics.objects.filter.return_value.only.return_value = []
-
     # when
     result = get_output_folders(["f1"])
 
@@ -255,22 +251,35 @@ def test_get_output_folders_no_metrics(
 
 
 @patch("service.db.get_display_backup_path", side_effect=lambda r: f"/backup/{r.id}")
-@patch("service.db.connect_db")
-@patch("service.db.RawFile")
+@patch("shared.db.raw_files.find")
 def test_get_full_raw_file_data_adds_the_backup_path(
-    mock_raw_file: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_find: MagicMock,
     mock_get_display_backup_path: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that each row carries the display path of its backup folder."""
-    r1, r2 = MagicMock(id="f1"), MagicMock(id="f2")
-    r1.to_mongo.return_value = {"_id": "f1", "created_at_": 1}
-    r2.to_mongo.return_value = {"_id": "f2", "created_at_": 2}
-    mock_raw_file.objects.filter.return_value = [r1, r2]
+    """Test that each row carries the display path of its own backup folder and the file info."""
+    # given - the dataframe is sorted by `created_at_`, unlike the query result
+    mock_find.return_value = [
+        raw_file(
+            id="f1",
+            created_at_=datetime(2024, 1, 1, tzinfo=UTC),
+            file_info={"f1": (1.0, "hash")},
+        ),
+        raw_file(id="f2", created_at_=datetime(2024, 1, 2, tzinfo=UTC), file_info={}),
+    ]
 
     # when
     result = get_full_raw_file_data(["f1", "f2"])
 
     # then
-    mock_raw_file.objects.filter.assert_called_once_with(id__in=["f1", "f2"])
-    assert result["backup_path"].tolist() == ["/backup/f1", "/backup/f2"]
+    mock_find.assert_called_once_with(
+        RawFileFilter(ids=["f1", "f2"]), include_file_info=True
+    )
+    assert result["id"].tolist() == ["f2", "f1"]
+    assert result["backup_path"].tolist() == ["/backup/f2", "/backup/f1"]
+    assert result["file_info"].tolist() == [{}, {"f1": (1.0, "hash")}]
+
+
+def test_get_full_raw_file_data_without_raw_files() -> None:
+    """Test that unknown ids yield an empty DataFrame."""
+    with patch("shared.db.raw_files.find", return_value=[]):
+        assert get_full_raw_file_data(["unknown"]).empty

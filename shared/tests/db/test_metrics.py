@@ -9,7 +9,7 @@ import pytest
 
 from shared.db import models
 from shared.db._mongo import metrics as backend
-from shared.db.metrics import latest_by_raw_file
+from shared.db.metrics import find, latest_by_raw_file
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics
 
@@ -141,3 +141,31 @@ def test_latest_by_raw_file_projects_fields_with_metadata(
     mock_objects.return_value.only.assert_called_once_with(
         *backend._METADATA_FIELDS, "gradient_length", "raw:gradient_length_m"
     )
+
+
+def test_find_returns_all_metrics_newest_first(mock_objects: MagicMock) -> None:
+    """Unlike the latest per type, every metrics entry is returned."""
+    result = find(["f1", "f2"], fields=[])
+
+    assert [(m.raw_file_id, m.type, m.values) for m in result] == [
+        ("f1", MetricsTypes.ALPHADIA, {"proteins": 2}),
+        ("f1", MetricsTypes.MSQC, {"pressure": 100.0}),
+        ("f1", MetricsTypes.ALPHADIA, {"proteins": 1}),
+        ("f2", MetricsTypes.ALPHADIA, {"proteins": 3}),
+    ]
+    mock_objects.assert_called_once_with(raw_file__in=["f1", "f2"])
+    # no values requested: only the metadata is loaded
+    mock_objects.return_value.only.assert_called_once_with(*backend._METADATA_FIELDS)
+
+
+def test_find_by_creation_time(mock_objects: MagicMock) -> None:
+    """Metrics can be selected by when they were written, without sending raw file ids."""
+    latest_by_raw_file(created_after=AWARE_TIME)
+
+    mock_objects.assert_called_once_with(created_at___gte=AWARE_TIME)
+
+
+def test_find_requires_a_condition() -> None:
+    """Loading all metrics of the database is not offered."""
+    with pytest.raises(ValueError, match="raw_file_ids or created_after"):
+        find()

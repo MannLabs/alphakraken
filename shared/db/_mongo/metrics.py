@@ -1,5 +1,6 @@
 """Metrics queries on MongoDB."""
 
+from datetime import datetime
 from typing import Any
 
 from shared.db import models
@@ -26,28 +27,26 @@ _METADATA_FIELDS = (
 
 
 @translate_errors
-def latest_by_raw_file(
-    raw_file_ids: list[str], *, fields: list[str] | None
-) -> dict[str, dict[str, Metrics]]:
-    """Return the newest metrics per type of each raw file, cf. `shared.db.metrics`."""
+def find(
+    *,
+    raw_file_ids: list[str] | None,
+    created_after: datetime | None,
+    fields: list[str] | None,
+) -> list[Metrics]:
+    """Return the metrics matching the conditions, newest first, cf. `shared.db.metrics`."""
     ensure_connected()
-    newest_first = (
-        "-created_at_"  # important for the "first per type is the latest" logic below
-    )
-    query = models.Metrics.objects(raw_file__in=raw_file_ids).order_by(newest_first)
+    conditions: dict[str, Any] = {}
+    if raw_file_ids is not None:
+        conditions["raw_file__in"] = raw_file_ids
+    if created_after is not None:
+        conditions["created_at___gte"] = created_after
+
+    query = models.Metrics.objects(**conditions).order_by("-created_at_")
     if fields is not None:
         # mongoengine fills fields left out of a projection with their defaults instead of None,
         # so the metadata must always be loaded: a missing `created_at_` would read as "now"
         query = query.only(*_METADATA_FIELDS, *_stored_keys(fields))
-
-    result: dict[str, dict[str, Metrics]] = {}
-    for doc in query:
-        metrics = _to_metrics(doc)
-        per_type = result.setdefault(metrics.raw_file_id, {})
-        # newest first, so the first one per type is the latest
-        if metrics.type not in per_type:
-            per_type[metrics.type] = metrics
-    return result
+    return [_to_metrics(doc) for doc in query]
 
 
 def _stored_keys(fields: list[str]) -> list[str]:

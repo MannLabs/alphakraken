@@ -1,16 +1,18 @@
 """Module handling the merging of raw files and metrics data."""
 
+from collections import defaultdict
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 import streamlit as st
-from mongoengine import QuerySet
 from pandas import DataFrame
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
-from service.timezone import floor_to_seconds
+from service.timezone import floor_to_seconds, to_display_timezone
 from service.utils import METRICS_TYPE_SEPARATOR, Cols
 
+from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFileStatus
 from shared.keys import MetricsTypes
 
@@ -21,7 +23,8 @@ _MSQC_PREFIX = "msqc_"
 
 _LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
 
-_METRICS_TYPE_COLUMN = "type"
+_RAW_FILE_ID_COLUMN = "id"
+# the raw file id in the metrics DataFrame
 _RAW_FILE_COLUMN = "raw_file"
 
 
@@ -70,8 +73,6 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_combined_raw_files_and_metrics_df.clear()
-# Note: the DataFrame is cached rather than the underlying QuerySets, as pickling a QuerySet
-# (which is what st.cache_data does) drops its cursor and thus its results.
 @st.cache_data(ttl=120)
 def get_combined_raw_files_and_metrics_df(
     *,
@@ -81,12 +82,13 @@ def get_combined_raw_files_and_metrics_df(
     instruments: list[str] | None = None,
 ) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
-    raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(
+    raw_files_db, latest_metrics, data_timestamp = get_raw_file_and_metrics_data(
         max_age_in_days, raw_file_ids, instruments
     )
-    raw_files_df = df_from_db_data(raw_files_db)
+    # unset fields are dropped, e.g. "size" if no queried raw file has it yet
+    raw_files_df = df_from_db_data(raw_files_db, drop_none_columns=True)
 
-    merged_metrics_df = _merge_metrics_by_type(metrics_db)
+    merged_metrics_df = _merge_metrics_by_type(latest_metrics)
 
     if len(raw_files_df) == 0:
         # TODO: improve -> move st dependency out
@@ -99,7 +101,10 @@ def get_combined_raw_files_and_metrics_df(
 
     if len(merged_metrics_df) > 0:
         combined_df = raw_files_df.merge(
-            merged_metrics_df, left_on="_id", right_on="raw_file", how="left"
+            merged_metrics_df,
+            left_on=_RAW_FILE_ID_COLUMN,
+            right_on=_RAW_FILE_COLUMN,
+            how="left",
         )
     else:
         combined_df = raw_files_df
@@ -121,7 +126,7 @@ def get_combined_raw_files_and_metrics_df(
     # sorting & indexing
     combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
-    combined_df.index = combined_df["_id"]
+    combined_df.index = combined_df[_RAW_FILE_ID_COLUMN]
 
     # conversion of metrics columns: in case all quantings have failed, these columns are not available
     for col in [
@@ -149,29 +154,39 @@ def get_combined_raw_files_and_metrics_df(
     return combined_df, data_timestamp
 
 
-def _merge_metrics_by_type(metrics_db: QuerySet) -> DataFrame:
-    """Merge metrics of each type into a single DataFrame.
+def _merge_metrics_by_type(latest_metrics: dict[str, dict[str, Metrics]]) -> DataFrame:
+    """Merge the latest metrics of each type into a single DataFrame with one row per raw file.
 
     - normalize column names
     - add  "{type}__" prefix
     """
+    rows_by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for raw_file_id, metrics_by_type in latest_metrics.items():
+        for metrics_type, metrics in metrics_by_type.items():
+            rows_by_type[metrics_type].append(
+                {
+                    _RAW_FILE_COLUMN: raw_file_id,
+                    "settings_name": metrics.settings_name,
+                    "settings_version": metrics.settings_version,
+                    "relative_output_path": metrics.relative_output_path,
+                    "output_display_base_path": metrics.output_display_base_path,
+                    **metrics.values,  # noqa: PD011 a dataclass field, not pandas
+                }
+            )
+
     merged_metrics_df = pd.DataFrame()
     for metrics_type in MetricsTypes.get_values():
-        metrics_df = df_from_db_data(
-            metrics_db,
-            filter_dict={"type": metrics_type},
-            drop_duplicates=["raw_file"],
-            drop_columns=["_id", "created_at_"],
-            drop_none_columns=True,
-        )
-        if len(metrics_df) == 0:
+        if metrics_type not in rows_by_type:
             continue
+
+        metrics_df = to_display_timezone(pd.DataFrame(rows_by_type[metrics_type]))
+        # e.g. custom metrics may not have all columns
+        metrics_df = metrics_df.dropna(axis=1, how="all")
 
         metrics_df = _normalize_metric_columns(metrics_df)
 
         # prefix all metric columns with "{type}__"
-        metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
-        metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
+        metric_cols = [c for c in metrics_df.columns if c != _RAW_FILE_COLUMN]
         metrics_df = metrics_df.rename(
             columns={
                 c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}" for c in metric_cols
@@ -183,7 +198,7 @@ def _merge_metrics_by_type(metrics_db: QuerySet) -> DataFrame:
         else:
             merged_metrics_df = merged_metrics_df.merge(
                 metrics_df,
-                on="raw_file",
+                on=_RAW_FILE_COLUMN,
                 how="outer",
             )
     return merged_metrics_df

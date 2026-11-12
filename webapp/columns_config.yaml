@@ -217,7 +217,7 @@ columns:
     hide: true
   - name: "file_info"
     hide: true
-  - name: "_id"
+  - name: "id"
     hide: true
   - name: "original_name"
     hide: true

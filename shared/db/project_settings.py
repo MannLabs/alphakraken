@@ -1,13 +1,16 @@
 """Queries on the assignments of settings to projects."""
 
 import logging
+from typing import Any
 
 from shared.db import projects, settings
 from shared.db._mongo import project_settings as _backend
 from shared.domain.errors import ValidationError
-from shared.domain.projects import ProjectSettings, ProjectStatus
+from shared.domain.inputs import parse
+from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
-from shared.keys import DEFAULT_SCOPE
+from shared.keys import FALLBACK_PROJECT_ID
+from shared.settings_scope_resolver import known_scopes
 
 _NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
 
@@ -23,26 +26,27 @@ def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     return _backend.find(project_ids)
 
 
-def assign(  # noqa: PLR0913
-    project_id: str,
-    settings_id: str,
-    *,
-    scopes: list[str] | None = None,
-    excluded_scopes: list[str] | None = None,
-    raw_file_id_filter: list[str] | None = None,
-    raw_file_id_exclude_filter: list[str] | None = None,
+def assign(
+    project_id: str, settings_id: str, *, allow_fallback: bool, **fields: Any
 ) -> ProjectSettings:
     """Assign settings to a project.
 
     :param settings_id: the unique name of the settings, e.g. `fallback_v7`
+    :param allow_fallback: whether the caller may change the assignments of the fallback project
+    :param fields: the other fields of `NewAssignment`
 
     Raises:
         NotFoundError: if the project or the settings do not exist.
-        ValidationError: if the project or the settings are archived or deleted, or the settings are
+        ValidationError: if a field is invalid, a scope is unknown, the fallback project is not
+            allowed, the project or the settings are archived or deleted, or the settings are
             already assigned to the project with the same file name filters.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
+    new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
+    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
+    known = known_scopes()
+    if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
+        raise ValidationError([f"Unknown scopes {unknown}, known are: {known}."])
     if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValidationError(
             [f"Cannot assign settings to archived or deleted project '{project_id}'"]
@@ -54,32 +58,23 @@ def assign(  # noqa: PLR0913
                 f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
             ]
         )
-
-    # the default scope matches everything, so any other entry next to it is redundant
-    scopes = [DEFAULT_SCOPE] if not scopes or DEFAULT_SCOPE in scopes else scopes
-    excluded_scopes = excluded_scopes or []
-    raw_file_id_filter = raw_file_id_filter or []
-    raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
-
     _check_not_assigned_with_same_filters(
-        project_id, settings_id, raw_file_id_filter, raw_file_id_exclude_filter
+        project_id, settings_id, new.raw_file_id_filter, new.raw_file_id_exclude_filter
     )
 
-    assignment = _backend.assign(
-        project_id,
-        settings_id,
-        # TODO: validate here, not only on the frontend: reject DEFAULT_SCOPE in excluded_scopes
-        #  and scopes overlapping excluded_scopes, both silently match nothing
-        scopes=scopes,
-        excluded_scopes=excluded_scopes,
-        raw_file_id_filter=raw_file_id_filter,
-        raw_file_id_exclude_filter=raw_file_id_exclude_filter,
-    )
-    logging.info(
-        f"Created project-settings assignment: {project_id=} {assigned.name=} {scopes=} "
-        f"{excluded_scopes=} {raw_file_id_filter=} {raw_file_id_exclude_filter=}"
-    )
+    assignment = _backend.assign(new)
+    logging.info(f"Created project-settings assignment: {new!r}")
     return assignment
+
+
+def _check_fallback_allowed(project_id: str, *, allow_fallback: bool) -> None:
+    """Raise if the assignments of the project may not be changed by the caller."""
+    if project_id == FALLBACK_PROJECT_ID and not allow_fallback:
+        raise ValidationError(
+            [
+                f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
+            ]
+        )
 
 
 def _check_not_assigned_with_same_filters(
@@ -114,16 +109,19 @@ def _lower(filters: list[str]) -> set[str]:
     return {f.lower() for f in filters}
 
 
-def unassign(assignment_id: str) -> None:
+def unassign(assignment_id: str, *, allow_fallback: bool) -> None:
     """Remove a settings assignment.
+
+    :param allow_fallback: whether the caller may change the assignments of the fallback project
 
     Raises:
         NotFoundError: if there is no such assignment.
-        ValidationError: if its project is archived or deleted.
+        ValidationError: if its project is archived or deleted, or is the fallback project and
+            that is not allowed.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
     project_id = _backend.get_project_id(assignment_id)
+    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
     if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValidationError(
             [
@@ -135,8 +133,10 @@ def unassign(assignment_id: str) -> None:
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
 
 
-def update_to_latest(assignment_id: str) -> ProjectSettings:
+def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSettings:
     """Replace a settings assignment by one to the latest active version of its settings, keeping scopes and filters.
+
+    :param allow_fallback: whether the caller may change the assignments of the fallback project
 
     Raises:
         NotFoundError: if there is no such assignment.
@@ -159,6 +159,7 @@ def update_to_latest(assignment_id: str) -> ProjectSettings:
     updated = assign(
         project_id,
         latest.id,
+        allow_fallback=allow_fallback,
         scopes=list(current.scopes),
         excluded_scopes=list(current.excluded_scopes),
         raw_file_id_filter=list(current.raw_file_id_filter),

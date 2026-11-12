@@ -14,9 +14,10 @@ from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
 from shared.domain.errors import NotFoundError, ValidationError
-from shared.domain.projects import NewProject, ProjectStatus
+from shared.domain.projects import NewAssignment, NewProject, ProjectStatus
 from shared.domain.settings import NewSettings, SettingsStatus
 from shared.domain.users import UserStatus
+from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests import factories
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo
@@ -263,16 +264,18 @@ def test_update_assignment_to_latest(updatable: dict[str, MagicMock]) -> None:
         "backend_unassign"
     ].assert_not_called()
 
-    project_settings.update_to_latest("assignment1")
+    project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["latest_active"].assert_called_once_with("fallback")
     updatable["backend_assign"].assert_called_once_with(
-        "P1",
-        "fallback_v8",
-        scopes=["thermo"],
-        excluded_scopes=["test1"],
-        raw_file_id_filter=["a"],
-        raw_file_id_exclude_filter=["blank"],
+        NewAssignment(
+            project_id="P1",
+            settings_id="fallback_v8",
+            scopes=["thermo"],
+            excluded_scopes=["test1"],
+            raw_file_id_filter=["a"],
+            raw_file_id_exclude_filter=["blank"],
+        )
     )
     updatable["backend_unassign"].assert_called_once_with("assignment1")
 
@@ -285,7 +288,7 @@ def test_update_assignment_without_newer_version_raises(
     updatable["latest_active"].return_value = latest
 
     with pytest.raises(ValidationError, match="No newer active version"):
-        project_settings.update_to_latest("assignment1")
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_assign"].assert_not_called()
     updatable["backend_unassign"].assert_not_called()
@@ -300,7 +303,7 @@ def test_update_assignment_keeps_old_one_if_assigning_fails(
     ]
 
     with pytest.raises(ValidationError, match="Cannot assign settings"):
-        project_settings.update_to_latest("assignment1")
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_unassign"].assert_not_called()
 
@@ -761,6 +764,10 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
         patch("shared.db.projects.find") as find_projects,
         patch("shared.db.settings.get") as get_settings,
         patch("shared.db.project_settings.find", return_value=[]) as find_assignments,
+        patch(
+            "shared.db.project_settings.known_scopes",
+            return_value=["*", "thermo", "bruker", "test1", "test2"],
+        ),
         patch("shared.db._mongo.project_settings.assign") as backend_assign,
         patch("shared.db._mongo.project_settings.unassign") as backend_unassign,
         patch(
@@ -781,15 +788,17 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
 
 def test_assign_settings_with_defaults(assignable: dict[str, MagicMock]) -> None:
     """Without scopes and filters, the assignment applies to all instruments and files."""
-    result = project_settings.assign("P1", "fallback_v7")
+    result = project_settings.assign("P1", "fallback_v7", allow_fallback=False)
 
     assignable["backend_assign"].assert_called_once_with(
-        "P1",
-        "fallback_v7",
-        scopes=["*"],
-        excluded_scopes=[],
-        raw_file_id_filter=[],
-        raw_file_id_exclude_filter=[],
+        NewAssignment(
+            project_id="P1",
+            settings_id="fallback_v7",
+            scopes=["*"],
+            excluded_scopes=[],
+            raw_file_id_filter=[],
+            raw_file_id_exclude_filter=[],
+        )
     )
     assert result == assignable["backend_assign"].return_value
 
@@ -801,6 +810,7 @@ def test_assign_settings_default_scope_absorbs_other_scopes(
     project_settings.assign(
         "P1",
         "fallback_v7",
+        allow_fallback=False,
         scopes=["test1", "*"],
         excluded_scopes=["test2"],
         raw_file_id_filter=["hela"],
@@ -808,12 +818,14 @@ def test_assign_settings_default_scope_absorbs_other_scopes(
     )
 
     assignable["backend_assign"].assert_called_once_with(
-        "P1",
-        "fallback_v7",
-        scopes=["*"],
-        excluded_scopes=["test2"],
-        raw_file_id_filter=["hela"],
-        raw_file_id_exclude_filter=["blank"],
+        NewAssignment(
+            project_id="P1",
+            settings_id="fallback_v7",
+            scopes=["*"],
+            excluded_scopes=["test2"],
+            raw_file_id_filter=["hela"],
+            raw_file_id_exclude_filter=["blank"],
+        )
     )
 
 
@@ -825,7 +837,7 @@ def test_assign_settings_to_archived_or_deleted_project_raises(
     assignable["find_projects"].return_value = [factories.project(status=status)]
 
     with pytest.raises(ValidationError, match="archived or deleted project 'P1'"):
-        project_settings.assign("P1", "fallback_v7")
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
 
     assignable["backend_assign"].assert_not_called()
 
@@ -840,9 +852,77 @@ def test_assign_archived_or_deleted_settings_raises(
     with pytest.raises(
         ValidationError, match="Cannot assign archived or deleted settings"
     ):
-        project_settings.assign("P1", "fallback_v7")
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
 
     assignable["backend_assign"].assert_not_called()
+
+
+def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> None:
+    """Invalid fields are a validation error before the database is asked."""
+    with pytest.raises(ValidationError, match="are both included and excluded"):
+        project_settings.assign(
+            "P1",
+            "fallback_v7",
+            allow_fallback=False,
+            scopes=["test1"],
+            excluded_scopes=["test1"],
+        )
+
+    assignable["find_projects"].assert_not_called()
+    assignable["backend_assign"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "scopes", [{"scopes": ["test9"]}, {"excluded_scopes": ["test9"]}]
+)
+def test_assign_with_unknown_scope_raises(
+    assignable: dict[str, MagicMock], scopes: dict[str, list[str]]
+) -> None:
+    """A scope that is neither a vendor nor a configured instrument would never match."""
+    with pytest.raises(ValidationError, match=r"Unknown scopes \['test9'\]"):
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, **scopes)
+
+    assignable["backend_assign"].assert_not_called()
+
+
+@pytest.mark.parametrize("allow_fallback", [True, False])
+def test_fallback_assignments_change_only_if_allowed(
+    assignable: dict[str, MagicMock], *, allow_fallback: bool
+) -> None:
+    """The assignments of the fallback project change only for callers that say they may."""
+    assignable["find_projects"].return_value = [
+        factories.project(id=FALLBACK_PROJECT_ID)
+    ]
+    assignable["backend_get_project_id"].return_value = FALLBACK_PROJECT_ID
+    assignable["find_assignments"].return_value = [
+        factories.project_settings(project_id=FALLBACK_PROJECT_ID)
+    ]
+    writes = [
+        lambda: project_settings.assign(
+            FALLBACK_PROJECT_ID,
+            "fallback_v7",
+            allow_fallback=allow_fallback,
+            raw_file_id_filter=["other"],
+        ),
+        lambda: project_settings.unassign("assignment1", allow_fallback=allow_fallback),
+        lambda: project_settings.update_to_latest(
+            "assignment1", allow_fallback=allow_fallback
+        ),
+    ]
+
+    with patch(
+        "shared.db.settings.latest_active",
+        return_value=factories.settings(id="fallback_v8", version=8),
+    ):
+        for write in writes:
+            if allow_fallback:
+                write()
+            else:
+                with pytest.raises(ValidationError, match="is not allowed"):
+                    write()
+
+    assert assignable["backend_assign"].called is allow_fallback
+    assert assignable["backend_unassign"].called is allow_fallback
 
 
 def test_assign_same_settings_with_same_filters_raises(
@@ -859,6 +939,7 @@ def test_assign_same_settings_with_same_filters_raises(
         project_settings.assign(
             "P1",
             "fallback_v7",
+            allow_fallback=False,
             raw_file_id_filter=["b", "a"],
             raw_file_id_exclude_filter=["blank"],
         )
@@ -875,14 +956,16 @@ def test_assign_same_settings_with_different_filters_succeeds(
         factories.project_settings(raw_file_id_filter=["a"])
     ]
 
-    project_settings.assign("P1", "fallback_v7", raw_file_id_filter=["b"])
+    project_settings.assign(
+        "P1", "fallback_v7", allow_fallback=False, raw_file_id_filter=["b"]
+    )
 
     assignable["backend_assign"].assert_called_once()
 
 
 def test_unassign_settings(assignable: dict[str, MagicMock]) -> None:
     """An assignment of an active project is removed."""
-    project_settings.unassign("assignment1")
+    project_settings.unassign("assignment1", allow_fallback=False)
 
     assignable["backend_get_project_id"].assert_called_once_with("assignment1")
     assignable["find_assignments"].assert_not_called()
@@ -898,7 +981,7 @@ def test_unassign_settings_from_archived_project_raises(
     ]
 
     with pytest.raises(ValidationError, match="Cannot unassign settings"):
-        project_settings.unassign("assignment1")
+        project_settings.unassign("assignment1", allow_fallback=False)
 
     assignable["backend_unassign"].assert_not_called()
 
@@ -908,7 +991,7 @@ def test_unassign_unknown_assignment_raises(assignable: dict[str, MagicMock]) ->
     assignable["backend_get_project_id"].side_effect = NotFoundError("No assignment9")
 
     with pytest.raises(NotFoundError, match="assignment9"):
-        project_settings.unassign("assignment9")
+        project_settings.unassign("assignment9", allow_fallback=False)
 
     assignable["backend_unassign"].assert_not_called()
 
@@ -927,12 +1010,7 @@ def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:
 
     with patch.object(models.ProjectSettings, "save") as mock_save:
         result = project_settings_backend.assign(
-            "P1",
-            "fallback_v7",
-            scopes=["*"],
-            excluded_scopes=[],
-            raw_file_id_filter=[],
-            raw_file_id_exclude_filter=[],
+            NewAssignment(project_id="P1", settings_id="fallback_v7")
         )
     project_settings_backend.unassign("some_id")
 

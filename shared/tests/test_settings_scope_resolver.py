@@ -1,8 +1,13 @@
 """Unit tests for scope resolution."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from shared.settings_scope_resolver import _scopes_match, resolve_scoped_settings
+from shared.keys import KNOWN_VENDOR_NAMES
+from shared.settings_scope_resolver import (
+    _scopes_match,
+    known_scopes,
+    resolve_scoped_settings,
+)
 
 
 def _make_ps(  # noqa: PLR0913
@@ -227,3 +232,13 @@ def test_raw_file_id_filters_ignored_when_raw_file_id_is_none() -> None:
         ps_included.settings,
         ps_excluded.settings,
     ]
+
+
+@patch.dict(
+    "shared.settings_scope_resolver.YAMLSETTINGS",
+    {"instruments": {"test1": {}, "test2": {}}},
+    clear=True,
+)
+def test_known_scopes() -> None:
+    """The default scope comes first, then the vendors, then the instruments of the yaml."""
+    assert known_scopes() == ["*", *KNOWN_VENDOR_NAMES, "test1", "test2"]

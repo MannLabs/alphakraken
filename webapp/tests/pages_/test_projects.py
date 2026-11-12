@@ -122,6 +122,7 @@ def test_fallback_assignment_only_for_admins(  # noqa: PLR0913
         mock_assign.assert_called_once()
         # the settings are identified by their unique name
         assert mock_assign.call_args.args == (FALLBACK_PROJECT_ID, "fallback_v7")
+        assert mock_assign.call_args.kwargs["allow_fallback"] is True
 
 
 @patch("shared.db.projects.add")
@@ -179,4 +180,4 @@ def test_update_assignment_to_latest_version(  # noqa: PLR0913
     at.button(key="update_ps_assignment1").click().run(timeout=10)
 
     assert not at.exception
-    mock_update_to_latest.assert_called_once_with("assignment1")
+    mock_update_to_latest.assert_called_once_with("assignment1", allow_fallback=False)

@@ -8,6 +8,7 @@ and metrics, respectively, to record which file system holds the data.
 from typing import Any
 
 from shared.db.models import RawFile
+from shared.domain import raw_files
 from shared.path_layout import get_raw_file_folder_rel_path
 from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -54,7 +55,7 @@ def _display_path(location: str, rel_path: str, base: str | None = None) -> str:
     )
 
 
-def get_display_backup_path(raw_file: RawFile) -> str:
+def get_display_backup_path(raw_file: RawFile | raw_files.RawFile) -> str:
     """Get the folder holding the backup of `raw_file`, as users see it."""
     return _display_path(
         Locations.BACKUP,

@@ -3,8 +3,9 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from shared.domain.metrics import Metrics
 from shared.domain.raw_files import InstrumentFileStatus, RawFile, RawFileStatus
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes
 
 SOME_TIME = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
@@ -31,3 +32,18 @@ def raw_file(**overrides: Any) -> RawFile:
         "updated_at_": SOME_TIME,
     }
     return RawFile(**{**values, **overrides})
+
+
+def metrics(**overrides: Any) -> Metrics:
+    """Return alphadia metrics of `file.raw` with one value."""
+    values: dict[str, Any] = {
+        "raw_file_id": "file.raw",
+        "type": MetricsTypes.ALPHADIA,
+        "settings_name": "fallback",
+        "settings_version": 1,
+        "relative_output_path": "P1/out_file.raw/fallback_v1",
+        "output_display_base_path": "/output",
+        "created_at": SOME_TIME,
+        "values": {"proteins": 5000},
+    }
+    return Metrics(**{**values, **overrides})

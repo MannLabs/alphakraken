@@ -6,7 +6,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import ClassVar
 
 from mongoengine import (
@@ -79,8 +79,8 @@ class RawFile(Document):
     finalized_at = DateTimeField()  # when acquisition was finished (mtime of main file)
 
     # audit fields
-    created_at_ = DateTimeField(default=datetime.now)
-    updated_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
     @property
     def has_project(self) -> bool:
@@ -144,7 +144,7 @@ class Metrics(DynamicDocument):
     output_display_base_path = StringField(max_length=1024, default=None)
 
     # audit fields
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -171,7 +171,7 @@ class User(Document):
 
     status = StringField(max_length=32, default=UserStatus.ACTIVE)
 
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 class AlertIssue(Document):
@@ -226,7 +226,7 @@ class AlertSuppression(Document):
     # None: never expires
     expires_at = DateTimeField()
     created_by = StringField(max_length=64)
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 class Project(Document):
@@ -243,7 +243,7 @@ class Project(Document):
 
     owner = ReferenceField(User, default=None)
 
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
@@ -315,7 +315,7 @@ class Settings(Document):
 
     owner = ReferenceField(User, default=None)
 
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
     @property
     def unique_name(self) -> str:
@@ -337,7 +337,7 @@ class ProjectSettings(Document):
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
     raw_file_id_filter = ListField(StringField(max_length=128), default=list)
     raw_file_id_exclude_filter = ListField(StringField(max_length=128), default=list)
-    created_at_ = DateTimeField(default=datetime.now)
+    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 class KrakenStatus(Document):
@@ -354,7 +354,7 @@ class KrakenStatus(Document):
     free_space_gb = IntField(min_value=-1, default=-1)
     entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
-    updated_at_ = DateTimeField(default=datetime.now)
+    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 class SlurmJob(Document):
@@ -377,7 +377,7 @@ class SlurmJob(Document):
 
     state = StringField(max_length=32)
 
-    updated_at_ = DateTimeField(default=datetime.now)
+    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 def get_slurm_job_db_id(cluster_id: str, job_id: str) -> str:

@@ -212,3 +212,32 @@ def test_admin_page_should_show_suppressions(
     assert df["alert"].tolist() == ["PumpPressureAlert"]
     assert df["instrument"].tolist() == ["astral1"]
     assert at.button(key="delete_suppression_0123456789abcdef01234567")
+
+
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.alerts.add_suppression")
+def test_admin_page_should_pass_suppression_form_as_entered(
+    mock_add_suppression: MagicMock,
+    mock_get_users: MagicMock,  # noqa: ARG001
+) -> None:
+    """The form values are passed on unchanged, validation and cleaning are not the page's job."""
+    # given
+    at = _admin_app().run(timeout=30)
+    at.text_area[1].set_value(" why ")
+
+    # when
+    at.button(key="FormSubmitter:add_suppression_form-Add suppression").click().run(
+        timeout=30
+    )
+
+    # then
+    assert not at.exception
+    mock_add_suppression.assert_called_once_with(
+        alert="*",
+        instrument_id="*",
+        identifier="*",
+        details="*",
+        comment=" why ",
+        expires_at=None,
+        created_by="",
+    )

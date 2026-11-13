@@ -7,7 +7,7 @@ from typing import Annotated, Any, Self
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from shared.domain.inputs import InputModel, empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none, required
 from shared.domain.settings import Settings
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
@@ -65,10 +65,11 @@ class NewProject(InputModel):
     """A project to add, cf. `Project`."""
 
     project_id: str
-    name: str = Field(min_length=1, max_length=64)
+    name: str = Field(max_length=64)
     description: str | None = Field(default=None, max_length=256)
     owner_email: str | None = None
 
+    _required = field_validator("project_id", "name", mode="before")(required())
     _empty_to_none = field_validator("description", "owner_email", mode="before")(
         empty_to_none
     )
@@ -101,6 +102,8 @@ class NewAssignment(InputModel):
     excluded_scopes: list[_Scope] = Field(default_factory=list)
     raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
     raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
+
+    _required = field_validator("project_id", "settings_id", mode="before")(required())
 
     @field_validator(
         "scopes",

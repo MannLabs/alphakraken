@@ -48,7 +48,8 @@ def test_new_user_needs_no_messenger_id() -> None:
         ({"initials": "J"}, "initials: String should match pattern"),
         ({"initials": "J1"}, "initials: String should match pattern"),
         ({"initials": "toolongxx"}, "initials: String should match pattern"),
-        ({"initials": " "}, "initials: String should match pattern"),
+        ({"initials": " "}, "initials: is required."),
+        ({"email": ""}, "email: is required."),
         ({"messenger_id": "U" * 65}, "messenger_id: String should have at most 64"),
     ],
 )

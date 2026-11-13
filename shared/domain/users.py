@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import Field, StringConstraints, field_validator
 
-from shared.domain.inputs import InputModel, empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none, required
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
@@ -46,6 +46,7 @@ class UserUpdate(InputModel):
     # required, so that leaving it out cannot clear it
     messenger_id: str | None = Field(max_length=64)
 
+    _required = field_validator("initials", mode="before")(required())
     _empty_to_none = field_validator("messenger_id", mode="before")(empty_to_none)
 
 
@@ -57,3 +58,5 @@ class NewUser(UserUpdate):
         StringConstraints(to_lower=True, max_length=128, pattern=USER_EMAIL_REGEX),
     ]
     messenger_id: str | None = Field(default=None, max_length=64)
+
+    _email_required = field_validator("email", mode="before")(required())

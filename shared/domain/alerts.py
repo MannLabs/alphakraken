@@ -6,7 +6,7 @@ from typing import Self
 
 from pydantic import Field, field_validator, model_validator
 
-from shared.domain.inputs import InputModel, empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none, required
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
@@ -59,21 +59,12 @@ class NewSuppression(InputModel):
 
     _empty_to_none = field_validator("created_by", mode="before")(empty_to_none)
 
-    @field_validator("alert", "instrument_id", "identifier", "details")
-    @classmethod
-    def _match_field_given(cls, value: str) -> str:
-        if not value:
-            raise ValueError(
-                f"is required, use '{ALERT_SUPPRESSION_WILDCARD}' for any."
-            )
-        return value
-
-    @field_validator("comment")
-    @classmethod
-    def _comment_given(cls, value: str) -> str:
-        if not value:
-            raise ValueError("is required: state why the alerts are muted.")
-        return value
+    _match_field_required = field_validator(
+        "alert", "instrument_id", "identifier", "details", mode="before"
+    )(required(f"use '{ALERT_SUPPRESSION_WILDCARD}' for any"))
+    _comment_required = field_validator("comment", mode="before")(
+        required("state why the alerts are muted")
+    )
 
     @model_validator(mode="after")
     def _not_all_wildcards(self) -> Self:

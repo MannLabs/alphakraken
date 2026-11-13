@@ -30,7 +30,7 @@ def test_new_project_accepts_project_id(project_id: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "project_id", ["", "A12", "A" * 17, "1234", "a123", "A-123", "A 123", "_OTHER"]
+    "project_id", ["A12", "A" * 17, "1234", "a123", "A-123", "A 123", "_OTHER"]
 )
 def test_new_project_rejects_project_id(project_id: str) -> None:
     """Too short, too long, all digits or other characters are rejected."""
@@ -45,7 +45,9 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
 @pytest.mark.parametrize(
     ("overrides", "error"),
     [
-        ({"name": " "}, "name: String should have at least 1 character"),
+        ({"name": " "}, "name: is required."),
+        ({"project_id": ""}, "project_id: is required."),
+        ({"name": None}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
         ({"description": "d" * 257}, "description: String should have at most 256"),
     ],

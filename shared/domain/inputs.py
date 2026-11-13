@@ -1,5 +1,6 @@
 """Building of the input types that user-triggered writes are validated with."""
 
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 import pydantic
@@ -44,6 +45,21 @@ def _message(error: Any) -> str:
 def empty_to_none(value: Any) -> Any:
     """Return None for an empty or blank string, any other value as it is."""
     return None if isinstance(value, str) and not value.strip() else value
+
+
+def required(hint: str | None = None) -> Callable[[Any], Any]:
+    """Return a validator rejecting None and empty or blank strings.
+
+    :param hint: appended to the message, e.g. what to enter instead
+    """
+    message = f"is required, {hint}." if hint else "is required."
+
+    def _required(value: Any) -> Any:
+        if empty_to_none(value) is None:
+            raise ValueError(message)
+        return value
+
+    return _required
 
 
 def max_length(model: type[InputModel], field: str) -> int:

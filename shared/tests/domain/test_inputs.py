@@ -11,7 +11,13 @@ from pydantic import (
 )
 
 from shared.domain.errors import ValidationError
-from shared.domain.inputs import InputModel, empty_to_none, max_length, parse
+from shared.domain.inputs import (
+    InputModel,
+    empty_to_none,
+    max_length,
+    parse,
+    required,
+)
 
 
 class _Input(InputModel):
@@ -93,3 +99,22 @@ def test_parse_rejects_unknown_field() -> None:
 def test_parse_strips_strings() -> None:
     """Strings are stripped before they are validated."""
     assert parse(_Input, name=" abc ").name == "abc"
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+@pytest.mark.parametrize(
+    ("hint", "message"),
+    [(None, "is required."), ("use '*' for any", "is required, use '*' for any.")],
+)
+def test_required_rejects_missing_value(
+    value: str | None, hint: str | None, message: str
+) -> None:
+    """None and empty or blank strings are rejected, the hint is appended."""
+    with pytest.raises(ValueError, match=message):
+        required(hint)(value)
+
+
+@pytest.mark.parametrize("value", ["a", " a ", 0])
+def test_required_passes_given_value(value: Any) -> None:
+    """Any other value is returned as it is."""
+    assert required()(value) == value

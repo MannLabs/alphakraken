@@ -13,7 +13,7 @@ from pydantic import (
 )
 
 from shared.config_params import check_for_unknown_placeholders, substitute_dummy_values
-from shared.domain.inputs import InputModel, empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none, required
 from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 
@@ -105,8 +105,8 @@ class NewSettings(InputModel):
 
     name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
     software_type: str
-    software: str = Field(min_length=1, max_length=64)
-    runner_name: str = Field(min_length=1, max_length=64)
+    software: str = Field(max_length=64)
+    runner_name: str = Field(max_length=64)
     metrics_type: str
     description: str | None = Field(default=None, max_length=512)
     fasta_file_name: str | None = Field(default=None, max_length=64)
@@ -119,6 +119,14 @@ class NewSettings(InputModel):
     num_threads: int | None = Field(default=None, ge=1)
     owner_email: str | None = None
 
+    _required = field_validator(
+        "name",
+        "software_type",
+        "software",
+        "runner_name",
+        "metrics_type",
+        mode="before",
+    )(required())
     _empty_to_none = field_validator(
         "description",
         "fasta_file_name",

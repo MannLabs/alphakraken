@@ -116,9 +116,7 @@ field validators, cross-field rules as model validators.
 
 ```python
 # shared/domain/settings.py
-class NewSettings(BaseModel):
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-
+class NewSettings(InputModel):         # frozen=True, str_strip_whitespace=True, extra="forbid"
     name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
     software_type: str
     software: str = Field(max_length=128)
@@ -175,6 +173,11 @@ Behaviour changes against today: all string values are stripped (today only the 
 strips); `empty_to_none` must pass non-strings through, as it then also sees the int fields.
 
 The output types stay dataclasses.
+
+All input types inherit `InputModel` (`shared/domain/inputs.py`). Its `extra="forbid"` is
+required, not optional: the write functions take `**fields`, so only the input type can
+reject a misspelled or unknown keyword. With pydantic's default the value would be dropped
+and the record written without it.
 
 ### 2.2 Write operations: `shared/services/<aggregate>.py`
 

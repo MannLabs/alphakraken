@@ -320,6 +320,19 @@ def test_update_assignment_without_newer_version_raises(
     updatable["backend_unassign"].assert_not_called()
 
 
+def test_update_assignment_whose_settings_are_gone_raises(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """An assignment that `find` leaves out, as its settings no longer exist, cannot be updated."""
+    updatable["find_assignments"].return_value = []
+
+    with pytest.raises(NotFoundError, match="Settings of assignment assignment1"):
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    updatable["backend_assign"].assert_not_called()
+    updatable["backend_unassign"].assert_not_called()
+
+
 def test_update_assignment_keeps_old_one_if_assigning_fails(
     updatable: dict[str, MagicMock],
 ) -> None:

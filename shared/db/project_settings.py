@@ -5,7 +5,7 @@ from typing import Any
 
 from shared.db import projects, settings
 from shared.db._mongo import project_settings as _backend
-from shared.domain.errors import ValidationError
+from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
@@ -145,13 +145,16 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
     :param allow_fallback: whether the caller may change the assignments of the fallback project
 
     Raises:
-        NotFoundError: if there is no such assignment.
+        NotFoundError: if there is no such assignment, or its settings no longer exist.
         ValidationError: if there is no newer active version, the project is archived or deleted, or
             the latest version is already assigned to the project with the same file name filters.
 
     """
     project_id = _backend.get_project_id(assignment_id)
-    current = next(a for a in find([project_id]) if a.id == assignment_id)
+    current = next((a for a in find([project_id]) if a.id == assignment_id), None)
+    if current is None:
+        # `find` leaves out an assignment whose settings no longer exist
+        raise NotFoundError(f"Settings of assignment {assignment_id} do not exist")
     latest = settings.latest_active(current.settings.name)
     if latest is None or latest.version <= current.settings.version:
         raise ValidationError(

@@ -26,13 +26,16 @@ Blocking slice 6:
 
 ```python
 # shared/domain/inputs.py
+class InputModel(BaseModel):             # base of all input types
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True, extra="forbid")
+
 def parse(model: type[T], **fields: Any) -> T:
     """Build the input type, raising the domain ValidationError with `<field>: <message>` entries."""
 
-def max_length(model: type[BaseModel], field: str) -> int: ...   # for the forms' max_chars
+def max_length(model: type[InputModel], field: str) -> int: ...  # for the forms' max_chars
 
 # shared/domain/settings.py
-class NewSettings(BaseModel): ...        # field limits, patterns, pure checks, cross-field rules
+class NewSettings(InputModel): ...       # field limits, patterns, pure checks, cross-field rules
 
 # shared/db/settings.py
 def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
@@ -40,6 +43,11 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     ...                                  # rules needing the yaml or the DB, collected into one ValidationError
     return _backend.create(new, version=..., number=...)
 ```
+
+The write functions take `**fields`, so their signature no longer names the fields and `ty`
+cannot check a call. `extra="forbid"` is what catches a misspelled or unknown keyword: it is
+a `ValidationError`, where pydantic's default would drop the value silently
+(`shared/tests/domain/test_inputs.py::test_parse_rejects_unknown_field`).
 
 Per aggregate: input type in `shared/domain/<aggregate>.py`, rules in
 `shared/db/<aggregate>.py`, tests of the input type in `shared/tests/domain/`, tests of the
@@ -210,6 +218,8 @@ a webapp user sees.
 **Details**:
 - New Mongo user `MONGO_USER_MCP` with `webappRole`; compose passes it to `mcp-server`.
   Existing deployments need the user created by hand, documented in `docs/deployment.md`.
+- A tool cannot derive its schema from `**fields`: it declares its parameters from the
+  input type (`NewSettings.model_json_schema()` or the model as the tool's argument type).
 - Tools `create_project`, `create_settings`, `assign_settings` (A3): one API call each,
   `ValidationError`, `NotFoundError` and `AlreadyExistsError` returned as
   `{"errors": [...]}`. `assign_settings` passes `allow_fallback=False`.

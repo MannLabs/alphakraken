@@ -54,7 +54,10 @@ def assign(new: NewAssignment) -> ProjectSettings:
     doc = models.ProjectSettings(
         project=models.Project.objects.get(id=new.project_id),
         settings=settings_doc,
-        **new.model_dump(exclude={"project_id", "settings_id"}),
+        scopes=new.scopes,
+        excluded_scopes=new.excluded_scopes,
+        raw_file_id_filter=new.raw_file_id_filter,
+        raw_file_id_exclude_filter=new.raw_file_id_exclude_filter,
     )
     doc.save()
     return to_project_settings(doc, to_settings(settings_doc))

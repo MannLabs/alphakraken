@@ -43,7 +43,15 @@ def find_suppressions(*, active_only: bool) -> list[AlertSuppression]:
 @db_backend_function
 def add_suppression(new: NewSuppression) -> None:
     """Add an alert suppression, cf. `shared.db.alerts`."""
-    models.AlertSuppression(**new.model_dump()).save()
+    models.AlertSuppression(
+        alert=new.alert,
+        instrument_id=new.instrument_id,
+        identifier=new.identifier,
+        details=new.details,
+        comment=new.comment,
+        expires_at=new.expires_at,
+        created_by=new.created_by,
+    ).save()
 
 
 @db_backend_function

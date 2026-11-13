@@ -1200,6 +1200,11 @@ def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:
 
     mock_models.Settings.objects.assert_called_once_with(name="fallback", version=7)
     mock_models.Project.objects.get.assert_called_once_with(id="P1")
+    # a field added to the input type must be mapped in the backend
+    assert mock_models.ProjectSettings.call_args.kwargs.keys() - {
+        "project",
+        "settings",
+    } == NewAssignment.model_fields.keys() - {"project_id", "settings_id"}
     mock_save.assert_called_once()
     assert result == factories.project_settings(
         id=str(ASSIGNMENT_OBJECT_ID),

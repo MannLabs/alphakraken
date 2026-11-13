@@ -10,6 +10,7 @@ from bson import ObjectId
 
 from shared.db import alerts
 from shared.db._mongo import models
+from shared.domain.alerts import NewSuppression
 from shared.domain.errors import ValidationError
 from shared.tests.factories import alert_issue, alert_suppression
 
@@ -105,6 +106,8 @@ def test_add_suppression(mock_models: MagicMock) -> None:
     alerts.add_suppression(**{**fields, "alert": " PumpPressureAlert "})
 
     mock_models.AlertSuppression.assert_called_once_with(**fields)
+    # a field added to the input type must be mapped in the backend
+    assert fields.keys() == NewSuppression.model_fields.keys()
     mock_models.AlertSuppression.return_value.save.assert_called_once()
 
 

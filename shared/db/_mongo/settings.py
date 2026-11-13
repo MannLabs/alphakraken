@@ -92,7 +92,20 @@ def create(new: NewSettings, *, number: int, version: int) -> Settings:
         owner=owner,
         number=number,
         version=version,
-        **new.model_dump(exclude={"owner_email"}),
+        name=new.name,
+        description=new.description,
+        fasta_file_name=new.fasta_file_name,
+        speclib_file_name=new.speclib_file_name,
+        config_file_name=new.config_file_name,
+        config_params=new.config_params,
+        software_type=new.software_type,
+        software=new.software,
+        runner_name=new.runner_name,
+        metrics_type=new.metrics_type,
+        slurm_cpus_per_task=new.slurm_cpus_per_task,
+        slurm_mem=new.slurm_mem,
+        slurm_time=new.slurm_time,
+        num_threads=new.num_threads,
     )
     settings.save(force_insert=True)
     return to_settings(settings)

@@ -52,7 +52,9 @@ def initials_taken(initials: str, *, except_email: str | None = None) -> bool:
 @db_backend_function
 def add(new: NewUser) -> User:
     """Add a new active user, cf. `shared.db.users`."""
-    user = models.User(**new.model_dump())
+    user = models.User(
+        email=new.email, initials=new.initials, messenger_id=new.messenger_id
+    )
     user.save(force_insert=True)
     return to_user(user)
 

@@ -117,6 +117,8 @@ def test_backend_add(mock_models: MagicMock) -> None:
     mock_models.User.assert_called_once_with(
         email="masc@example.org", initials="MaSc", messenger_id="U_MASC"
     )
+    # a field added to the input type must be mapped in the backend
+    assert mock_models.User.call_args.kwargs.keys() == NewUser.model_fields.keys()
     mock_save.assert_called_once_with(force_insert=True)
     assert result == user(created_at_=AWARE_TIME)
 

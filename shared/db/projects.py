@@ -75,15 +75,16 @@ def add(**fields: Any) -> None:
     """
     new = parse(NewProject, **fields)
     logging.info(f"Adding to DB: {new!r}")
+    errors = []
     existing = find(ids=[new.project_id], include_deleted=True)
     if existing and existing[0].status == ProjectStatus.DELETED:
-        raise ValidationError(
-            [
-                f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
-            ]
+        errors.append(
+            f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
     if new.owner_email:
-        users.require_active(new.owner_email)
+        errors += users.check_active(new.owner_email)
+    if errors:
+        raise ValidationError(errors)
 
     _backend.add(new)
 

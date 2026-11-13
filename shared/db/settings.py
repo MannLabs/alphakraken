@@ -78,12 +78,11 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
 
     """
     new = parse(NewSettings, **fields)
-    if errors := check_runner_supports_software_type(
-        new.runner_name, new.software_type
-    ):
-        raise ValidationError(errors)
+    errors = check_runner_supports_software_type(new.runner_name, new.software_type)
     if new.owner_email:
-        users.require_active(new.owner_email)
+        errors += users.check_active(new.owner_email)
+    if errors:
+        raise ValidationError(errors)
 
     existing = find(name=new.name, include_deleted=True)
     version = max((s.version for s in existing), default=0) + 1

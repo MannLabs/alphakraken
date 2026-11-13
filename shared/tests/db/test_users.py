@@ -152,17 +152,19 @@ def test_backend_email_and_initials_taken(
     ]
 
 
-@pytest.mark.parametrize("status", [UserStatus.ACTIVE, UserStatus.INACTIVE])
+@pytest.mark.parametrize(
+    ("status", "errors"),
+    [
+        (UserStatus.ACTIVE, []),
+        (UserStatus.INACTIVE, ["User 'masc@example.org' is inactive."]),
+    ],
+)
 @patch("shared.db._mongo.users.models")
-def test_require_active(mock_models: MagicMock, status: str) -> None:
-    """An active user passes, an inactive one is a validation error."""
+def test_check_active(mock_models: MagicMock, status: str, errors: list[str]) -> None:
+    """An active user passes, an inactive one is an error."""
     mock_models.User.objects.get.return_value = _user_document(status)
 
-    if status == UserStatus.ACTIVE:
-        users.require_active("masc@example.org")
-    else:
-        with pytest.raises(ValidationError, match="is inactive"):
-            users.require_active("masc@example.org")
+    assert users.check_active("masc@example.org") == errors
 
     mock_models.User.objects.get.assert_called_once_with(email="masc@example.org")
 

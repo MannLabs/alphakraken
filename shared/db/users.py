@@ -26,16 +26,16 @@ def project_owner(raw_file_id: str) -> User | None:
     return _backend.project_owner(raw_file_id)
 
 
-def require_active(email: str) -> None:
-    """Raise unless there is an active user with the email.
+def check_active(email: str) -> list[str]:
+    """Return an error message if the user with the email is inactive, else nothing.
 
     Raises:
         NotFoundError: if there is no such user.
-        ValidationError: if the user is inactive.
 
     """
     if _backend.get(email).status != UserStatus.ACTIVE:
-        raise ValidationError([f"User '{email}' is inactive."])
+        return [f"User '{email}' is inactive."]
+    return []
 
 
 def add(**fields: Any) -> User:

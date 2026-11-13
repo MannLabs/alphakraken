@@ -341,7 +341,7 @@ def test_update_assignment_keeps_old_one_if_assigning_fails(
         factories.project(status=ProjectStatus.INACTIVE)
     ]
 
-    with pytest.raises(ValidationError, match="Cannot assign settings"):
+    with pytest.raises(ValidationError, match="Cannot change the settings assignments"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_unassign"].assert_not_called()
@@ -368,7 +368,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
         patch(
             "shared.db.settings.check_runner_supports_software_type", return_value=[]
         ) as check_runner,
-        patch("shared.db.users.require_active") as require_active,
+        patch("shared.db.users.check_active", return_value=[]) as check_active,
         patch("shared.db._mongo.settings.create") as backend_create,
         patch("shared.db._mongo.settings.set_status") as backend_set_status,
     ):
@@ -378,7 +378,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
             "count": count,
             "get": get,
             "check_runner": check_runner,
-            "require_active": require_active,
+            "check_active": check_active,
             "backend_create": backend_create,
             "backend_set_status": backend_set_status,
         }
@@ -397,7 +397,7 @@ def test_create_settings_as_next_version(creatable: dict[str, MagicMock]) -> Non
     creatable["find"].assert_called_once_with(name="fallback", include_deleted=True)
     creatable["count"].assert_called_once_with(include_deleted=True)
     creatable["check_runner"].assert_called_once_with("slurm", "alphadia")
-    creatable["require_active"].assert_called_once_with("a@b.de")
+    creatable["check_active"].assert_called_once_with("a@b.de")
     creatable["backend_create"].assert_called_once_with(
         NewSettings(**CREATE_FIELDS, name="fallback", owner_email="a@b.de"),
         number=42,
@@ -412,7 +412,7 @@ def test_create_settings_first_version(creatable: dict[str, MagicMock]) -> None:
 
     stored = creatable["backend_create"].call_args.kwargs
     assert (stored["version"], stored["number"]) == (1, 1)
-    creatable["require_active"].assert_not_called()
+    creatable["check_active"].assert_not_called()
 
 
 def test_create_settings_with_invalid_field_raises(
@@ -452,6 +452,19 @@ def test_create_settings_on_unsuitable_runner_raises(
         settings.create(**CREATE_FIELDS, name="fallback")
 
     creatable["backend_create"].assert_not_called()
+
+
+def test_create_settings_reports_all_rule_errors(
+    creatable: dict[str, MagicMock],
+) -> None:
+    """The runner and the owner error are reported together."""
+    creatable["check_runner"].return_value = ["Unknown runner 'slurm'"]
+    creatable["check_active"].return_value = ["User 'a@b.de' is inactive."]
+
+    with pytest.raises(ValidationError) as e:
+        settings.create(**CREATE_FIELDS, name="fallback", owner_email="a@b.de")
+
+    assert e.value.errors == ["Unknown runner 'slurm'", "User 'a@b.de' is inactive."]
 
 
 def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> None:
@@ -641,34 +654,34 @@ def test_delete_assigned_settings_raises(
 # project writes
 
 
-@patch("shared.db.users.require_active")
+@patch("shared.db.users.check_active", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_project(
-    mock_find: MagicMock, mock_backend_add: MagicMock, mock_require_active: MagicMock
+    mock_find: MagicMock, mock_backend_add: MagicMock, mock_check_active: MagicMock
 ) -> None:
     """A project with an unused id and an active owner is stored, with the fields cleaned."""
     projects.add(project_id=" P123 ", name="n", description=" ", owner_email="a@b.de")
 
     mock_find.assert_called_once_with(ids=["P123"], include_deleted=True)
-    mock_require_active.assert_called_once_with("a@b.de")
+    mock_check_active.assert_called_once_with("a@b.de")
     mock_backend_add.assert_called_once_with(
         NewProject(project_id="P123", name="n", owner_email="a@b.de")
     )
 
 
-@patch("shared.db.users.require_active")
+@patch("shared.db.users.check_active", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_project_without_owner(
     mock_find: MagicMock,  # noqa: ARG001
     mock_backend_add: MagicMock,
-    mock_require_active: MagicMock,
+    mock_check_active: MagicMock,
 ) -> None:
     """A project needs no owner."""
     projects.add(project_id="P123", name="n", owner_email="")
 
-    mock_require_active.assert_not_called()
+    mock_check_active.assert_not_called()
     mock_backend_add.assert_called_once()
 
 
@@ -981,6 +994,27 @@ def test_assign_with_fully_excluded_scope_raises(
     assignable["backend_assign"].assert_not_called()
 
 
+def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> None:
+    """The errors of the scopes, the project and the settings are reported together."""
+    assignable["find_projects"].return_value = [
+        factories.project(status=ProjectStatus.INACTIVE)
+    ]
+    assignable["get_settings"].return_value = factories.settings(
+        status=SettingsStatus.INACTIVE
+    )
+
+    with pytest.raises(ValidationError) as e:
+        project_settings.assign(
+            "P1", "fallback_v7", allow_fallback=False, scopes=["test9"]
+        )
+
+    assert [error.split(",")[0].split(" '")[0] for error in e.value.errors] == [
+        "Unknown scopes ['test9']",
+        "Cannot change the settings assignments of archived or deleted project",
+        "Cannot assign archived or deleted settings",
+    ]
+
+
 @pytest.mark.parametrize("allow_fallback", [True, False])
 def test_fallback_assignments_change_only_if_allowed(
     assignable: dict[str, MagicMock], *, allow_fallback: bool
@@ -1076,7 +1110,7 @@ def test_unassign_settings_from_archived_project_raises(
         factories.project(status=ProjectStatus.INACTIVE)
     ]
 
-    with pytest.raises(ValidationError, match="Cannot unassign settings"):
+    with pytest.raises(ValidationError, match="Cannot change the settings assignments"):
         project_settings.unassign("assignment1", allow_fallback=False)
 
     assignable["backend_unassign"].assert_not_called()

@@ -12,8 +12,6 @@ from shared.domain.settings import SettingsStatus
 from shared.keys import FALLBACK_PROJECT_ID
 from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
-_NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
-
 
 def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     """Return the settings assignments with their settings, oldest first.
@@ -43,78 +41,73 @@ def assign(
 
     """
     new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
-    known = known_scopes()
-    if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
-        raise ValidationError([f"Unknown scopes {unknown}, known are: {known}."])
-    if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
-        raise ValidationError(
-            [
-                f"All instruments of scopes {excluded} are excluded, they would never apply."
-            ]
-        )
-    return _assign(new, allow_fallback=allow_fallback)
+    return _assign(new, allow_fallback=allow_fallback, check_scopes=True)
 
 
-def _assign(new: NewAssignment, *, allow_fallback: bool) -> ProjectSettings:
-    """Store the assignment after the checks against the database, cf. `assign`."""
-    project_id, settings_id = new.project_id, new.settings_id
-    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
-    if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
-        raise ValidationError(
-            [f"Cannot assign settings to archived or deleted project '{project_id}'"]
-        )
-    assigned = settings.get(settings_id)
+def _assign(
+    new: NewAssignment, *, allow_fallback: bool, check_scopes: bool
+) -> ProjectSettings:
+    """Store the assignment after the checks against the yaml and the database, cf. `assign`."""
+    errors = _scope_errors(new) if check_scopes else []
+    errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
+    assigned = settings.get(new.settings_id)
     if assigned.status != SettingsStatus.ACTIVE:
-        raise ValidationError(
-            [
-                f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
-            ]
+        errors.append(
+            f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
         )
-    _check_not_assigned_with_same_filters(
-        project_id, settings_id, new.raw_file_id_filter, new.raw_file_id_exclude_filter
-    )
+    errors += _duplicate_errors(new)
+    if errors:
+        raise ValidationError(errors)
 
     assignment = _backend.assign(new)
     logging.info(f"Created project-settings assignment: {new!r}")
     return assignment
 
 
-def _check_fallback_allowed(project_id: str, *, allow_fallback: bool) -> None:
-    """Raise if the assignments of the project may not be changed by the caller."""
-    if project_id == FALLBACK_PROJECT_ID and not allow_fallback:
-        raise ValidationError(
-            [
-                f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
-            ]
+def _scope_errors(new: NewAssignment) -> list[str]:
+    """Return the errors of the scopes against alphakraken.yaml."""
+    errors = []
+    known = known_scopes()
+    if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
+        errors.append(f"Unknown scopes {unknown}, known are: {known}.")
+    if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
+        errors.append(
+            f"All instruments of scopes {excluded} are excluded, they would never apply."
         )
+    return errors
 
 
-def _check_not_assigned_with_same_filters(
-    project_id: str,
-    settings_id: str,
-    raw_file_id_filter: list[str],
-    raw_file_id_exclude_filter: list[str],
-) -> None:
-    """Raise if the settings are already assigned to the project with identical file name filters.
+def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
+    """Return why the assignments of the project may not be changed by the caller.
 
     Raises:
-        ValidationError: if they are.
+        NotFoundError: if there is no such project.
 
     """
-    for existing in find([project_id]):
-        if (
-            existing.settings.id == settings_id
-            and set(existing.raw_file_id_filter) == set(raw_file_id_filter)
-            and _lower(existing.raw_file_id_exclude_filter)
-            == _lower(raw_file_id_exclude_filter)
-        ):
-            raise ValidationError(
-                [
-                    f"Settings '{existing.settings.name}' version {existing.settings.version} already assigned "
-                    f"to project '{project_id}' with the same file name filters. "
-                    "Unlink the existing assignment and re-assign with the merged scopes."
-                ]
-            )
+    errors = []
+    if project_id == FALLBACK_PROJECT_ID and not allow_fallback:
+        errors.append(
+            f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
+        )
+    if projects.get(project_id).status != ProjectStatus.ACTIVE:
+        errors.append(
+            f"Cannot change the settings assignments of archived or deleted project '{project_id}'"
+        )
+    return errors
+
+
+def _duplicate_errors(new: NewAssignment) -> list[str]:
+    """Return an error if the settings are already assigned to the project with identical file name filters."""
+    return [
+        f"Settings '{existing.settings.name}' version {existing.settings.version} already assigned "
+        f"to project '{new.project_id}' with the same file name filters. "
+        "Unlink the existing assignment and re-assign with the merged scopes."
+        for existing in find([new.project_id])
+        if existing.settings.id == new.settings_id
+        and set(existing.raw_file_id_filter) == set(new.raw_file_id_filter)
+        and _lower(existing.raw_file_id_exclude_filter)
+        == _lower(new.raw_file_id_exclude_filter)
+    ]
 
 
 def _lower(filters: list[str]) -> set[str]:
@@ -133,13 +126,8 @@ def unassign(assignment_id: str, *, allow_fallback: bool) -> None:
 
     """
     project_id = _backend.get_project_id(assignment_id)
-    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
-    if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
-        raise ValidationError(
-            [
-                f"Cannot unassign settings from archived or deleted project '{project_id}'"
-            ]
-        )
+    if errors := _project_errors(project_id, allow_fallback=allow_fallback):
+        raise ValidationError(errors)
 
     _backend.unassign(assignment_id)
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
@@ -170,7 +158,7 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
             ]
         )
 
-    # not through `assign`: a scope that left alphakraken.yaml since is carried over
+    # scopes unchecked: one that left alphakraken.yaml since is carried over
     new = parse(
         NewAssignment,
         project_id=project_id,
@@ -181,7 +169,7 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
         raw_file_id_exclude_filter=list(current.raw_file_id_exclude_filter),
     )
     # assigning first: if it fails, the current assignment is kept
-    updated = _assign(new, allow_fallback=allow_fallback)
+    updated = _assign(new, allow_fallback=allow_fallback, check_scopes=False)
     _backend.unassign(assignment_id)
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
     return updated

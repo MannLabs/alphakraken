@@ -47,6 +47,13 @@ def test_new_settings_cleans_fields() -> None:
     }
 
 
+def test_new_settings_lower_cases_owner_email() -> None:
+    """Users are stored with a lower-cased email."""
+    new = parse(NewSettings, **ALPHADIA, owner_email=" Jane@B.de ")
+
+    assert new.owner_email == "jane@b.de"
+
+
 def test_new_settings_accepts_custom_software_with_resources() -> None:
     """A custom software may use any metrics type, placeholders and resource parameters."""
     new = parse(

@@ -13,6 +13,7 @@ from shared.domain.users import (
     User,
     UserStatus,
     UserUpdate,
+    normalize_email,
 )
 
 
@@ -33,6 +34,7 @@ def check_active(email: str) -> list[str]:
         NotFoundError: if there is no such user.
 
     """
+    email = normalize_email(email)
     if _backend.get(email).status != UserStatus.ACTIVE:
         return [f"User '{email}' is inactive."]
     return []
@@ -71,6 +73,7 @@ def update(email: str, **fields: Any) -> None:
         ValidationError: if a field is missing or invalid, or another user has the initials.
 
     """
+    email = normalize_email(email)
     changes = parse(UserUpdate, **fields)
     if _backend.initials_taken(changes.initials, except_email=email):
         raise ValidationError([_initials_taken_message(changes.initials)])
@@ -91,6 +94,7 @@ def set_status(email: str, status: str) -> None:
         ValidationError: if the status is unknown or the one the user has.
 
     """
+    email = normalize_email(email)
     check_status_transition(
         USER_STATUS_TRANSITIONS, f"user '{email}'", _backend.get(email).status, status
     )

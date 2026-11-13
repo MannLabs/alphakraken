@@ -9,6 +9,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from shared.domain.inputs import InputModel, empty_to_none, required
 from shared.domain.settings import Settings
+from shared.domain.users import LowerCasedEmail
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
@@ -68,7 +69,7 @@ class NewProject(InputModel):
     project_id: str = Field(max_length=PROJECT_ID_MAX_LENGTH)
     name: str = Field(max_length=64)
     description: str | None = Field(default=None, max_length=512)
-    owner_email: str | None = None
+    owner_email: LowerCasedEmail | None = None
 
     _required = field_validator("project_id", "name", mode="before")(required())
     _empty_to_none = field_validator("description", "owner_email", mode="before")(

@@ -14,6 +14,15 @@ USER_INITIALS_MAX_LENGTH = 8
 USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"
 
 
+# emails are stored lower-cased, so every email that is looked up is lower-cased as well
+LowerCasedEmail = Annotated[str, StringConstraints(to_lower=True)]
+
+
+def normalize_email(email: str) -> str:
+    """Return the email as it is stored: stripped and lower-cased."""
+    return email.strip().lower()
+
+
 class UserStatus:
     """Status of user."""
 

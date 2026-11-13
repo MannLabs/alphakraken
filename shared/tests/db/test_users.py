@@ -315,3 +315,26 @@ def test_set_status_of_unknown_user_raises(mock_models: MagicMock) -> None:
 
     with pytest.raises(NotFoundError, match="a@b.de"):
         users.set_status("a@b.de", UserStatus.INACTIVE)
+
+
+@patch("shared.db._mongo.users.initials_taken", return_value=False)
+@patch("shared.db._mongo.users.update")
+@patch("shared.db._mongo.users.set_status")
+@patch("shared.db._mongo.users.get")
+def test_email_is_normalized_for_lookups(
+    mock_get: MagicMock,
+    mock_set_status: MagicMock,
+    mock_update: MagicMock,
+    mock_initials_taken: MagicMock,
+) -> None:
+    """Users are stored with a lower-cased email, so a given email is stripped and lower-cased."""
+    mock_get.return_value = user()
+
+    users.check_active(" Jane@B.de ")
+    users.set_status(" Jane@B.de ", UserStatus.INACTIVE)
+    users.update(" Jane@B.de ", initials="JD", messenger_id=None)
+
+    assert mock_get.call_args_list == [call("jane@b.de"), call("jane@b.de")]
+    mock_set_status.assert_called_once_with("jane@b.de", UserStatus.INACTIVE)
+    mock_initials_taken.assert_called_once_with("JD", except_email="jane@b.de")
+    assert mock_update.call_args.args[0] == "jane@b.de"

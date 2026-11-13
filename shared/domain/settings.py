@@ -14,6 +14,7 @@ from pydantic import (
 
 from shared.config_params import check_for_unknown_placeholders, substitute_dummy_values
 from shared.domain.inputs import InputModel, empty_to_none, required
+from shared.domain.users import LowerCasedEmail
 from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 
@@ -117,7 +118,7 @@ class NewSettings(InputModel):
     slurm_mem: str | None = Field(default=None, max_length=16)
     slurm_time: str | None = Field(default=None, max_length=16)
     num_threads: int | None = Field(default=None, ge=1)
-    owner_email: str | None = None
+    owner_email: LowerCasedEmail | None = None
 
     _required = field_validator(
         "name",

@@ -10,10 +10,11 @@ from shared.domain.projects import NewAssignment, NewProject
 
 
 def test_new_project_cleans_fields() -> None:
-    """Strings are stripped, a blank description and owner become None."""
+    """Strings are stripped, a blank description and owner become None, the owner is lower-cased."""
     new = parse(
         NewProject, project_id=" P123 ", name=" n ", description=" ", owner_email=""
     )
+    owned = parse(NewProject, project_id="P123", name="n", owner_email=" Jane@B.de ")
 
     assert new.model_dump() == {
         "project_id": "P123",
@@ -21,6 +22,7 @@ def test_new_project_cleans_fields() -> None:
         "description": None,
         "owner_email": None,
     }
+    assert owned.owner_email == "jane@b.de"
 
 
 @pytest.mark.parametrize("project_id", ["A123", "ABCD", "1234A", "A" * 16, "_FALLBACK"])

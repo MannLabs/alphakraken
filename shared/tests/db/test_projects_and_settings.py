@@ -941,6 +941,30 @@ def test_assign_with_unknown_scope_raises(
     assignable["backend_assign"].assert_not_called()
 
 
+def test_assign_with_fully_excluded_scope_raises(
+    assignable: dict[str, MagicMock],
+) -> None:
+    """An instrument whose vendor is excluded would never match."""
+    with (
+        patch(
+            "shared.db.project_settings.fully_excluded_scopes", return_value=["test1"]
+        ) as fully_excluded,
+        pytest.raises(
+            ValidationError, match=r"All instruments of scopes \['test1'\] are excluded"
+        ),
+    ):
+        project_settings.assign(
+            "P1",
+            "fallback_v7",
+            allow_fallback=False,
+            scopes=["test1"],
+            excluded_scopes=["thermo"],
+        )
+
+    fully_excluded.assert_called_once_with(["test1"], ["thermo"])
+    assignable["backend_assign"].assert_not_called()
+
+
 @pytest.mark.parametrize("allow_fallback", [True, False])
 def test_fallback_assignments_change_only_if_allowed(
     assignable: dict[str, MagicMock], *, allow_fallback: bool

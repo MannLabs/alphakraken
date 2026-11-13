@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from shared.domain.inputs import InputModel, empty_to_none
 from shared.domain.settings import Settings
@@ -97,20 +97,29 @@ class NewAssignment(InputModel):
     raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
 
     @field_validator(
+        "scopes",
         "excluded_scopes",
         "raw_file_id_filter",
         "raw_file_id_exclude_filter",
         mode="before",
     )
     @classmethod
-    def _none_to_empty(cls, value: Any) -> Any:
-        return [] if value is None else value
+    def _none_to_default(cls, value: Any, info: ValidationInfo) -> Any:
+        return (
+            cls.model_fields[info.field_name].get_default(call_default_factory=True)
+            if value is None
+            else value
+        )
 
-    @field_validator("scopes", mode="before")
+    @field_validator("scopes")
     @classmethod
-    def _default_scope_absorbs_others(cls, value: Any) -> Any:
+    def _default_scope_absorbs_others(cls, value: list[str]) -> list[str]:
+        if not value:
+            raise ValueError(
+                f"At least one scope is required, use '{DEFAULT_SCOPE}' for all instruments."
+            )
         # the default scope matches everything, so any other entry next to it is redundant
-        return [DEFAULT_SCOPE] if not value or DEFAULT_SCOPE in value else value
+        return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value
 
     @model_validator(mode="after")
     def _exclusion_leaves_something(self) -> Self:
@@ -121,5 +130,17 @@ class NewAssignment(InputModel):
         if overlap := sorted(set(self.scopes) & set(self.excluded_scopes)):
             raise ValueError(
                 f"Scopes {overlap} are both included and excluded, they would never apply."
+            )
+        # the exclude filter is case-insensitive, cf. `resolve_scoped_settings`
+        if never_matching := [
+            included
+            for included in self.raw_file_id_filter
+            if any(
+                excluded.lower() in included.lower()
+                for excluded in self.raw_file_id_exclude_filter
+            )
+        ]:
+            raise ValueError(
+                f"Files matching {never_matching} always match an exclude filter, they would never apply."
             )
         return self

@@ -10,7 +10,7 @@ from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
 from shared.keys import FALLBACK_PROJECT_ID
-from shared.settings_scope_resolver import known_scopes
+from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
 _NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
 
@@ -37,7 +37,7 @@ def assign(
 
     Raises:
         NotFoundError: if the project or the settings do not exist.
-        ValidationError: if a field is invalid, a scope is unknown, the fallback project is not
+        ValidationError: if a field is invalid, a scope is unknown or fully excluded, the fallback project is not
             allowed, the project or the settings are archived or deleted, or the settings are
             already assigned to the project with the same file name filters.
 
@@ -46,6 +46,12 @@ def assign(
     known = known_scopes()
     if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
         raise ValidationError([f"Unknown scopes {unknown}, known are: {known}."])
+    if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
+        raise ValidationError(
+            [
+                f"All instruments of scopes {excluded} are excluded, they would never apply."
+            ]
+        )
     return _assign(new, allow_fallback=allow_fallback)
 
 

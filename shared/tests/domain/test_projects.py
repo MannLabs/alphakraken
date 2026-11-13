@@ -78,7 +78,6 @@ def test_new_assignment_defaults_to_all_instruments_and_files() -> None:
     ("scopes", "expected"),
     [
         (None, ["*"]),
-        ([], ["*"]),
         (["test1", "*"], ["*"]),
         (["test1", "thermo"], ["test1", "thermo"]),
     ],
@@ -86,7 +85,7 @@ def test_new_assignment_defaults_to_all_instruments_and_files() -> None:
 def test_new_assignment_normalizes_scopes(
     scopes: list[str] | None, expected: list[str]
 ) -> None:
-    """No scopes mean all, and the default scope absorbs the scopes next to it."""
+    """None stands for the default, and the default scope absorbs the scopes next to it."""
     assert parse(NewAssignment, **ASSIGNMENT, scopes=scopes).scopes == expected
 
 
@@ -116,6 +115,18 @@ def test_new_assignment_accepts_none_and_strips_entries() -> None:
             "Scopes ['thermo'] are both included and excluded, they would never apply.",
         ),
         (
+            {"scopes": []},
+            "scopes: At least one scope is required, use '*' for all instruments.",
+        ),
+        ({"scopes": "x*y"}, "scopes: Input should be a valid list"),
+        (
+            {
+                "raw_file_id_filter": ["HeLa_QC", "plasma"],
+                "raw_file_id_exclude_filter": ["hela"],
+            },
+            "Files matching ['HeLa_QC'] always match an exclude filter, they would never apply.",
+        ),
+        (
             {"raw_file_id_filter": ["a", " "]},
             "raw_file_id_filter.1: String should have at least 1 character",
         ),
@@ -129,7 +140,7 @@ def test_new_assignment_accepts_none_and_strips_entries() -> None:
 def test_new_assignment_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
-    """Exclusions that leave nothing and empty or too long entries are rejected."""
+    """No scopes, exclusions that leave nothing and empty or too long entries are rejected."""
     with pytest.raises(ValidationError) as e:
         parse(NewAssignment, **ASSIGNMENT, **overrides)
 

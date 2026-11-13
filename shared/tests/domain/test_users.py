@@ -24,8 +24,19 @@ def test_new_user_cleans_fields() -> None:
 def test_user_update_drops_empty_messenger_id(messenger_id: str | None) -> None:
     """A blank messenger id becomes None."""
     assert parse(UserUpdate, initials="JD", messenger_id=messenger_id) == UserUpdate(
-        initials="JD"
+        initials="JD", messenger_id=None
     )
+
+
+def test_user_update_requires_messenger_id() -> None:
+    """Leaving the messenger id out is an error, so that it cannot be cleared by accident."""
+    with pytest.raises(ValidationError, match="messenger_id: Field required"):
+        parse(UserUpdate, initials="JD")
+
+
+def test_new_user_needs_no_messenger_id() -> None:
+    """A new user has no messenger id unless one is given."""
+    assert parse(NewUser, email="a@b.de", initials="AB").messenger_id is None
 
 
 @pytest.mark.parametrize(

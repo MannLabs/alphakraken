@@ -6,7 +6,16 @@ import pydantic
 
 from shared.domain.errors import ValidationError
 
-T = TypeVar("T", bound=pydantic.BaseModel)
+
+class InputModel(pydantic.BaseModel):
+    """Base of the input types: immutable, strings stripped, unknown fields rejected."""
+
+    model_config = pydantic.ConfigDict(
+        frozen=True, str_strip_whitespace=True, extra="forbid"
+    )
+
+
+T = TypeVar("T", bound=InputModel)
 
 # prepended by pydantic to the message of a ValueError raised in a validator
 _VALUE_ERROR_PREFIX = "Value error, "
@@ -37,7 +46,7 @@ def empty_to_none(value: Any) -> Any:
     return None if isinstance(value, str) and not value.strip() else value
 
 
-def max_length(model: type[pydantic.BaseModel], field: str) -> int:
+def max_length(model: type[InputModel], field: str) -> int:
     """Return the maximum length declared for a string field of the input type."""
     return next(
         constraint.max_length

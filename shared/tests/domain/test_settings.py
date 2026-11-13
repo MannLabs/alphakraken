@@ -6,7 +6,7 @@ import pytest
 
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.settings import NewSettings
+from shared.domain.settings import NewSettings, selectable_metrics_types
 
 ALPHADIA: dict[str, Any] = {
     "name": "plasma_fast",
@@ -119,6 +119,28 @@ def test_new_settings_rejects_unsafe_config_params(
 
     assert len(e.value.errors) == 1
     assert e.value.errors[0].startswith(error)
+
+
+@pytest.mark.parametrize("software_type", ["alphadia", "msqc", "skyline", "custom"])
+def test_new_settings_accepts_custom_metrics_for_any_software_type(
+    software_type: str,
+) -> None:
+    """Metrics can be switched off for every software type."""
+    fields = {**ALPHADIA, "software_type": software_type, "metrics_type": "custom"}
+
+    assert parse(NewSettings, **fields).metrics_type == "custom"
+
+
+@pytest.mark.parametrize(
+    ("software_type", "expected"),
+    [
+        ("alphadia", ["alphadia", "custom"]),
+        ("custom", ["custom", "alphadia", "msqc", "skyline", "diann"]),
+    ],
+)
+def test_selectable_metrics_types(software_type: str, expected: list[str]) -> None:
+    """The metrics types of the software type come first, custom is always among them, once."""
+    assert selectable_metrics_types(software_type) == expected
 
 
 def test_new_settings_reports_all_invalid_fields() -> None:

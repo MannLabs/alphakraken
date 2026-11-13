@@ -43,10 +43,16 @@ def assign(
 
     """
     new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
-    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
     known = known_scopes()
     if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
         raise ValidationError([f"Unknown scopes {unknown}, known are: {known}."])
+    return _assign(new, allow_fallback=allow_fallback)
+
+
+def _assign(new: NewAssignment, *, allow_fallback: bool) -> ProjectSettings:
+    """Store the assignment after the checks against the database, cf. `assign`."""
+    project_id, settings_id = new.project_id, new.settings_id
+    _check_fallback_allowed(project_id, allow_fallback=allow_fallback)
     if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValidationError(
             [f"Cannot assign settings to archived or deleted project '{project_id}'"]
@@ -155,16 +161,18 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
             ]
         )
 
-    # assigning first: if it fails, the current assignment is kept
-    updated = assign(
-        project_id,
-        latest.id,
-        allow_fallback=allow_fallback,
+    # not through `assign`: a scope that left alphakraken.yaml since is carried over
+    new = parse(
+        NewAssignment,
+        project_id=project_id,
+        settings_id=latest.id,
         scopes=list(current.scopes),
         excluded_scopes=list(current.excluded_scopes),
         raw_file_id_filter=list(current.raw_file_id_filter),
         raw_file_id_exclude_filter=list(current.raw_file_id_exclude_filter),
     )
+    # assigning first: if it fails, the current assignment is kept
+    updated = _assign(new, allow_fallback=allow_fallback)
     _backend.unassign(assignment_id)
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
     return updated

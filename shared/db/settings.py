@@ -62,7 +62,7 @@ def latest_active(name: str) -> Settings | None:
 def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     """Create new settings, as the next version of the settings with the same name.
 
-    :param archive_previous: archive the latest non-deleted version of the name afterwards
+    :param archive_previous: archive the latest active version of the name afterwards
     :param fields: the fields of `NewSettings`
 
     Raises:
@@ -88,8 +88,8 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     logging.info(f"Created settings: {new.name=} {version=}")
 
     if archive_previous:
-        non_deleted = [s for s in existing if s.status != SettingsStatus.DELETED]
-        if previous := max(non_deleted, key=lambda s: s.version, default=None):
+        active = [s for s in existing if s.status == SettingsStatus.ACTIVE]
+        if previous := max(active, key=lambda s: s.version, default=None):
             archive(previous.id)
     return settings
 

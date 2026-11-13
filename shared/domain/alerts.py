@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from shared.domain.inputs import empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
@@ -46,10 +46,8 @@ class AlertSuppression:
     created_at_: datetime
 
 
-class NewSuppression(BaseModel):
-    """An alert suppression to add, cf. `AlertSuppression`. Strings are stripped."""
-
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+class NewSuppression(InputModel):
+    """An alert suppression to add, cf. `AlertSuppression`."""
 
     alert: str = Field(max_length=64)
     instrument_id: str = Field(max_length=64)

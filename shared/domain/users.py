@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import Field, StringConstraints, field_validator
 
-from shared.domain.inputs import empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
@@ -32,13 +32,12 @@ class User:
     created_at_: datetime
 
 
-class UserUpdate(BaseModel):
-    """The changeable fields of a user, cf. `User`. Strings are stripped."""
-
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+class UserUpdate(InputModel):
+    """The changeable fields of a user, cf. `User`."""
 
     initials: str = Field(pattern=USER_INITIALS_REGEX)
-    messenger_id: str | None = Field(default=None, max_length=64)
+    # required, so that leaving it out cannot clear it
+    messenger_id: str | None = Field(max_length=64)
 
     _empty_to_none = field_validator("messenger_id", mode="before")(empty_to_none)
 
@@ -50,3 +49,4 @@ class NewUser(UserUpdate):
         str,
         StringConstraints(to_lower=True, max_length=128, pattern=USER_EMAIL_REGEX),
     ]
+    messenger_id: str | None = Field(default=None, max_length=64)

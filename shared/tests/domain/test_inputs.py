@@ -4,7 +4,6 @@ from typing import Annotated, Any, Self
 
 import pytest
 from pydantic import (
-    BaseModel,
     Field,
     StringConstraints,
     field_validator,
@@ -12,10 +11,10 @@ from pydantic import (
 )
 
 from shared.domain.errors import ValidationError
-from shared.domain.inputs import empty_to_none, max_length, parse
+from shared.domain.inputs import InputModel, empty_to_none, max_length, parse
 
 
-class _Input(BaseModel):
+class _Input(InputModel):
     name: str
     size: int = 1
 
@@ -72,7 +71,7 @@ def test_empty_to_none(value: Any, expected: Any) -> None:
     assert empty_to_none(value) == expected
 
 
-class _Limited(BaseModel):
+class _Limited(InputModel):
     plain: str | None = Field(default=None, max_length=8)
     constrained: Annotated[str, StringConstraints(to_lower=True, max_length=16)]
 
@@ -81,3 +80,16 @@ class _Limited(BaseModel):
 def test_max_length(field: str, expected: int) -> None:
     """The declared maximum length is found for both ways of declaring it."""
     assert max_length(_Limited, field) == expected
+
+
+def test_parse_rejects_unknown_field() -> None:
+    """A misspelled field is an error, not silently dropped."""
+    with pytest.raises(ValidationError) as e:
+        parse(_Input, name="abc", sise=2)
+
+    assert e.value.errors == ["sise: Extra inputs are not permitted"]
+
+
+def test_parse_strips_strings() -> None:
+    """Strings are stripped before they are validated."""
+    assert parse(_Input, name=" abc ").name == "abc"

@@ -6,8 +6,6 @@ from datetime import datetime
 from typing import Self
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     ValidationInfo,
     field_validator,
@@ -15,8 +13,8 @@ from pydantic import (
 )
 
 from shared.config_params import check_for_unknown_placeholders, substitute_dummy_values
-from shared.domain.inputs import empty_to_none
-from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, SoftwareTypes
+from shared.domain.inputs import InputModel, empty_to_none
+from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 
 
@@ -86,10 +84,18 @@ class Settings:
         return self.id
 
 
-class NewSettings(BaseModel):
-    """Settings to create, cf. `Settings`. Strings are stripped, empty optional ones are None."""
+def selectable_metrics_types(software_type: str) -> list[str]:
+    """Return the metrics types settings of the software type can have, the default one first."""
+    # metrics can always be switched off, cf. MetricsTypes.CUSTOM
+    return list(
+        dict.fromkeys(
+            [*SOFTWARE_TYPE_TO_METRICS_TYPES[software_type], MetricsTypes.CUSTOM]
+        )
+    )
 
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+class NewSettings(InputModel):
+    """Settings to create, cf. `Settings`. Empty optional strings are None."""
 
     name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
     software_type: str
@@ -133,10 +139,12 @@ class NewSettings(BaseModel):
     def _metrics_type_fits_software_type(cls, value: str, info: ValidationInfo) -> str:
         # absent if the software type itself is invalid
         software_type = info.data.get("software_type")
-        if software_type and value not in SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]:
+        if software_type and value not in (
+            allowed := selectable_metrics_types(software_type)
+        ):
             raise ValueError(
                 f"Metrics type '{value}' cannot be used with software type '{software_type}', "
-                f"allowed are: {SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]}."
+                f"allowed are: {allowed}."
             )
         return value
 

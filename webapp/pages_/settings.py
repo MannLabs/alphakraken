@@ -34,10 +34,13 @@ from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
 from shared.domain.inputs import max_length
 from shared.domain.projects import ProjectStatus
-from shared.domain.settings import NewSettings, SettingsStatus
+from shared.domain.settings import (
+    NewSettings,
+    SettingsStatus,
+    selectable_metrics_types,
+)
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
-    SOFTWARE_TYPE_TO_METRICS_TYPES,
     JobEngines,
     MetricsTypes,
     SoftwareTypes,
@@ -225,14 +228,8 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-metrics_types_of_software = SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]
-# metrics can always be switched off, cf. MetricsTypes.CUSTOM
-metrics_type_options = list(
-    dict.fromkeys([*metrics_types_of_software, MetricsTypes.CUSTOM])
-)
-metrics_type_default = (
-    prefill_data.get("metrics_type", "") or metrics_types_of_software[0]
-)
+metrics_type_options = selectable_metrics_types(software_type)
+metrics_type_default = prefill_data.get("metrics_type", "") or metrics_type_options[0]
 metrics_type_index = (
     metrics_type_options.index(metrics_type_default)
     if metrics_type_default in metrics_type_options

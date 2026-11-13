@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from shared.domain.inputs import empty_to_none
+from shared.domain.inputs import InputModel, empty_to_none
 from shared.domain.settings import Settings
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
@@ -55,10 +55,8 @@ class ProjectSettings:
     created_at_: datetime
 
 
-class NewProject(BaseModel):
-    """A project to add, cf. `Project`. Strings are stripped."""
-
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+class NewProject(InputModel):
+    """A project to add, cf. `Project`."""
 
     project_id: str
     name: str = Field(min_length=1, max_length=64)
@@ -87,18 +85,16 @@ _Scope = Annotated[str, Field(min_length=1, max_length=64)]
 _FileIdFilter = Annotated[str, Field(min_length=1, max_length=128)]
 
 
-class NewAssignment(BaseModel):
-    """An assignment of settings to a project to add, cf. `ProjectSettings`. Strings are stripped."""
-
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+class NewAssignment(InputModel):
+    """An assignment of settings to a project to add, cf. `ProjectSettings`."""
 
     project_id: str
     # the unique name of the settings, e.g. `fallback_v7`
     settings_id: str
-    scopes: list[_Scope] = [DEFAULT_SCOPE]
-    excluded_scopes: list[_Scope] = []
-    raw_file_id_filter: list[_FileIdFilter] = []
-    raw_file_id_exclude_filter: list[_FileIdFilter] = []
+    scopes: list[_Scope] = Field(default_factory=lambda: [DEFAULT_SCOPE])
+    excluded_scopes: list[_Scope] = Field(default_factory=list)
+    raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
+    raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
 
     @field_validator(
         "excluded_scopes",

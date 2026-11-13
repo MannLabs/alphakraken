@@ -280,6 +280,32 @@ def test_update_assignment_to_latest(updatable: dict[str, MagicMock]) -> None:
     updatable["backend_unassign"].assert_called_once_with("assignment1")
 
 
+def test_update_assignment_keeps_scope_that_left_the_yaml(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """A scope that was valid when assigned does not block the update."""
+    updatable["find_assignments"].return_value = [
+        factories.project_settings(scopes=["retired1"])
+    ]
+
+    project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    assert updatable["backend_assign"].call_args.args[0].scopes == ["retired1"]
+    updatable["backend_unassign"].assert_called_once_with("assignment1")
+
+
+def test_assign_with_misspelled_keyword_raises(
+    assignable: dict[str, MagicMock],
+) -> None:
+    """A misspelled keyword is an error, not silently replaced by the default."""
+    with pytest.raises(ValidationError, match="scope: Extra inputs are not permitted"):
+        project_settings.assign(
+            "P1", "fallback_v7", allow_fallback=False, scope=["thermo"]
+        )
+
+    assignable["backend_assign"].assert_not_called()
+
+
 @pytest.mark.parametrize("latest", [None, factories.settings()])
 def test_update_assignment_without_newer_version_raises(
     updatable: dict[str, MagicMock], latest: Any
@@ -391,6 +417,18 @@ def test_create_settings_with_invalid_field_raises(
     creatable["backend_create"].assert_not_called()
 
 
+def test_create_settings_with_misspelled_keyword_raises(
+    creatable: dict[str, MagicMock],
+) -> None:
+    """A misspelled keyword is an error, not silently ignored."""
+    with pytest.raises(
+        ValidationError, match="archive_previos: Extra inputs are not permitted"
+    ):
+        settings.create(**CREATE_FIELDS, name="fallback", archive_previos=True)
+
+    creatable["backend_create"].assert_not_called()
+
+
 def test_create_settings_on_unsuitable_runner_raises(
     creatable: dict[str, MagicMock],
 ) -> None:
@@ -404,9 +442,10 @@ def test_create_settings_on_unsuitable_runner_raises(
 
 
 def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> None:
-    """The latest non-deleted version of the name is archived after the new one is created."""
+    """The latest active version of the name is archived after the new one is created."""
     creatable["find"].return_value = [
-        factories.settings(id="fallback_v8", version=8, status=SettingsStatus.DELETED),
+        factories.settings(id="fallback_v9", version=9, status=SettingsStatus.DELETED),
+        factories.settings(id="fallback_v8", version=8, status=SettingsStatus.INACTIVE),
         factories.settings(id="fallback_v7", version=7),
         factories.settings(id="fallback_v6", version=6),
     ]
@@ -423,12 +462,16 @@ def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> 
 
 @pytest.mark.parametrize(
     ("existing", "archive_previous"),
-    [([], True), ([factories.settings()], False)],
+    [
+        ([], True),
+        ([factories.settings(status=SettingsStatus.INACTIVE)], True),
+        ([factories.settings()], False),
+    ],
 )
 def test_create_settings_without_archiving(
     creatable: dict[str, MagicMock], existing: list[Any], *, archive_previous: bool
 ) -> None:
-    """Nothing is archived without a previous version or without being asked to."""
+    """Nothing is archived without an active previous version or without being asked to."""
     creatable["find"].return_value = existing
 
     settings.create(**CREATE_FIELDS, name="fallback", archive_previous=archive_previous)

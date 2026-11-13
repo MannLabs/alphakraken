@@ -50,7 +50,7 @@ def test_new_user_needs_no_messenger_id() -> None:
         ({"initials": "toolongxx"}, "initials: String should have at most 8"),
         ({"initials": " "}, "initials: is required."),
         ({"email": ""}, "email: is required."),
-        ({"messenger_id": "U" * 65}, "messenger_id: String should have at most 64"),
+        ({"messenger_id": "U" * 513}, "messenger_id: String should have at most 512"),
     ],
 )
 def test_new_user_rejects_invalid_fields(overrides: dict[str, Any], error: str) -> None:

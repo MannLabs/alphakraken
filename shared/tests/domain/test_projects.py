@@ -53,7 +53,7 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
             {"project_id": "A" * 17},
             "project_id: String should have at most 16 characters",
         ),
-        ({"description": "d" * 257}, "description: String should have at most 256"),
+        ({"description": "d" * 513}, "description: String should have at most 512"),
     ],
 )
 def test_new_project_rejects_invalid_fields(

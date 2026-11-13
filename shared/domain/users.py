@@ -47,7 +47,7 @@ class UserUpdate(InputModel):
         max_length=USER_INITIALS_MAX_LENGTH, pattern=USER_INITIALS_REGEX
     )
     # required, so that leaving it out cannot clear it
-    messenger_id: str | None = Field(max_length=64)
+    messenger_id: str | None = Field(max_length=512)
 
     _required = field_validator("initials", mode="before")(required())
     _empty_to_none = field_validator("messenger_id", mode="before")(empty_to_none)
@@ -60,6 +60,6 @@ class NewUser(UserUpdate):
         str,
         StringConstraints(to_lower=True, max_length=128, pattern=USER_EMAIL_REGEX),
     ]
-    messenger_id: str | None = Field(default=None, max_length=64)
+    messenger_id: str | None = Field(default=None, max_length=512)
 
     _email_required = field_validator("email", mode="before")(required())

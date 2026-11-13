@@ -67,7 +67,7 @@ class NewProject(InputModel):
 
     project_id: str = Field(max_length=PROJECT_ID_MAX_LENGTH)
     name: str = Field(max_length=64)
-    description: str | None = Field(default=None, max_length=256)
+    description: str | None = Field(default=None, max_length=512)
     owner_email: str | None = None
 
     _required = field_validator("project_id", "name", mode="before")(required())

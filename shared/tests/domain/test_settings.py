@@ -73,7 +73,7 @@ def test_new_settings_accepts_custom_software_with_resources() -> None:
             "metrics_type: Metrics type 'msqc' cannot be used with software type 'alphadia'",
         ),
         ({"software": " "}, "software: is required."),
-        ({"software": "s" * 65}, "software: String should have at most 64 characters"),
+        ({"software": "s" * 129}, "software: String should have at most 128"),
         ({"software": "../bin/sh"}, r"software: Cannot contain '\.\.'"),
         ({"software": "/bin/sh"}, "software: Cannot be an absolute path"),
         ({"software": "a;b"}, "software: Contains invalid characters"),

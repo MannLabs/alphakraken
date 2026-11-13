@@ -105,13 +105,13 @@ class NewSettings(InputModel):
 
     name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
     software_type: str
-    software: str = Field(max_length=64)
+    software: str = Field(max_length=128)
     runner_name: str = Field(max_length=64)
     metrics_type: str
     description: str | None = Field(default=None, max_length=512)
-    fasta_file_name: str | None = Field(default=None, max_length=64)
-    speclib_file_name: str | None = Field(default=None, max_length=64)
-    config_file_name: str | None = Field(default=None, max_length=64)
+    fasta_file_name: str | None = Field(default=None, max_length=128)
+    speclib_file_name: str | None = Field(default=None, max_length=128)
+    config_file_name: str | None = Field(default=None, max_length=128)
     config_params: str | None = Field(default=None, max_length=2048)
     slurm_cpus_per_task: int | None = Field(default=None, ge=1)
     slurm_mem: str | None = Field(default=None, max_length=16)

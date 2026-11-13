@@ -13,9 +13,10 @@ from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
-FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX = r"[^A-Z0-9]"
-# exempt from the project id rules
-SPECIAL_PROJECT_IDS = [FALLBACK_PROJECT_ID]
+# upper-case letters and digits, not only digits
+PROJECT_ID_REGEX = (
+    rf"^(?!\d+$)[A-Z0-9]{{{PROJECT_ID_MIN_LENGTH},{PROJECT_ID_MAX_LENGTH}}}$"
+)
 
 
 class ProjectStatus:
@@ -64,7 +65,7 @@ class ProjectSettings:
 class NewProject(InputModel):
     """A project to add, cf. `Project`."""
 
-    project_id: str
+    project_id: str = Field(max_length=PROJECT_ID_MAX_LENGTH)
     name: str = Field(max_length=64)
     description: str | None = Field(default=None, max_length=256)
     owner_email: str | None = None
@@ -77,11 +78,8 @@ class NewProject(InputModel):
     @field_validator("project_id")
     @classmethod
     def _valid_project_id(cls, value: str) -> str:
-        if value not in SPECIAL_PROJECT_IDS and (
-            not PROJECT_ID_MIN_LENGTH <= len(value) <= PROJECT_ID_MAX_LENGTH
-            or value.isdigit()
-            or re.search(FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX, value)
-        ):
+        # the fallback project is exempt from the rule
+        if value != FALLBACK_PROJECT_ID and not re.match(PROJECT_ID_REGEX, value):
             raise ValueError(
                 f"Invalid project id '{value}'. Please choose a different one."
             )

@@ -30,7 +30,12 @@ from shared.domain.settings import (
 )
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
-from shared.domain.users import USER_EMAIL_REGEX, USER_INITIALS_REGEX, UserStatus
+from shared.domain.users import (
+    USER_EMAIL_REGEX,
+    USER_INITIALS_MAX_LENGTH,
+    USER_INITIALS_REGEX,
+    UserStatus,
+)
 from shared.keys import (
     ALERT_SUPPRESSION_WILDCARD,
     DEFAULT_SCOPE,
@@ -133,7 +138,9 @@ class User(Document):
     email = StringField(
         required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
     )
-    initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+    initials = StringField(
+        required=True, max_length=USER_INITIALS_MAX_LENGTH, regex=USER_INITIALS_REGEX
+    )
     # user id in the messenger (e.g. Slack member ID), to notify the user directly
     messenger_id = StringField(max_length=512)
 

@@ -9,8 +9,9 @@ from pydantic import Field, StringConstraints, field_validator
 from shared.domain.inputs import InputModel, empty_to_none, required
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+USER_INITIALS_MAX_LENGTH = 8
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
-USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
+USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"
 
 
 class UserStatus:
@@ -42,7 +43,9 @@ class User:
 class UserUpdate(InputModel):
     """The changeable fields of a user, cf. `User`."""
 
-    initials: str = Field(pattern=USER_INITIALS_REGEX)
+    initials: str = Field(
+        max_length=USER_INITIALS_MAX_LENGTH, pattern=USER_INITIALS_REGEX
+    )
     # required, so that leaving it out cannot clear it
     messenger_id: str | None = Field(max_length=64)
 

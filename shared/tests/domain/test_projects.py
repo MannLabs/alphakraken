@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from shared.domain.errors import ValidationError
-from shared.domain.inputs import parse
+from shared.domain.inputs import max_length, parse
 from shared.domain.projects import NewAssignment, NewProject
 
 
@@ -30,7 +30,7 @@ def test_new_project_accepts_project_id(project_id: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "project_id", ["A12", "A" * 17, "1234", "a123", "A-123", "A 123", "_OTHER"]
+    "project_id", ["A12", "1234", "a123", "A-123", "A 123", "_OTHER"]
 )
 def test_new_project_rejects_project_id(project_id: str) -> None:
     """Too short, too long, all digits or other characters are rejected."""
@@ -49,6 +49,10 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
         ({"project_id": ""}, "project_id: is required."),
         ({"name": None}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
+        (
+            {"project_id": "A" * 17},
+            "project_id: String should have at most 16 characters",
+        ),
         ({"description": "d" * 257}, "description: String should have at most 256"),
     ],
 )
@@ -58,6 +62,11 @@ def test_new_project_rejects_invalid_fields(
     """The name is required, name and description are limited in length."""
     with pytest.raises(ValidationError, match=error):
         parse(NewProject, **{"project_id": "P123", "name": "n", **overrides})
+
+
+def test_new_project_declares_project_id_limit() -> None:
+    """The forms can read the limit of the project id."""
+    assert max_length(NewProject, "project_id") == 16
 
 
 ASSIGNMENT: dict[str, Any] = {"project_id": "P123", "settings_id": "fallback_v7"}

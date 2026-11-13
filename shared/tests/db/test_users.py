@@ -274,7 +274,7 @@ def test_update_without_messenger_id_raises(taken: dict[str, MagicMock]) -> None
 def test_update_rejects_invalid_initials(taken: dict[str, MagicMock]) -> None:
     """Invalid initials are a validation error also on update."""
     with pytest.raises(ValidationError, match="initials: String should match"):
-        users.update("a@b.de", initials="toolonginitials", messenger_id=None)
+        users.update("a@b.de", initials="J1", messenger_id=None)
 
     taken["backend_update"].assert_not_called()
 

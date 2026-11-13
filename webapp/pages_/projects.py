@@ -23,7 +23,7 @@ from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS
 from shared.domain.inputs import max_length
-from shared.domain.projects import PROJECT_ID_MAX_LENGTH, NewProject, ProjectStatus
+from shared.domain.projects import NewProject, ProjectStatus
 from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 from shared.path_views import Locations
@@ -326,7 +326,7 @@ with c_assign2:
 form_items = {
     "project_id": {
         "label": "Project Id*",
-        "max_chars": PROJECT_ID_MAX_LENGTH,
+        "max_chars": max_length(NewProject, "project_id"),
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",

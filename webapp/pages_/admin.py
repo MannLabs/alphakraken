@@ -75,7 +75,7 @@ c1.markdown("### Add user")
 
 with c1.form("add_user_form"):
     new_email = st.text_input("Email*", max_chars=max_length(NewUser, "email"))
-    new_initials = st.text_input("Initials*", max_chars=8)
+    new_initials = st.text_input("Initials*", max_chars=max_length(NewUser, "initials"))
     new_messenger_id = st.text_input(
         "Messenger id", max_chars=_MESSENGER_ID_MAX_CHARS, help=_MESSENGER_ID_HELP
     )
@@ -135,7 +135,10 @@ if all_users:
 
     # keyed by user, so that the input is prefilled anew when another user is selected
     initials = c1.text_input(
-        "Initials*", value=user.initials, max_chars=8, key=f"initials_{selected_email}"
+        "Initials*",
+        value=user.initials,
+        max_chars=max_length(NewUser, "initials"),
+        key=f"initials_{selected_email}",
     )
     messenger_id = c1.text_input(
         "Messenger id",

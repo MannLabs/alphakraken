@@ -1,4 +1,4 @@
-"""Shared validation functions for security and input validation."""
+"""The characters allowed in raw file names and the check against command injection."""
 
 import re
 
@@ -25,20 +25,17 @@ PARENT_DIR_ERROR = "Cannot contain '..'"
 ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
 # a trailing backslash escapes the closing quote of `export KEY="value"`, cf. `posix_export_lines`
 TRAILING_BACKSLASH_ERROR = "Cannot end with a backslash"
-# Error messages derive from _ALLOWED_CHARACTERS to maintain single source of truth
+# keep in sync with `_ALLOWED_RAW_FILE_NAME_CHARACTERS`
 INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward and back slashes are allowed"
 INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward and back slashes, and spaces are allowed"
 
 
-def check_for_malicious_content(
-    value: str, *, allow_spaces: bool = False, allow_absolute_paths: bool = False
-) -> list[str]:
+def check_for_malicious_content(value: str, *, allow_spaces: bool = False) -> list[str]:
     """Validate a value for security (prevent command injection).
 
     Args:
         value: The value to validate
         allow_spaces: Whether to allow spaces in the name (default: False)
-        allow_absolute_paths: Whether to allow absolute paths (default: False)
 
     Returns:
         list[str]: List of validation error messages (empty if valid)
@@ -53,7 +50,7 @@ def check_for_malicious_content(
         errors.append(PARENT_DIR_ERROR)
 
     # Check for absolute paths
-    if value.startswith(("/", "\\")) and not allow_absolute_paths:
+    if value.startswith(("/", "\\")):
         errors.append(ABSOLUTE_PATH_ERROR)
 
     if value.endswith("\\"):

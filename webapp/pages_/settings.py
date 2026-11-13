@@ -31,7 +31,7 @@ from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
-from shared.domain.inputs import empty_to_none, max_length
+from shared.domain.inputs import max_length
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import (
     NewSettings,
@@ -409,7 +409,7 @@ with c1.expander("Resource parameters"):
     )
 
 c1.markdown("### Required files and software")
-settings_name_clean = empty_to_none(name)
+settings_name_clean = name.strip()
 settings_folder = get_display_settings_path(
     settings_name_clean or SETTINGS_NAME_PLACEHOLDER
 )
@@ -417,7 +417,7 @@ settings_folder = get_display_settings_path(
 referenced_files = [
     file_name
     for file_name in (fasta_file_name, speclib_file_name, config_file_name)
-    if empty_to_none(file_name)
+    if file_name.strip()
 ]
 if referenced_files:
     c1.markdown(
@@ -429,7 +429,7 @@ if software_used_by:
     c1.markdown(
         f"The software `{software}` is already used by {', '.join(software_used_by)}."
     )
-elif empty_to_none(software):
+elif software.strip():
     # `software` is a path below the software folder only for the non-containerized non-alphadia case
     if software_type == SoftwareTypes.ALPHADIA:
         software_hint = f"the Conda environment `{software}`"

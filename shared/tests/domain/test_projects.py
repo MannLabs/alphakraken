@@ -90,30 +90,22 @@ def test_new_assignment_defaults_to_all_instruments_and_files() -> None:
 @pytest.mark.parametrize(
     ("scopes", "expected"),
     [
-        (None, ["*"]),
         (["test1", "*"], ["*"]),
         (["test1", "thermo"], ["test1", "thermo"]),
     ],
 )
 def test_new_assignment_normalizes_scopes(
-    scopes: list[str] | None, expected: list[str]
+    scopes: list[str], expected: list[str]
 ) -> None:
-    """None stands for the default, and the default scope absorbs the scopes next to it."""
+    """The default scope absorbs the scopes next to it."""
     assert parse(NewAssignment, **ASSIGNMENT, scopes=scopes).scopes == expected
 
 
-def test_new_assignment_accepts_none_and_strips_entries() -> None:
-    """None stands for an empty list, entries are stripped."""
-    new = parse(
-        NewAssignment,
-        **ASSIGNMENT,
-        excluded_scopes=None,
-        raw_file_id_filter=[" hela "],
-        raw_file_id_exclude_filter=None,
-    )
+def test_new_assignment_strips_entries() -> None:
+    """Entries are stripped."""
+    new = parse(NewAssignment, **ASSIGNMENT, raw_file_id_filter=[" hela "])
 
-    assert (new.excluded_scopes, new.raw_file_id_filter) == ([], ["hela"])
-    assert new.raw_file_id_exclude_filter == []
+    assert new.raw_file_id_filter == ["hela"]
 
 
 @pytest.mark.parametrize(

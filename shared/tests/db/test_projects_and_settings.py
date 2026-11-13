@@ -15,7 +15,7 @@ from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
 from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.projects import NewAssignment, NewProject, ProjectStatus
-from shared.domain.settings import NewSettings, SettingsStatus
+from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.domain.users import UserStatus
 from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests import factories
@@ -363,6 +363,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
     """No settings exist, the runner check passes; the backend writes are mocked."""
     with (
         patch("shared.db.settings.find", return_value=[]) as find,
+        patch("shared.db.settings.latest_active", return_value=None) as latest_active,
         patch("shared.db.settings.count", return_value=0) as count,
         patch("shared.db.settings.get") as get,
         patch(
@@ -375,6 +376,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
         get.return_value = factories.settings()
         yield {
             "find": find,
+            "latest_active": latest_active,
             "count": count,
             "get": get,
             "check_runner": check_runner,
@@ -412,7 +414,7 @@ def test_create_settings_first_version(creatable: dict[str, MagicMock]) -> None:
 
     stored = creatable["backend_create"].call_args.kwargs
     assert (stored["version"], stored["number"]) == (1, 1)
-    creatable["check_active"].assert_not_called()
+    creatable["check_active"].assert_called_once_with(None)
 
 
 def test_create_settings_with_invalid_field_raises(
@@ -469,36 +471,36 @@ def test_create_settings_reports_all_rule_errors(
 
 def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> None:
     """The latest active version of the name is archived after the new one is created."""
-    creatable["find"].return_value = [
-        factories.settings(id="fallback_v9", version=9, status=SettingsStatus.DELETED),
-        factories.settings(id="fallback_v8", version=8, status=SettingsStatus.INACTIVE),
-        factories.settings(id="fallback_v7", version=7),
-        factories.settings(id="fallback_v6", version=6),
-    ]
+    creatable["latest_active"].return_value = factories.settings(
+        id="fallback_v7", version=7
+    )
     creatable["backend_create"].side_effect = lambda *_, **__: creatable[
         "backend_set_status"
     ].assert_not_called()
 
     settings.create(**CREATE_FIELDS, name="fallback", archive_previous=True)
 
+    creatable["latest_active"].assert_called_once_with("fallback")
     creatable["backend_set_status"].assert_called_once_with(
         "fallback_v7", SettingsStatus.INACTIVE
     )
 
 
 @pytest.mark.parametrize(
-    ("existing", "archive_previous"),
+    ("latest_active", "archive_previous"),
     [
-        ([], True),
-        ([factories.settings(status=SettingsStatus.INACTIVE)], True),
-        ([factories.settings()], False),
+        (None, True),
+        (factories.settings(), False),
     ],
 )
 def test_create_settings_without_archiving(
-    creatable: dict[str, MagicMock], existing: list[Any], *, archive_previous: bool
+    creatable: dict[str, MagicMock],
+    latest_active: Settings | None,
+    *,
+    archive_previous: bool,
 ) -> None:
     """Nothing is archived without an active previous version or without being asked to."""
-    creatable["find"].return_value = existing
+    creatable["latest_active"].return_value = latest_active
 
     settings.create(**CREATE_FIELDS, name="fallback", archive_previous=archive_previous)
 
@@ -681,7 +683,7 @@ def test_add_project_without_owner(
     """A project needs no owner."""
     projects.add(project_id="P123", name="n", owner_email="")
 
-    mock_check_active.assert_not_called()
+    mock_check_active.assert_called_once_with(None)
     mock_backend_add.assert_called_once()
 
 

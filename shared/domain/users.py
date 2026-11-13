@@ -4,9 +4,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import Field, StringConstraints, field_validator
+from pydantic import BeforeValidator, Field, StringConstraints
 
-from shared.domain.inputs import InputModel, empty_to_none, required
+from shared.domain.inputs import (
+    InputModel,
+    OptionalStr,
+    RequiredStr,
+    empty_to_none,
+    required,
+)
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 USER_INITIALS_MAX_LENGTH = 8
@@ -16,6 +22,10 @@ USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"
 
 # emails are stored lower-cased, so every email that is looked up is lower-cased as well
 LowerCasedEmail = Annotated[str, StringConstraints(to_lower=True)]
+# None if empty or blank
+OptionalLowerCasedEmail = Annotated[
+    LowerCasedEmail | None, BeforeValidator(empty_to_none)
+]
 
 
 def normalize_email(email: str) -> str:
@@ -52,23 +62,17 @@ class User:
 class UserUpdate(InputModel):
     """The changeable fields of a user, cf. `User`."""
 
-    initials: str = Field(
+    initials: RequiredStr = Field(
         max_length=USER_INITIALS_MAX_LENGTH, pattern=USER_INITIALS_REGEX
     )
     # required, so that leaving it out cannot clear it
-    messenger_id: str | None = Field(max_length=512)
-
-    _required = field_validator("initials", mode="before")(required())
-    _empty_to_none = field_validator("messenger_id", mode="before")(empty_to_none)
+    messenger_id: OptionalStr = Field(max_length=512)
 
 
 class NewUser(UserUpdate):
     """A user to add, cf. `User`. The email is lower-cased."""
 
-    email: Annotated[
-        str,
-        StringConstraints(to_lower=True, max_length=128, pattern=USER_EMAIL_REGEX),
-    ]
-    messenger_id: str | None = Field(default=None, max_length=512)
-
-    _email_required = field_validator("email", mode="before")(required())
+    email: Annotated[LowerCasedEmail, BeforeValidator(required())] = Field(
+        max_length=128, pattern=USER_EMAIL_REGEX
+    )
+    messenger_id: OptionalStr = Field(default=None, max_length=512)

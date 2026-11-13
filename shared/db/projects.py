@@ -81,8 +81,7 @@ def add(**fields: Any) -> None:
         errors.append(
             f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
-    if new.owner_email:
-        errors += users.check_active(new.owner_email)
+    errors += users.check_active(new.owner_email)
     if errors:
         raise ValidationError(errors)
 

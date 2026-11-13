@@ -163,10 +163,10 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
         NewAssignment,
         project_id=project_id,
         settings_id=latest.id,
-        scopes=list(current.scopes),
-        excluded_scopes=list(current.excluded_scopes),
-        raw_file_id_filter=list(current.raw_file_id_filter),
-        raw_file_id_exclude_filter=list(current.raw_file_id_exclude_filter),
+        scopes=current.scopes,
+        excluded_scopes=current.excluded_scopes,
+        raw_file_id_filter=current.raw_file_id_filter,
+        raw_file_id_exclude_filter=current.raw_file_id_exclude_filter,
     )
     # assigning first: if it fails, the current assignment is kept
     updated = _assign(new, allow_fallback=allow_fallback, check_scopes=False)

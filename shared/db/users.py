@@ -27,14 +27,17 @@ def project_owner(raw_file_id: str) -> User | None:
     return _backend.project_owner(raw_file_id)
 
 
-def check_active(email: str) -> list[str]:
-    """Return an error message if the user with the email is inactive, else nothing.
+def check_active(email: str | None) -> list[str]:
+    """Return an error message if the user with the email is inactive, nothing if active or no email is given.
+
+    :param email: as it is stored, cf. `normalize_email`
 
     Raises:
         NotFoundError: if there is no such user.
 
     """
-    email = normalize_email(email)
+    if email is None:
+        return []
     if _backend.get(email).status != UserStatus.ACTIVE:
         return [f"User '{email}' is inactive."]
     return []

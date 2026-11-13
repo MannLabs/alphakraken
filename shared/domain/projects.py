@@ -3,13 +3,13 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, Any, Self
+from typing import Annotated, Self
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from shared.domain.inputs import InputModel, empty_to_none, required
+from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
 from shared.domain.settings import Settings
-from shared.domain.users import LowerCasedEmail
+from shared.domain.users import OptionalLowerCasedEmail
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
@@ -66,15 +66,10 @@ class ProjectSettings:
 class NewProject(InputModel):
     """A project to add, cf. `Project`."""
 
-    project_id: str = Field(max_length=PROJECT_ID_MAX_LENGTH)
-    name: str = Field(max_length=64)
-    description: str | None = Field(default=None, max_length=512)
-    owner_email: LowerCasedEmail | None = None
-
-    _required = field_validator("project_id", "name", mode="before")(required())
-    _empty_to_none = field_validator("description", "owner_email", mode="before")(
-        empty_to_none
-    )
+    project_id: RequiredStr = Field(max_length=PROJECT_ID_MAX_LENGTH)
+    name: RequiredStr = Field(max_length=64)
+    description: OptionalStr = Field(default=None, max_length=512)
+    owner_email: OptionalLowerCasedEmail = None
 
     @field_validator("project_id")
     @classmethod
@@ -94,30 +89,13 @@ _FileIdFilter = Annotated[str, Field(min_length=1, max_length=128)]
 class NewAssignment(InputModel):
     """An assignment of settings to a project to add, cf. `ProjectSettings`."""
 
-    project_id: str
+    project_id: RequiredStr
     # the unique name of the settings, e.g. `fallback_v7`
-    settings_id: str
+    settings_id: RequiredStr
     scopes: list[_Scope] = Field(default_factory=lambda: [DEFAULT_SCOPE])
     excluded_scopes: list[_Scope] = Field(default_factory=list)
     raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
     raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
-
-    _required = field_validator("project_id", "settings_id", mode="before")(required())
-
-    @field_validator(
-        "scopes",
-        "excluded_scopes",
-        "raw_file_id_filter",
-        "raw_file_id_exclude_filter",
-        mode="before",
-    )
-    @classmethod
-    def _none_to_default(cls, value: Any, info: ValidationInfo) -> Any:
-        return (
-            cls.model_fields[info.field_name].get_default(call_default_factory=True)
-            if value is None
-            else value
-        )
 
     @field_validator("scopes")
     @classmethod

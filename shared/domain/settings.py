@@ -13,8 +13,8 @@ from pydantic import (
 )
 
 from shared.config_params import check_config_params
-from shared.domain.inputs import InputModel, empty_to_none, required
-from shared.domain.users import LowerCasedEmail
+from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
+from shared.domain.users import OptionalLowerCasedEmail
 from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 
@@ -104,41 +104,21 @@ def selectable_metrics_types(software_type: str) -> list[str]:
 class NewSettings(InputModel):
     """Settings to create, cf. `Settings`. Empty optional strings are None."""
 
-    name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
-    software_type: str
-    software: str = Field(max_length=128)
-    runner_name: str = Field(max_length=64)
-    metrics_type: str
-    description: str | None = Field(default=None, max_length=512)
-    fasta_file_name: str | None = Field(default=None, max_length=128)
-    speclib_file_name: str | None = Field(default=None, max_length=128)
-    config_file_name: str | None = Field(default=None, max_length=128)
-    config_params: str | None = Field(default=None, max_length=2048)
+    name: RequiredStr = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
+    software_type: RequiredStr
+    software: RequiredStr = Field(max_length=128)
+    runner_name: RequiredStr = Field(max_length=64)
+    metrics_type: RequiredStr
+    description: OptionalStr = Field(default=None, max_length=512)
+    fasta_file_name: OptionalStr = Field(default=None, max_length=128)
+    speclib_file_name: OptionalStr = Field(default=None, max_length=128)
+    config_file_name: OptionalStr = Field(default=None, max_length=128)
+    config_params: OptionalStr = Field(default=None, max_length=2048)
     slurm_cpus_per_task: int | None = Field(default=None, ge=1)
-    slurm_mem: str | None = Field(default=None, max_length=16)
-    slurm_time: str | None = Field(default=None, max_length=16)
+    slurm_mem: OptionalStr = Field(default=None, max_length=16)
+    slurm_time: OptionalStr = Field(default=None, max_length=16)
     num_threads: int | None = Field(default=None, ge=1)
-    owner_email: LowerCasedEmail | None = None
-
-    _required = field_validator(
-        "name",
-        "software_type",
-        "software",
-        "runner_name",
-        "metrics_type",
-        mode="before",
-    )(required())
-    _empty_to_none = field_validator(
-        "description",
-        "fasta_file_name",
-        "speclib_file_name",
-        "config_file_name",
-        "config_params",
-        "slurm_mem",
-        "slurm_time",
-        "owner_email",
-        mode="before",
-    )(empty_to_none)
+    owner_email: OptionalLowerCasedEmail = None
 
     @field_validator("software_type")
     @classmethod

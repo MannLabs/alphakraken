@@ -17,23 +17,26 @@ from mongoengine import (
     StringField,
 )
 
+from shared.domain.alerts import NewSuppression
+from shared.domain.inputs import max_length
 from shared.domain.projects import (
-    PROJECT_ID_MAX_LENGTH,
     PROJECT_ID_MIN_LENGTH,
+    NewProject,
     ProjectStatus,
 )
 from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.settings import (
     SETTINGS_NAME_REGEX,
     SETTINGS_VERSION_SEPARATOR,
+    NewSettings,
     SettingsStatus,
 )
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
 from shared.domain.users import (
     USER_EMAIL_REGEX,
-    USER_INITIALS_MAX_LENGTH,
     USER_INITIALS_REGEX,
+    NewUser,
     UserStatus,
 )
 from shared.keys import (
@@ -136,13 +139,18 @@ class User(Document):
     objects: ClassVar[QuerySet[User]]
 
     email = StringField(
-        required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
+        required=True,
+        primary_key=True,
+        max_length=max_length(NewUser, "email"),
+        regex=USER_EMAIL_REGEX,
     )
     initials = StringField(
-        required=True, max_length=USER_INITIALS_MAX_LENGTH, regex=USER_INITIALS_REGEX
+        required=True,
+        max_length=max_length(NewUser, "initials"),
+        regex=USER_INITIALS_REGEX,
     )
     # user id in the messenger (e.g. Slack member ID), to notify the user directly
-    messenger_id = StringField(max_length=512)
+    messenger_id = StringField(max_length=max_length(NewUser, "messenger_id"))
 
     status = StringField(max_length=32, default=UserStatus.ACTIVE)
 
@@ -182,25 +190,39 @@ class AlertSuppression(Document):
 
     # alert class name, e.g. "PumpPressureHighAlert"
     alert = StringField(
-        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+        required=True,
+        min_length=1,
+        max_length=max_length(NewSuppression, "alert"),
+        default=ALERT_SUPPRESSION_WILDCARD,
     )
     # exact match on the instrument the issue relates to
     instrument_id = StringField(
-        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+        required=True,
+        min_length=1,
+        max_length=max_length(NewSuppression, "instrument_id"),
+        default=ALERT_SUPPRESSION_WILDCARD,
     )
     # exact match on the issue identifier
     identifier = StringField(
-        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+        required=True,
+        min_length=1,
+        max_length=max_length(NewSuppression, "identifier"),
+        default=ALERT_SUPPRESSION_WILDCARD,
     )
     # substring of the issue details
     details = StringField(
-        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+        required=True,
+        min_length=1,
+        max_length=max_length(NewSuppression, "details"),
+        default=ALERT_SUPPRESSION_WILDCARD,
     )
 
-    comment = StringField(required=True, max_length=512)
+    comment = StringField(
+        required=True, max_length=max_length(NewSuppression, "comment")
+    )
     # None: never expires
     expires_at = DateTimeField()
-    created_by = StringField(max_length=64)
+    created_by = StringField(max_length=max_length(NewSuppression, "created_by"))
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
@@ -214,10 +236,10 @@ class Project(Document):
         required=True,
         primary_key=True,
         min_length=PROJECT_ID_MIN_LENGTH,
-        max_length=PROJECT_ID_MAX_LENGTH,
+        max_length=max_length(NewProject, "project_id"),
     )
-    name = StringField(required=True, max_length=64)
-    description = StringField(max_length=512)
+    name = StringField(required=True, max_length=max_length(NewProject, "name"))
+    description = StringField(max_length=max_length(NewProject, "description"))
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
@@ -241,33 +263,51 @@ class Settings(Document):
         min_value=1, unique=True, default=-1
     )  # default only needed for legacy data
 
-    name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
+    name = StringField(
+        required=True,
+        max_length=max_length(NewSettings, "name"),
+        regex=SETTINGS_NAME_REGEX,
+    )
     version = IntField(min_value=1, default=1)
-    description = StringField(max_length=512)
+    description = StringField(max_length=max_length(NewSettings, "description"))
 
-    fasta_file_name = StringField(required=False, max_length=128)
-    speclib_file_name = StringField(required=False, max_length=128)
+    fasta_file_name = StringField(
+        required=False, max_length=max_length(NewSettings, "fasta_file_name")
+    )
+    speclib_file_name = StringField(
+        required=False, max_length=max_length(NewSettings, "speclib_file_name")
+    )
 
-    config_file_name = StringField(required=False, max_length=128)
-    config_params = StringField(required=False, max_length=2048)
+    config_file_name = StringField(
+        required=False, max_length=max_length(NewSettings, "config_file_name")
+    )
+    config_params = StringField(
+        required=False, max_length=max_length(NewSettings, "config_params")
+    )
 
     software_type = StringField(
         required=True,
         max_length=128,
         default=SoftwareTypes.ALPHADIA,  # TODO: remove, default is just for backwards compatibility
     )
-    software = StringField(required=True, max_length=128)
+    software = StringField(
+        required=True, max_length=max_length(NewSettings, "software")
+    )
 
     runner_name = StringField(
-        required=True, max_length=64
+        required=True, max_length=max_length(NewSettings, "runner_name")
     )  # a name in alphakraken.yaml `runners`
 
     metrics_type = StringField(required=True, max_length=128)
 
     # TODO: remove defaults after migration
     slurm_cpus_per_task = IntField(required=True, min_value=1, default=1)
-    slurm_mem = StringField(required=True, max_length=16, default="")
-    slurm_time = StringField(required=True, max_length=16, default="")
+    slurm_mem = StringField(
+        required=True, max_length=max_length(NewSettings, "slurm_mem"), default=""
+    )
+    slurm_time = StringField(
+        required=True, max_length=max_length(NewSettings, "slurm_time"), default=""
+    )
     num_threads = IntField(required=True, min_value=1, default=1)
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)

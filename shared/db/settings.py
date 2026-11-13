@@ -79,11 +79,11 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     """
     new = parse(NewSettings, **fields)
     errors = check_runner_supports_software_type(new.runner_name, new.software_type)
-    if new.owner_email:
-        errors += users.check_active(new.owner_email)
+    errors += users.check_active(new.owner_email)
     if errors:
         raise ValidationError(errors)
 
+    previous = latest_active(new.name) if archive_previous else None
     existing = find(name=new.name, include_deleted=True)
     version = max((s.version for s in existing), default=0) + 1
     # deliberately ignoring potential race condition
@@ -92,10 +92,8 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     settings = _backend.create(new, number=number, version=version)
     logging.info(f"Created settings: {new.name=} {version=}")
 
-    if archive_previous:
-        active = [s for s in existing if s.status == SettingsStatus.ACTIVE]
-        if previous := max(active, key=lambda s: s.version, default=None):
-            archive(previous.id)
+    if previous:
+        archive(previous.id)
     return settings
 
 

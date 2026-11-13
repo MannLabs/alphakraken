@@ -1,7 +1,7 @@
 """Building of the input types that user-triggered writes are validated with."""
 
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
 import pydantic
 
@@ -60,6 +60,11 @@ def required(hint: str | None = None) -> Callable[[Any], Any]:
         return value
 
     return _required
+
+
+RequiredStr = Annotated[str, pydantic.BeforeValidator(required())]
+# None if empty or blank
+OptionalStr = Annotated[str | None, pydantic.BeforeValidator(empty_to_none)]
 
 
 def max_length(model: type[InputModel], field: str) -> int:

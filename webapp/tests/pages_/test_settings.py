@@ -9,6 +9,7 @@ import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
+from shared.domain.errors import ValidationError
 from shared.runners import RUNNERS
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
@@ -342,3 +343,33 @@ def test_create_settings_passes_selected_owner(  # noqa: PLR0913
 
     assert not at.exception
     assert mock_create_settings.call_args.kwargs["owner_email"] == "a@b.de"
+
+
+@patch("shared.db.settings.create", side_effect=ValidationError(["archiving failed"]))
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_create_settings_reloads_settings_after_error(  # noqa: PLR0913
+    mock_df: MagicMock,
+    mock_find_settings: MagicMock,
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    mock_get_users: MagicMock,  # noqa: ARG001
+    mock_create_settings: MagicMock,
+) -> None:
+    """Test that the settings are read anew after a failed create: they exist if only archiving the previous version failed."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+    next(c for c in at.checkbox if c.label.startswith("I have uploaded")).check()
+    reads_before = mock_find_settings.call_count
+
+    next(b for b in at.button if b.label.startswith("Update settings")).click().run(
+        timeout=10
+    )
+
+    assert not at.exception
+    mock_create_settings.assert_called_once()
+    assert mock_find_settings.call_count == reads_before + 1

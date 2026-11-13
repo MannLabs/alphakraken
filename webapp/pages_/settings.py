@@ -480,25 +480,28 @@ if submit:
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        settings_store.create(
-            name=name,
-            description=description,
-            fasta_file_name=fasta_file_name,
-            speclib_file_name=speclib_file_name,
-            config_file_name=config_file_name,
-            config_params=config_params,
-            software_type=software_type,
-            software=software,
-            runner_name=runner_name,
-            metrics_type=metrics_type,
-            slurm_cpus_per_task=slurm_cpus_per_task,
-            slurm_mem=slurm_mem,
-            slurm_time=slurm_time,
-            num_threads=num_threads,
-            owner_email=owner_email,
-            archive_previous=is_update and archive_previous,
-        )
-        get_settings_df.clear()
+        try:
+            settings_store.create(
+                name=name,
+                description=description,
+                fasta_file_name=fasta_file_name,
+                speclib_file_name=speclib_file_name,
+                config_file_name=config_file_name,
+                config_params=config_params,
+                software_type=software_type,
+                software=software,
+                runner_name=runner_name,
+                metrics_type=metrics_type,
+                slurm_cpus_per_task=slurm_cpus_per_task,
+                slurm_mem=slurm_mem,
+                slurm_time=slurm_time,
+                num_threads=num_threads,
+                owner_email=owner_email,
+                archive_previous=is_update and archive_previous,
+            )
+        finally:
+            # also after an error: the settings exist if only archiving the previous version failed
+            get_settings_df.clear()
 
 
 # ########################################### ARCHIVE/DELETE SETTINGS

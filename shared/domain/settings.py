@@ -26,6 +26,12 @@ class SettingsStatus:
     DELETED = "deleted"
 
 
+# the statuses that may follow each status: archiving and deleting are final
+SETTINGS_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    SettingsStatus.ACTIVE: {SettingsStatus.INACTIVE, SettingsStatus.DELETED},
+}
+
+
 SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
 SLURM_MEM_REGEX = r"^\d+[KMGT]$"
 SLURM_TIME_REGEX = r"^\d{2}:\d{2}:\d{2}$"

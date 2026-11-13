@@ -3,10 +3,17 @@
 import logging
 from typing import Any
 
+from shared.db._checks import check_status_transition
 from shared.db._mongo import users as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.users import NewUser, User, UserStatus, UserUpdate
+from shared.domain.users import (
+    USER_STATUS_TRANSITIONS,
+    NewUser,
+    User,
+    UserStatus,
+    UserUpdate,
+)
 
 
 def find(*, include_inactive: bool = False) -> list[User]:
@@ -81,7 +88,11 @@ def set_status(email: str, status: str) -> None:
 
     Raises:
         NotFoundError: if there is no such user.
+        ValidationError: if the status is unknown or the one the user has.
 
     """
+    check_status_transition(
+        USER_STATUS_TRANSITIONS, f"user '{email}'", _backend.get(email).status, status
+    )
     _backend.set_status(email, status)
     logging.info(f"Set user status: {email=} {status=}")

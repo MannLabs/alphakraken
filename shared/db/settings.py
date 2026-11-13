@@ -4,10 +4,16 @@ import logging
 from typing import Any
 
 from shared.db import users
+from shared.db._checks import check_status_transition
 from shared.db._mongo import settings as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.settings import NewSettings, Settings, SettingsStatus
+from shared.domain.settings import (
+    SETTINGS_STATUS_TRANSITIONS,
+    NewSettings,
+    Settings,
+    SettingsStatus,
+)
 from shared.runner_checks import check_runner_supports_software_type
 
 
@@ -99,17 +105,10 @@ def archive(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        ValidationError: if the settings are deleted.
+        ValidationError: if the settings are not active.
 
     """
-    settings = get(unique_name)
-    if settings.status == SettingsStatus.DELETED:
-        raise ValidationError(
-            [
-                f"Cannot archive deleted settings '{settings.name}' version {settings.version}"
-            ]
-        )
-
+    _check_status_transition(get(unique_name), SettingsStatus.INACTIVE)
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 
@@ -119,21 +118,28 @@ def delete(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        ValidationError: if the settings are archived or still assigned to a project.
+        ValidationError: if the settings are not active or still assigned to a project.
 
     """
     settings = get(unique_name)
-    label = f"'{settings.name}' version {settings.version}"
-    if settings.status == SettingsStatus.INACTIVE:
-        raise ValidationError([f"Cannot delete archived settings {label}"])
+    _check_status_transition(settings, SettingsStatus.DELETED)
     project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
         raise ValidationError(
             [
-                f"Cannot delete settings {label}: "
+                f"Cannot delete settings '{settings.name}' version {settings.version}: "
                 f"still assigned to projects {', '.join(project_ids)}"
             ]
         )
 
     _backend.set_status(unique_name, SettingsStatus.DELETED)
     logging.info(f"Deleted settings: {unique_name=}")
+
+
+def _check_status_transition(settings: Settings, status: str) -> None:
+    check_status_transition(
+        SETTINGS_STATUS_TRANSITIONS,
+        f"settings '{settings.name}' version {settings.version}",
+        settings.status,
+        status,
+    )

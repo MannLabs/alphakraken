@@ -4,10 +4,16 @@ import logging
 from typing import Any
 
 from shared.db import users
+from shared.db._checks import check_status_transition
 from shared.db._mongo import projects as _backend
 from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.inputs import parse
-from shared.domain.projects import NewProject, Project, ProjectStatus
+from shared.domain.projects import (
+    PROJECT_STATUS_TRANSITIONS,
+    NewProject,
+    Project,
+    ProjectStatus,
+)
 
 
 def find(
@@ -87,14 +93,10 @@ def archive(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
-        ValidationError: if the project is deleted.
+        ValidationError: if the project is not active.
 
     """
-    if get(project_id).status == ProjectStatus.DELETED:
-        raise ValidationError([f"Cannot archive deleted project '{project_id}'"])
-
-    _backend.set_status(project_id, ProjectStatus.INACTIVE)
-    logging.info(f"Archived project: {project_id=}")
+    _set_status(project_id, ProjectStatus.INACTIVE)
 
 
 def delete(project_id: str) -> None:
@@ -102,11 +104,18 @@ def delete(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
-        ValidationError: if the project is archived.
+        ValidationError: if the project is not active.
 
     """
-    if get(project_id).status == ProjectStatus.INACTIVE:
-        raise ValidationError([f"Cannot delete archived project '{project_id}'"])
+    _set_status(project_id, ProjectStatus.DELETED)
 
-    _backend.set_status(project_id, ProjectStatus.DELETED)
-    logging.info(f"Deleted project: {project_id=}")
+
+def _set_status(project_id: str, status: str) -> None:
+    check_status_transition(
+        PROJECT_STATUS_TRANSITIONS,
+        f"project '{project_id}'",
+        get(project_id).status,
+        status,
+    )
+    _backend.set_status(project_id, status)
+    logging.info(f"Set project status: {project_id=} {status=}")

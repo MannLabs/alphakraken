@@ -525,23 +525,26 @@ def test_backend_create_settings_resolves_owner(
     ("status", "archived"),
     [
         (SettingsStatus.ACTIVE, True),
-        (SettingsStatus.INACTIVE, True),
+        (SettingsStatus.INACTIVE, False),
         (SettingsStatus.DELETED, False),
     ],
 )
 @patch("shared.db._mongo.settings.set_status")
 @patch("shared.db.settings.get")
-def test_archive_settings_unless_deleted(
+def test_archive_settings_only_if_active(
     mock_get: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, deleted settings stay deleted."""
+    """Archiving sets the status to inactive, archived and deleted settings stay as they are."""
     mock_get.return_value = factories.settings(status=status)
 
     if archived:
         settings.archive("fallback_v7")
         mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.INACTIVE)
     else:
-        with pytest.raises(ValidationError, match="Cannot archive deleted settings"):
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot set settings 'fallback' version 7 from '{status}' to 'inactive'",
+        ):
             settings.archive("fallback_v7")
         mock_set_status.assert_not_called()
 
@@ -608,7 +611,10 @@ def test_delete_archived_settings_raises(
     """Archived settings cannot be deleted."""
     mock_get.return_value = factories.settings(status=SettingsStatus.INACTIVE)
 
-    with pytest.raises(ValidationError, match="Cannot delete archived settings"):
+    with pytest.raises(
+        ValidationError,
+        match="Cannot set settings 'fallback' version 7 from 'inactive' to 'deleted'",
+    ):
         settings.delete("fallback_v7")
 
     mock_set_status.assert_not_called()
@@ -738,44 +744,54 @@ def test_backend_add_project_resolves_owner(
     ("status", "archived"),
     [
         (ProjectStatus.ACTIVE, True),
-        (ProjectStatus.INACTIVE, True),
+        (ProjectStatus.INACTIVE, False),
         (ProjectStatus.DELETED, False),
     ],
 )
 @patch("shared.db._mongo.projects.set_status")
 @patch("shared.db.projects.find")
-def test_archive_project_unless_deleted(
+def test_archive_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, a deleted project stays deleted."""
+    """Archiving sets the status to inactive, an archived or deleted project stays as it is."""
     mock_find.return_value = [factories.project(status=status)]
 
     if archived:
         projects.archive("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
     else:
-        with pytest.raises(ValidationError, match="Cannot archive deleted project"):
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot set project 'P1' from '{status}' to 'inactive'",
+        ):
             projects.archive("P1")
         mock_set_status.assert_not_called()
 
 
 @pytest.mark.parametrize(
     ("status", "deleted"),
-    [(ProjectStatus.ACTIVE, True), (ProjectStatus.INACTIVE, False)],
+    [
+        (ProjectStatus.ACTIVE, True),
+        (ProjectStatus.INACTIVE, False),
+        (ProjectStatus.DELETED, False),
+    ],
 )
 @patch("shared.db._mongo.projects.set_status")
 @patch("shared.db.projects.find")
-def test_delete_project_unless_archived(
+def test_delete_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, deleted: bool
 ) -> None:
-    """Active projects are soft-deleted, archived ones cannot be deleted."""
+    """Active projects are soft-deleted, archived and deleted ones stay as they are."""
     mock_find.return_value = [factories.project(status=status)]
 
     if deleted:
         projects.delete("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.DELETED)
     else:
-        with pytest.raises(ValidationError, match="Cannot delete archived project"):
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot set project 'P1' from '{status}' to 'deleted'",
+        ):
             projects.delete("P1")
         mock_set_status.assert_not_called()
 

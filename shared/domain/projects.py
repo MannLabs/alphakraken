@@ -26,6 +26,12 @@ class ProjectStatus:
     DELETED = "deleted"
 
 
+# the statuses that may follow each status: archiving and deleting are final
+PROJECT_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    ProjectStatus.ACTIVE: {ProjectStatus.INACTIVE, ProjectStatus.DELETED},
+}
+
+
 @dataclass(frozen=True)
 class Project:
     """A project that raw files are assigned to. Datetimes are UTC-aware."""

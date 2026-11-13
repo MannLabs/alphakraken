@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, call, patch
 
+import mongoengine
 import pytest
 
 from shared.db import users
@@ -279,6 +280,8 @@ def test_update_rejects_invalid_initials(taken: dict[str, MagicMock]) -> None:
 @patch("shared.db._mongo.users.models")
 def test_set_status(mock_models: MagicMock) -> None:
     """The status of the user with the given email is set."""
+    mock_models.User.objects.get.return_value = _user_document()
+
     users.set_status("a@b.de", UserStatus.INACTIVE)
 
     mock_models.User.objects.assert_called_once_with(email="a@b.de")
@@ -287,10 +290,26 @@ def test_set_status(mock_models: MagicMock) -> None:
     )
 
 
+@pytest.mark.parametrize("status", [UserStatus.ACTIVE, "deleted"])
+@patch("shared.db._mongo.users.models")
+def test_set_status_to_current_or_unknown_status_raises(
+    mock_models: MagicMock, status: str
+) -> None:
+    """A user can only change between active and inactive."""
+    mock_models.User.objects.get.return_value = _user_document()
+
+    with pytest.raises(
+        ValidationError, match=f"Cannot set user 'a@b.de' from 'active' to '{status}'"
+    ):
+        users.set_status("a@b.de", status)
+
+    mock_models.User.objects.return_value.update_one.assert_not_called()
+
+
 @patch("shared.db._mongo.users.models")
 def test_set_status_of_unknown_user_raises(mock_models: MagicMock) -> None:
     """Setting the status of a user that does not exist is an error."""
-    mock_models.User.objects.return_value.update_one.return_value = 0
+    mock_models.User.objects.get.side_effect = mongoengine.DoesNotExist("a@b.de")
 
     with pytest.raises(NotFoundError, match="a@b.de"):
         users.set_status("a@b.de", UserStatus.INACTIVE)

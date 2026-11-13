@@ -110,8 +110,10 @@ def test_required_rejects_missing_value(
     value: str | None, hint: str | None, message: str
 ) -> None:
     """None and empty or blank strings are rejected, the hint is appended."""
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ValueError) as e:
         required(hint)(value)
+
+    assert str(e.value) == message
 
 
 @pytest.mark.parametrize("value", ["a", " a ", 0])

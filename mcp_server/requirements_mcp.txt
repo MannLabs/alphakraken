@@ -1,2 +1,4 @@
 # requirements for the MCP server
 mcp==1.13.0
+# for shared.yamlsettings
+pyyaml==6.0.3

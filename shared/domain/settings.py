@@ -34,8 +34,9 @@ SETTINGS_STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 
 SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
-SLURM_MEM_REGEX = r"^\d+[KMGT]$"
-SLURM_TIME_REGEX = r"^\d{2}:\d{2}:\d{2}$"
+# `[0-9]`, as `\d` also matches non-ASCII digits
+SLURM_MEM_REGEX = r"^[0-9]+[KMGT]$"
+SLURM_TIME_REGEX = r"^[0-9]{2}:[0-9]{2}:[0-9]{2}$"
 
 SETTINGS_VERSION_SEPARATOR = "_v"
 _UNIQUE_SETTINGS_NAME_REGEX = re.compile(

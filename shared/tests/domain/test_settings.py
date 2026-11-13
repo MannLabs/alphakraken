@@ -90,6 +90,15 @@ def test_new_settings_accepts_custom_software_with_resources() -> None:
         ({"runner_name": ""}, "runner_name: is required."),
         ({"slurm_mem": "62"}, "slurm_mem: Memory must be a number followed by a unit"),
         ({"slurm_time": "2h"}, "slurm_time: SLURM time must be in HH:MM:SS format."),
+        # Arabic-Indic digits, which `\d` matches
+        (
+            {"slurm_mem": "\u0663G"},
+            "slurm_mem: Memory must be a number followed by a unit",
+        ),
+        (
+            {"slurm_time": "\u0660\u0661:\u0660\u0662:\u0660\u0663"},
+            "slurm_time: SLURM time must be in HH:MM:SS format.",
+        ),
         ({"slurm_cpus_per_task": 0}, "slurm_cpus_per_task: Input should be greater"),
         ({"num_threads": 0}, "num_threads: Input should be greater"),
         (

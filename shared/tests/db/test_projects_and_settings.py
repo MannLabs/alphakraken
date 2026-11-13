@@ -259,39 +259,56 @@ def updatable(assignable: dict[str, MagicMock]) -> Iterator[dict[str, MagicMock]
 
 
 def test_update_assignment_to_latest(updatable: dict[str, MagicMock]) -> None:
-    """The latest version is assigned with the same scopes and filters, then the old assignment is removed."""
-    updatable["backend_assign"].side_effect = lambda *_, **__: updatable[
-        "backend_unassign"
-    ].assert_not_called()
-
-    project_settings.update_to_latest("assignment1", allow_fallback=False)
+    """The assignment is pointed to the latest version in one write, nothing is added or removed."""
+    result = project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["latest_active"].assert_called_once_with("fallback")
-    updatable["backend_assign"].assert_called_once_with(
-        NewAssignment(
-            project_id="P1",
-            settings_id="fallback_v8",
-            scopes=["thermo"],
-            excluded_scopes=["test1"],
-            raw_file_id_filter=["a"],
-            raw_file_id_exclude_filter=["blank"],
-        )
+    updatable["backend_set_settings"].assert_called_once_with(
+        "assignment1", "fallback_v8"
     )
-    updatable["backend_unassign"].assert_called_once_with("assignment1")
+    assert result == updatable["backend_set_settings"].return_value
+    updatable["backend_assign"].assert_not_called()
+    updatable["backend_unassign"].assert_not_called()
 
 
-def test_update_assignment_keeps_scope_that_left_the_yaml(
-    updatable: dict[str, MagicMock],
+@pytest.mark.parametrize(
+    "stored",
+    [
+        # left alphakraken.yaml since
+        {"scopes": ["retired1"]},
+        # rejected for new assignments only
+        {"scopes": ["thermo"], "excluded_scopes": ["thermo"]},
+        {"raw_file_id_filter": ["HeLa_DDA"], "raw_file_id_exclude_filter": ["dda"]},
+    ],
+)
+def test_update_assignment_does_not_revalidate_stored_fields(
+    updatable: dict[str, MagicMock], stored: dict[str, list[str]]
 ) -> None:
-    """A scope that was valid when assigned does not block the update."""
-    updatable["find_assignments"].return_value = [
-        factories.project_settings(scopes=["retired1"])
-    ]
+    """Scopes and filters that were valid when assigned do not block the update."""
+    updatable["find_assignments"].return_value = [factories.project_settings(**stored)]
 
     project_settings.update_to_latest("assignment1", allow_fallback=False)
 
-    assert updatable["backend_assign"].call_args.args[0].scopes == ["retired1"]
-    updatable["backend_unassign"].assert_called_once_with("assignment1")
+    updatable["backend_set_settings"].assert_called_once_with(
+        "assignment1", "fallback_v8"
+    )
+
+
+def test_update_assignment_to_already_assigned_latest_raises(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """The latest version is not assigned twice with the same file name filters."""
+    updatable["find_assignments"].return_value = [
+        factories.project_settings(),
+        factories.project_settings(
+            id="assignment2", settings=factories.settings(id="fallback_v8", version=8)
+        ),
+    ]
+
+    with pytest.raises(ValidationError, match="version 8 already assigned"):
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    updatable["backend_set_settings"].assert_not_called()
 
 
 def test_assign_with_misspelled_keyword_raises(
@@ -316,8 +333,7 @@ def test_update_assignment_without_newer_version_raises(
     with pytest.raises(ValidationError, match="No newer active version"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
-    updatable["backend_assign"].assert_not_called()
-    updatable["backend_unassign"].assert_not_called()
+    updatable["backend_set_settings"].assert_not_called()
 
 
 def test_update_assignment_whose_settings_are_gone_raises(
@@ -329,14 +345,13 @@ def test_update_assignment_whose_settings_are_gone_raises(
     with pytest.raises(NotFoundError, match="Settings of assignment assignment1"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
-    updatable["backend_assign"].assert_not_called()
-    updatable["backend_unassign"].assert_not_called()
+    updatable["backend_set_settings"].assert_not_called()
 
 
-def test_update_assignment_keeps_old_one_if_assigning_fails(
+def test_update_assignment_of_archived_project_raises(
     updatable: dict[str, MagicMock],
 ) -> None:
-    """A failed assignment of the latest version does not cost the current one."""
+    """The assignments of an archived project are left alone."""
     updatable["find_projects"].return_value = [
         factories.project(status=ProjectStatus.INACTIVE)
     ]
@@ -344,7 +359,7 @@ def test_update_assignment_keeps_old_one_if_assigning_fails(
     with pytest.raises(ValidationError, match="Cannot change the settings assignments"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
-    updatable["backend_unassign"].assert_not_called()
+    updatable["backend_set_settings"].assert_not_called()
 
 
 # settings writes: the rules are in the API module, the backend only stores
@@ -857,6 +872,7 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
         ),
         patch("shared.db._mongo.project_settings.assign") as backend_assign,
         patch("shared.db._mongo.project_settings.unassign") as backend_unassign,
+        patch("shared.db._mongo.project_settings.set_settings") as backend_set_settings,
         patch(
             "shared.db._mongo.project_settings.get_project_id", return_value="P1"
         ) as backend_get_project_id,
@@ -869,6 +885,7 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
             "find_assignments": find_assignments,
             "backend_assign": backend_assign,
             "backend_unassign": backend_unassign,
+            "backend_set_settings": backend_set_settings,
             "backend_get_project_id": backend_get_project_id,
         }
 
@@ -1055,6 +1072,7 @@ def test_fallback_assignments_change_only_if_allowed(
 
     assert assignable["backend_assign"].called is allow_fallback
     assert assignable["backend_unassign"].called is allow_fallback
+    assert assignable["backend_set_settings"].called is allow_fallback
 
 
 def test_assign_same_settings_with_same_filters_raises(
@@ -1126,6 +1144,40 @@ def test_unassign_unknown_assignment_raises(assignable: dict[str, MagicMock]) ->
         project_settings.unassign("assignment9", allow_fallback=False)
 
     assignable["backend_unassign"].assert_not_called()
+
+
+def test_backend_set_settings(mock_models: MagicMock) -> None:
+    """The backend swaps the settings reference of the assignment in one write."""
+    settings_document = _settings_document()
+    mock_models.Settings.objects.return_value.get.return_value = settings_document
+    modify = mock_models.ProjectSettings.objects.return_value.modify
+    modify.return_value = models.ProjectSettings(
+        id=ASSIGNMENT_OBJECT_ID,
+        project=_project_document("P1"),
+        settings=settings_document,
+        scopes=["*"],
+        created_at_=NAIVE_TIME,
+    )
+
+    result = project_settings_backend.set_settings("some_id", "fallback_v7")
+
+    mock_models.ProjectSettings.objects.assert_called_once_with(id="some_id")
+    modify.assert_called_once_with(set__settings=settings_document, new=True)
+    assert result == factories.project_settings(
+        id=str(ASSIGNMENT_OBJECT_ID),
+        settings=factories.settings(created_at_=AWARE_TIME),
+        created_at_=AWARE_TIME,
+    )
+
+
+def test_backend_set_settings_of_unknown_assignment_raises(
+    mock_models: MagicMock,
+) -> None:
+    """An assignment removed in the meantime is not re-created."""
+    mock_models.ProjectSettings.objects.return_value.modify.return_value = None
+
+    with pytest.raises(NotFoundError, match="No settings assignment some_id"):
+        project_settings_backend.set_settings("some_id", "fallback_v7")
 
 
 def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:

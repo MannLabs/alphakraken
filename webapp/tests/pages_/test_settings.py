@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
@@ -75,6 +76,29 @@ def test_settings(
 
     assert not at.exception
     assert expected_data == at.table[0].value.to_dict()
+
+
+@pytest.mark.parametrize("software_type", ["msqc", "skyline", "custom"])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_renders_for_software_types_without_file_inputs(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    software_type: str,
+) -> None:
+    """A software type that lacks some of the file name inputs does not break the page."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    next(s for s in at.selectbox if s.label == "Type").set_value(software_type).run(
+        timeout=10
+    )
+
+    assert not at.exception
 
 
 @patch("shared.db.project_settings.find", return_value=[])

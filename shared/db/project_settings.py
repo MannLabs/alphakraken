@@ -41,21 +41,19 @@ def assign(
 
     """
     new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
-    return _assign(new, allow_fallback=allow_fallback, check_scopes=True)
-
-
-def _assign(
-    new: NewAssignment, *, allow_fallback: bool, check_scopes: bool
-) -> ProjectSettings:
-    """Store the assignment after the checks against the yaml and the database, cf. `assign`."""
-    errors = _scope_errors(new) if check_scopes else []
+    errors = _scope_errors(new)
     errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
     assigned = settings.get(new.settings_id)
     if assigned.status != SettingsStatus.ACTIVE:
         errors.append(
             f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
         )
-    errors += _duplicate_errors(new)
+    errors += _duplicate_errors(
+        new.project_id,
+        new.settings_id,
+        new.raw_file_id_filter,
+        new.raw_file_id_exclude_filter,
+    )
     if errors:
         raise ValidationError(errors)
 
@@ -96,17 +94,22 @@ def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
     return errors
 
 
-def _duplicate_errors(new: NewAssignment) -> list[str]:
+def _duplicate_errors(
+    project_id: str,
+    settings_id: str,
+    raw_file_id_filter: list[str],
+    raw_file_id_exclude_filter: list[str],
+) -> list[str]:
     """Return an error if the settings are already assigned to the project with identical file name filters."""
     return [
         f"Settings '{existing.settings.name}' version {existing.settings.version} already assigned "
-        f"to project '{new.project_id}' with the same file name filters. "
+        f"to project '{project_id}' with the same file name filters. "
         "Unlink the existing assignment and re-assign with the merged scopes."
-        for existing in find([new.project_id])
-        if existing.settings.id == new.settings_id
-        and set(existing.raw_file_id_filter) == set(new.raw_file_id_filter)
+        for existing in find([project_id])
+        if existing.settings.id == settings_id
+        and set(existing.raw_file_id_filter) == set(raw_file_id_filter)
         and _lower(existing.raw_file_id_exclude_filter)
-        == _lower(new.raw_file_id_exclude_filter)
+        == _lower(raw_file_id_exclude_filter)
     ]
 
 
@@ -134,7 +137,7 @@ def unassign(assignment_id: str, *, allow_fallback: bool) -> None:
 
 
 def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSettings:
-    """Replace a settings assignment by one to the latest active version of its settings, keeping scopes and filters.
+    """Point a settings assignment to the latest active version of its settings, keeping scopes and filters.
 
     :param allow_fallback: whether the caller may change the assignments of the fallback project
 
@@ -158,18 +161,18 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
             ]
         )
 
-    # scopes unchecked: one that left alphakraken.yaml since is carried over
-    new = parse(
-        NewAssignment,
-        project_id=project_id,
-        settings_id=latest.id,
-        scopes=current.scopes,
-        excluded_scopes=current.excluded_scopes,
-        raw_file_id_filter=current.raw_file_id_filter,
-        raw_file_id_exclude_filter=current.raw_file_id_exclude_filter,
+    errors = _project_errors(project_id, allow_fallback=allow_fallback)
+    errors += _duplicate_errors(
+        project_id,
+        latest.id,
+        current.raw_file_id_filter,
+        current.raw_file_id_exclude_filter,
     )
-    # assigning first: if it fails, the current assignment is kept
-    updated = _assign(new, allow_fallback=allow_fallback, check_scopes=False)
-    _backend.unassign(assignment_id)
-    logging.info(f"Removed project-settings assignment: {assignment_id=}")
+    if errors:
+        raise ValidationError(errors)
+
+    updated = _backend.set_settings(assignment_id, latest.id)
+    logging.info(
+        f"Updated project-settings assignment: {assignment_id=} to {latest.id}"
+    )
     return updated

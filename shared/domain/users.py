@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BeforeValidator, Field, StringConstraints
+from pydantic import BeforeValidator, Field, StringConstraints, TypeAdapter
 
 from shared.domain.inputs import (
     InputModel,
@@ -21,7 +21,10 @@ USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"
 
 
 # emails are stored lower-cased, so every email that is looked up is lower-cased as well
-LowerCasedEmail = Annotated[str, StringConstraints(to_lower=True)]
+LowerCasedEmail = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_lower=True)
+]
+_EMAIL_ADAPTER = TypeAdapter(LowerCasedEmail)
 # None if empty or blank
 OptionalLowerCasedEmail = Annotated[
     LowerCasedEmail | None, BeforeValidator(empty_to_none)
@@ -30,7 +33,7 @@ OptionalLowerCasedEmail = Annotated[
 
 def normalize_email(email: str) -> str:
     """Return the email as it is stored: stripped and lower-cased."""
-    return email.strip().lower()
+    return _EMAIL_ADAPTER.validate_python(email)
 
 
 class UserStatus:

@@ -417,7 +417,7 @@ settings_folder = get_display_settings_path(
 referenced_files = [
     file_name
     for file_name in (fasta_file_name, speclib_file_name, config_file_name)
-    if file_name.strip()
+    if file_name and file_name.strip()
 ]
 if referenced_files:
     c1.markdown(

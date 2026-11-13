@@ -61,6 +61,18 @@ def assign(new: NewAssignment) -> ProjectSettings:
 
 
 @db_backend_function
+def set_settings(assignment_id: str, settings_id: str) -> ProjectSettings:
+    """Point a settings assignment to other settings in one write, cf. `shared.db.project_settings`."""
+    settings_doc = settings_by_unique_name(settings_id).get()
+    doc = models.ProjectSettings.objects(id=assignment_id).modify(
+        set__settings=settings_doc, new=True
+    )
+    if doc is None:
+        raise NotFoundError(f"No settings assignment {assignment_id}")
+    return to_project_settings(doc, to_settings(settings_doc))
+
+
+@db_backend_function
 def unassign(assignment_id: str) -> None:
     """Delete a settings assignment, cf. `shared.db.project_settings`."""
     models.ProjectSettings.objects(id=assignment_id).delete()

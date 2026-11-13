@@ -1,14 +1,20 @@
 """Unit tests for the config_params placeholder substitution."""
 
+import pytest
+
 from shared.config_params import (
     PLACEHOLDER_DESCRIPTIONS,
     PLACEHOLDER_DUMMY_VALUE,
     ConfigParamPlaceholders,
+    check_config_params,
     check_for_unknown_placeholders,
     substitute_dummy_values,
     substitute_placeholders,
 )
-from shared.validation import check_for_malicious_content
+from shared.validation import (
+    INVALID_CHARS_ERROR_WITH_SPACES,
+    check_for_malicious_content,
+)
 
 
 def test_all_placeholders_have_a_description() -> None:
@@ -119,3 +125,17 @@ def test_check_for_unknown_placeholders_rejects_single_braced_one() -> None:
 
     assert len(errors) == 1
     assert "{RAW_FILE_PATH}" in errors[0]
+
+
+@pytest.mark.parametrize(
+    ("config_params", "errors"),
+    [
+        ("--f {{RAW_FILE_PATH}} --threads {{NUM_THREADS}}", []),
+        # reported once, not again for its braces
+        ("--f {{RAW_FILE_PAHT}}", ["Unknown placeholder: {{RAW_FILE_PAHT}}"]),
+        ("--f {{RAW_FILE_PATH}}; rm -rf /", [INVALID_CHARS_ERROR_WITH_SPACES]),
+    ],
+)
+def test_check_config_params(config_params: str, errors: list[str]) -> None:
+    """Known placeholders pass, an unknown one or malicious content around them does not."""
+    assert check_config_params(config_params) == errors

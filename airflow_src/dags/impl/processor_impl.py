@@ -46,7 +46,7 @@ from jobs.job_handler import (
 
 from shared.config_params import (
     ConfigParamPlaceholders,
-    substitute_dummy_values,
+    check_config_params,
     substitute_placeholders,
 )
 from shared.db import metrics as metrics_store
@@ -287,7 +287,7 @@ _UNCHECKED_FIELDS = (
     "output_path",
     "custom_command",
     "config_params",
-    "slurm_time",  # contains ":", validated in the webapp
+    "slurm_time",  # contains ":", validated at creation, cf. `NewSettings`
 )
 
 
@@ -300,11 +300,7 @@ def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
             errors.append(f"Validation error in '{value}': {errors_}")
 
     if settings.config_params:
-        errors.extend(
-            check_for_malicious_content(
-                substitute_dummy_values(settings.config_params), allow_spaces=True
-            )
-        )
+        errors.extend(check_config_params(settings.config_params))
 
     return errors
 

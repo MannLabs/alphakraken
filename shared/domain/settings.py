@@ -12,7 +12,7 @@ from pydantic import (
     model_validator,
 )
 
-from shared.config_params import check_for_unknown_placeholders, substitute_dummy_values
+from shared.config_params import check_config_params
 from shared.domain.inputs import InputModel, empty_to_none, required
 from shared.domain.users import LowerCasedEmail
 from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
@@ -175,16 +175,10 @@ class NewSettings(InputModel):
     @field_validator("config_params")
     @classmethod
     def _safe_config_params(cls, value: str | None) -> str | None:
-        if value:
-            # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
-            # they currently pass validation and fail silently at runtime
-            errors = check_for_unknown_placeholders(
-                value
-            ) or check_for_malicious_content(
-                substitute_dummy_values(value), allow_spaces=True
-            )
-            if errors:
-                raise ValueError("; ".join(errors))
+        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
+        # they currently pass validation and fail silently at runtime
+        if value and (errors := check_config_params(value)):
+            raise ValueError("; ".join(errors))
         return value
 
     @field_validator("slurm_mem")

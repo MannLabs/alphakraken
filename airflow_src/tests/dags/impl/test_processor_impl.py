@@ -455,7 +455,7 @@ def test_check_content_rejects_unknown_placeholder(
         quanting_env, MagicMock(config_params="--f {{RAW_FILE_PAHT}}")
     )
 
-    assert len(errors) == 1
+    assert errors == ["Unknown placeholder: {{RAW_FILE_PAHT}}"]
 
 
 def test_check_content_allows_image_name_in_software_field(

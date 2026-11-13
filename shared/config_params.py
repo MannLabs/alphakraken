@@ -4,6 +4,7 @@ import re
 
 from shared.keys import ConstantsClass
 from shared.path_views import Locations
+from shared.validation import check_for_malicious_content
 
 # stand-in for a placeholder value, used where the real values are not known yet
 PLACEHOLDER_DUMMY_VALUE = "dummy"
@@ -78,3 +79,16 @@ def check_for_unknown_placeholders(config_params: str) -> list[str]:
         for match in _BRACED_TOKEN_PATTERN.finditer(config_params)
         if not _KNOWN_PLACEHOLDER_PATTERN.fullmatch(match.group())
     ]
+
+
+def check_config_params(config_params: str) -> list[str]:
+    """Validate unresolved `config_params`: only known placeholders, no malicious content around them.
+
+    Returns:
+        list[str]: List of validation error messages (empty if valid)
+
+    """
+    # an unknown placeholder would be reported again for its braces
+    return check_for_unknown_placeholders(config_params) or check_for_malicious_content(
+        substitute_dummy_values(config_params), allow_spaces=True
+    )

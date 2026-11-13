@@ -43,13 +43,6 @@ class UserStatus:
     INACTIVE = "inactive"
 
 
-# the statuses that may follow each status
-USER_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    UserStatus.ACTIVE: {UserStatus.INACTIVE},
-    UserStatus.INACTIVE: {UserStatus.ACTIVE},
-}
-
-
 @dataclass(frozen=True)
 class User:
     """A user, owner of projects and settings; not a login identity. Datetimes are UTC-aware."""

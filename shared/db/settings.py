@@ -4,16 +4,10 @@ import logging
 from typing import Any
 
 from shared.db import users
-from shared.db._checks import check_status_transition
 from shared.db._mongo import settings as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.settings import (
-    SETTINGS_STATUS_TRANSITIONS,
-    NewSettings,
-    Settings,
-    SettingsStatus,
-)
+from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.runner_checks import check_runner_supports_software_type
 
 
@@ -83,16 +77,17 @@ def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
     if errors:
         raise ValidationError(errors)
 
-    previous = latest_active(new.name) if archive_previous else None
     existing = find(name=new.name, include_deleted=True)
     version = max((s.version for s in existing), default=0) + 1
+    active = [s for s in existing if s.status == SettingsStatus.ACTIVE]
+    previous = max(active, key=lambda s: s.version, default=None)
     # deliberately ignoring potential race condition
     number = count(include_deleted=True) + 1
 
     settings = _backend.create(new, number=number, version=version)
     logging.info(f"Created settings: {new.name=} {version=}")
 
-    if previous:
+    if archive_previous and previous:
         archive(previous.id)
     return settings
 
@@ -105,7 +100,7 @@ def archive(unique_name: str) -> None:
         ValidationError: if the settings are not active.
 
     """
-    _check_status_transition(get(unique_name), SettingsStatus.INACTIVE)
+    _check_active(get(unique_name), SettingsStatus.INACTIVE)
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 
@@ -119,7 +114,7 @@ def delete(unique_name: str) -> None:
 
     """
     settings = get(unique_name)
-    _check_status_transition(settings, SettingsStatus.DELETED)
+    _check_active(settings, SettingsStatus.DELETED)
     project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
         raise ValidationError(
@@ -133,10 +128,12 @@ def delete(unique_name: str) -> None:
     logging.info(f"Deleted settings: {unique_name=}")
 
 
-def _check_status_transition(settings: Settings, status: str) -> None:
-    check_status_transition(
-        SETTINGS_STATUS_TRANSITIONS,
-        f"settings '{settings.name}' version {settings.version}",
-        settings.status,
-        status,
-    )
+def _check_active(settings: Settings, new_status: str) -> None:
+    # archiving and deleting are final
+    if settings.status != SettingsStatus.ACTIVE:
+        raise ValidationError(
+            [
+                f"Cannot set settings '{settings.name}' version {settings.version} "
+                f"from '{settings.status}' to '{new_status}'."
+            ]
+        )

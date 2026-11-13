@@ -4,16 +4,10 @@ import logging
 from typing import Any
 
 from shared.db import users
-from shared.db._checks import check_status_transition
 from shared.db._mongo import projects as _backend
 from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.inputs import parse
-from shared.domain.projects import (
-    PROJECT_STATUS_TRANSITIONS,
-    NewProject,
-    Project,
-    ProjectStatus,
-)
+from shared.domain.projects import NewProject, Project, ProjectStatus
 
 
 def find(
@@ -111,11 +105,11 @@ def delete(project_id: str) -> None:
 
 
 def _set_status(project_id: str, status: str) -> None:
-    check_status_transition(
-        PROJECT_STATUS_TRANSITIONS,
-        f"project '{project_id}'",
-        get(project_id).status,
-        status,
-    )
+    current = get(project_id).status
+    # archiving and deleting are final
+    if current != ProjectStatus.ACTIVE:
+        raise ValidationError(
+            [f"Cannot set project '{project_id}' from '{current}' to '{status}'."]
+        )
     _backend.set_status(project_id, status)
     logging.info(f"Set project status: {project_id=} {status=}")

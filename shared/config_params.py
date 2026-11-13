@@ -7,9 +7,9 @@ from shared.path_views import Locations
 from shared.validation import check_for_malicious_content
 
 # stand-in for a placeholder value, used where the real values are not known yet
-PLACEHOLDER_DUMMY_VALUE = "dummy"
+_PLACEHOLDER_DUMMY_VALUE = "dummy"
 
-UNKNOWN_PLACEHOLDER_ERROR = "Unknown placeholder"
+_UNKNOWN_PLACEHOLDER_ERROR = "Unknown placeholder"
 
 
 class ConfigParamPlaceholders(metaclass=ConstantsClass):
@@ -59,15 +59,15 @@ def substitute_placeholders(config_params: str, values: dict[str, str]) -> str:
     )
 
 
-def substitute_dummy_values(config_params: str) -> str:
+def _substitute_dummy_values(config_params: str) -> str:
     """Replace all known placeholders by a dummy value, to enable validating unresolved `config_params`."""
     return substitute_placeholders(
         config_params,
-        dict.fromkeys(ConfigParamPlaceholders.get_values(), PLACEHOLDER_DUMMY_VALUE),
+        dict.fromkeys(ConfigParamPlaceholders.get_values(), _PLACEHOLDER_DUMMY_VALUE),
     )
 
 
-def check_for_unknown_placeholders(config_params: str) -> list[str]:
+def _check_for_unknown_placeholders(config_params: str) -> list[str]:
     """Validate that `config_params` contains no braced token besides the known placeholders.
 
     Returns:
@@ -75,7 +75,7 @@ def check_for_unknown_placeholders(config_params: str) -> list[str]:
 
     """
     return [
-        f"{UNKNOWN_PLACEHOLDER_ERROR}: {match.group()}"
+        f"{_UNKNOWN_PLACEHOLDER_ERROR}: {match.group()}"
         for match in _BRACED_TOKEN_PATTERN.finditer(config_params)
         if not _KNOWN_PLACEHOLDER_PATTERN.fullmatch(match.group())
     ]
@@ -89,6 +89,8 @@ def check_config_params(config_params: str) -> list[str]:
 
     """
     # an unknown placeholder would be reported again for its braces
-    return check_for_unknown_placeholders(config_params) or check_for_malicious_content(
-        substitute_dummy_values(config_params), allow_spaces=True
+    return _check_for_unknown_placeholders(
+        config_params
+    ) or check_for_malicious_content(
+        _substitute_dummy_values(config_params), allow_spaces=True
     )

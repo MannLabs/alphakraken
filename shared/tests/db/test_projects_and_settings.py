@@ -378,7 +378,6 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
     """No settings exist, the runner check passes; the backend writes are mocked."""
     with (
         patch("shared.db.settings.find", return_value=[]) as find,
-        patch("shared.db.settings.latest_active", return_value=None) as latest_active,
         patch("shared.db.settings.count", return_value=0) as count,
         patch("shared.db.settings.get") as get,
         patch(
@@ -391,7 +390,6 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
         get.return_value = factories.settings()
         yield {
             "find": find,
-            "latest_active": latest_active,
             "count": count,
             "get": get,
             "check_runner": check_runner,
@@ -486,36 +484,38 @@ def test_create_settings_reports_all_rule_errors(
 
 def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> None:
     """The latest active version of the name is archived after the new one is created."""
-    creatable["latest_active"].return_value = factories.settings(
-        id="fallback_v7", version=7
-    )
+    creatable["find"].return_value = [
+        factories.settings(id="fallback_v8", version=8, status=SettingsStatus.INACTIVE),
+        factories.settings(id="fallback_v7", version=7),
+        factories.settings(id="fallback_v6", version=6),
+    ]
     creatable["backend_create"].side_effect = lambda *_, **__: creatable[
         "backend_set_status"
     ].assert_not_called()
 
     settings.create(**CREATE_FIELDS, name="fallback", archive_previous=True)
 
-    creatable["latest_active"].assert_called_once_with("fallback")
     creatable["backend_set_status"].assert_called_once_with(
         "fallback_v7", SettingsStatus.INACTIVE
     )
 
 
 @pytest.mark.parametrize(
-    ("latest_active", "archive_previous"),
+    ("existing", "archive_previous"),
     [
-        (None, True),
-        (factories.settings(), False),
+        ([], True),
+        ([factories.settings(status=SettingsStatus.INACTIVE)], True),
+        ([factories.settings()], False),
     ],
 )
 def test_create_settings_without_archiving(
     creatable: dict[str, MagicMock],
-    latest_active: Settings | None,
+    existing: list[Settings],
     *,
     archive_previous: bool,
 ) -> None:
     """Nothing is archived without an active previous version or without being asked to."""
-    creatable["latest_active"].return_value = latest_active
+    creatable["find"].return_value = existing
 
     settings.create(**CREATE_FIELDS, name="fallback", archive_previous=archive_previous)
 

@@ -4,17 +4,11 @@ import pytest
 
 from shared.config_params import (
     PLACEHOLDER_DESCRIPTIONS,
-    PLACEHOLDER_DUMMY_VALUE,
     ConfigParamPlaceholders,
     check_config_params,
-    check_for_unknown_placeholders,
-    substitute_dummy_values,
     substitute_placeholders,
 )
-from shared.validation import (
-    INVALID_CHARS_ERROR_WITH_SPACES,
-    check_for_malicious_content,
-)
+from shared.validation import INVALID_CHARS_ERROR_WITH_SPACES
 
 
 def test_all_placeholders_have_a_description() -> None:
@@ -76,55 +70,13 @@ def test_substitute_placeholders_does_not_expand_substituted_values() -> None:
     assert result == "/out/{{NUM_THREADS}} 8"
 
 
-def test_substitute_dummy_values() -> None:
-    """Test that all known placeholders are replaced by the dummy value."""
-    config_params = " ".join(
-        f"{{{{{placeholder}}}}}" for placeholder in ConfigParamPlaceholders.get_values()
-    )
-
-    result = substitute_dummy_values(config_params)
-
-    assert result == " ".join(
-        [PLACEHOLDER_DUMMY_VALUE] * len(ConfigParamPlaceholders.get_values())
-    )
-
-
-def test_dummy_substituted_params_pass_validation() -> None:
-    """Test that config params using placeholders are accepted by the validation."""
-    config_params = "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --threads {{NUM_THREADS}}"
-
-    errors = check_for_malicious_content(
-        substitute_dummy_values(config_params), allow_spaces=True
-    )
-
-    assert errors == []
-
-
-def test_check_for_unknown_placeholders_accepts_known_ones() -> None:
+def test_check_config_params_accepts_all_known_placeholders() -> None:
     """Test that all known placeholders pass the check."""
     config_params = " ".join(
         f"{{{{{placeholder}}}}}" for placeholder in ConfigParamPlaceholders.get_values()
     )
 
-    assert check_for_unknown_placeholders(config_params) == []
-
-
-def test_check_for_unknown_placeholders_rejects_misspelled_one() -> None:
-    """Test that a misspelled placeholder is reported by name."""
-    errors = check_for_unknown_placeholders(
-        "--f {{RAW_FILE_PAHT}} --threads {{NUM_THREADS}}"
-    )
-
-    assert len(errors) == 1
-    assert "{{RAW_FILE_PAHT}}" in errors[0]
-
-
-def test_check_for_unknown_placeholders_rejects_single_braced_one() -> None:
-    """Test that the pre-double-brace syntax is reported rather than passed through unsubstituted."""
-    errors = check_for_unknown_placeholders("--f {RAW_FILE_PATH} --out {{OUTPUT_PATH}}")
-
-    assert len(errors) == 1
-    assert "{RAW_FILE_PATH}" in errors[0]
+    assert check_config_params(config_params) == []
 
 
 @pytest.mark.parametrize(
@@ -132,7 +84,15 @@ def test_check_for_unknown_placeholders_rejects_single_braced_one() -> None:
     [
         ("--f {{RAW_FILE_PATH}} --threads {{NUM_THREADS}}", []),
         # reported once, not again for its braces
-        ("--f {{RAW_FILE_PAHT}}", ["Unknown placeholder: {{RAW_FILE_PAHT}}"]),
+        (
+            "--f {{RAW_FILE_PAHT}} --threads {{NUM_THREADS}}",
+            ["Unknown placeholder: {{RAW_FILE_PAHT}}"],
+        ),
+        # the pre-double-brace syntax is not passed through unsubstituted
+        (
+            "--f {RAW_FILE_PATH} --out {{OUTPUT_PATH}}",
+            ["Unknown placeholder: {RAW_FILE_PATH}"],
+        ),
         ("--f {{RAW_FILE_PATH}}; rm -rf /", [INVALID_CHARS_ERROR_WITH_SPACES]),
     ],
 )

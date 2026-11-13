@@ -3,12 +3,10 @@
 import logging
 from typing import Any
 
-from shared.db._checks import check_status_transition
 from shared.db._mongo import users as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
 from shared.domain.users import (
-    USER_STATUS_TRANSITIONS,
     NewUser,
     User,
     UserStatus,
@@ -98,8 +96,10 @@ def set_status(email: str, status: str) -> None:
 
     """
     email = normalize_email(email)
-    check_status_transition(
-        USER_STATUS_TRANSITIONS, f"user '{email}'", _backend.get(email).status, status
-    )
+    current = _backend.get(email).status
+    if status == current or status not in (UserStatus.ACTIVE, UserStatus.INACTIVE):
+        raise ValidationError(
+            [f"Cannot set user '{email}' from '{current}' to '{status}'."]
+        )
     _backend.set_status(email, status)
     logging.info(f"Set user status: {email=} {status=}")

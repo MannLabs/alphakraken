@@ -23,7 +23,6 @@ from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
     toast_result,
 )
@@ -32,7 +31,7 @@ from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
-from shared.domain.inputs import max_length
+from shared.domain.inputs import empty_to_none, max_length
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import (
     NewSettings,

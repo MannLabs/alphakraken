@@ -971,7 +971,13 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
 
 
 @pytest.mark.parametrize(
-    "scopes", [{"scopes": ["test9"]}, {"excluded_scopes": ["test9"]}]
+    "scopes",
+    [
+        {"scopes": ["test9"]},
+        {"excluded_scopes": ["test9"]},
+        # reported once
+        {"scopes": ["test9"], "excluded_scopes": ["test9"]},
+    ],
 )
 def test_assign_with_unknown_scope_raises(
     assignable: dict[str, MagicMock], scopes: dict[str, list[str]]

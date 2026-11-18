@@ -67,7 +67,8 @@ def _scope_errors(new: NewAssignment) -> list[str]:
     """Return the errors of the scopes against alphakraken.yaml."""
     errors = []
     known = known_scopes()
-    if unknown := [s for s in (*new.scopes, *new.excluded_scopes) if s not in known]:
+    scopes = dict.fromkeys((*new.scopes, *new.excluded_scopes))
+    if unknown := [s for s in scopes if s not in known]:
         errors.append(f"Unknown scopes {unknown}, known are: {known}.")
     if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
         errors.append(

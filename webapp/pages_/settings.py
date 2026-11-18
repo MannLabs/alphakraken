@@ -21,7 +21,6 @@ from service.db import (
 )
 from service.owner import OWNER_COLUMN, add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
-from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -30,10 +29,7 @@ from service.utils import (
     toast_result,
 )
 
-from shared.config_params import (
-    check_for_unknown_placeholders,
-    substitute_dummy_values,
-)
+from shared.config_params import check_config_params
 from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
@@ -52,6 +48,7 @@ from shared.keys import (
     SoftwareTypes,
 )
 from shared.path_views import Locations
+from shared.runner_checks import check_runner_supports_software_type
 from shared.runners import RUNNERS, get_runner
 from shared.validation import check_for_malicious_content
 
@@ -500,13 +497,7 @@ if submit:
     if config_params:
         # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
         # they currently pass validation and fail silently at runtime
-        placeholder_errors = check_for_unknown_placeholders(config_params)
-        validation_errors.extend(
-            placeholder_errors
-            or check_for_malicious_content(
-                substitute_dummy_values(config_params), allow_spaces=True
-            )
-        )
+        validation_errors.extend(check_config_params(config_params))
     if slurm_mem:
         validation_errors.extend(check_for_malicious_content(slurm_mem))
         if not re.match(SLURM_MEM_REGEX, slurm_mem):

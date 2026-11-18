@@ -87,10 +87,10 @@ class NewAssignment(InputModel):
     project_id: RequiredStr
     # the unique name of the settings, e.g. `fallback_v7`
     settings_id: RequiredStr
-    scopes: list[_Scope] = Field(default_factory=lambda: [DEFAULT_SCOPE])
-    excluded_scopes: list[_Scope] = Field(default_factory=list)
-    raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
-    raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
+    scopes: list[_Scope]
+    excluded_scopes: list[_Scope]
+    raw_file_id_filter: list[_FileIdFilter]
+    raw_file_id_exclude_filter: list[_FileIdFilter]
 
     @field_validator("scopes")
     @classmethod

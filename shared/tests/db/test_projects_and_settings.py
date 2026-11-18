@@ -1184,7 +1184,14 @@ def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:
 
     with patch.object(models.ProjectSettings, "save") as mock_save:
         result = project_settings_backend.assign(
-            NewAssignment(project_id="P1", settings_id="fallback_v7")
+            NewAssignment(
+                project_id="P1",
+                settings_id="fallback_v7",
+                scopes=["*"],
+                excluded_scopes=[],
+                raw_file_id_filter=[],
+                raw_file_id_exclude_filter=[],
+            )
         )
     project_settings_backend.unassign("some_id")
 

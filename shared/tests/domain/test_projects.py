@@ -73,20 +73,14 @@ def test_new_project_declares_project_id_limit() -> None:
     assert max_length(NewProject, "project_id") == 16
 
 
-ASSIGNMENT: dict[str, Any] = {"project_id": "P123", "settings_id": "fallback_v7"}
-
-
-def test_new_assignment_defaults_to_all_instruments_and_files() -> None:
-    """Without scopes and filters, the assignment applies to everything."""
-    new = parse(NewAssignment, **ASSIGNMENT)
-
-    assert new.model_dump() == {
-        **ASSIGNMENT,
-        "scopes": ["*"],
-        "excluded_scopes": [],
-        "raw_file_id_filter": [],
-        "raw_file_id_exclude_filter": [],
-    }
+ASSIGNMENT: dict[str, Any] = {
+    "project_id": "P123",
+    "settings_id": "fallback_v7",
+    "scopes": ["*"],
+    "excluded_scopes": [],
+    "raw_file_id_filter": [],
+    "raw_file_id_exclude_filter": [],
+}
 
 
 @pytest.mark.parametrize(
@@ -100,12 +94,12 @@ def test_new_assignment_normalizes_scopes(
     scopes: list[str], expected: list[str]
 ) -> None:
     """The default scope absorbs the scopes next to it."""
-    assert parse(NewAssignment, **ASSIGNMENT, scopes=scopes).scopes == expected
+    assert parse(NewAssignment, **{**ASSIGNMENT, "scopes": scopes}).scopes == expected
 
 
 def test_new_assignment_strips_entries() -> None:
     """Entries are stripped."""
-    new = parse(NewAssignment, **ASSIGNMENT, raw_file_id_filter=[" hela "])
+    new = parse(NewAssignment, **{**ASSIGNMENT, "raw_file_id_filter": [" hela "]})
 
     assert new.raw_file_id_filter == ["hela"]
 
@@ -141,6 +135,6 @@ def test_new_assignment_rejects_invalid_fields(
 ) -> None:
     """No scopes, entries that would never apply and empty or too long entries are rejected."""
     with pytest.raises(ValidationError) as e:
-        parse(NewAssignment, **ASSIGNMENT, **overrides)
+        parse(NewAssignment, **{**ASSIGNMENT, **overrides})
 
     assert e.value.errors == [error]

@@ -5,24 +5,17 @@ import logging
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.yamlsettings import get_instrument_types
 
 
 def known_scopes() -> list[str]:
     """Return the scopes an assignment can have: the default scope, the vendors and the instruments of alphakraken.yaml."""
-    return [
-        DEFAULT_SCOPE,
-        *KNOWN_VENDOR_NAMES,
-        *YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}),
-    ]
+    return [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *get_instrument_types()]
 
 
 def fully_excluded_scopes(scopes: list[str], excluded_scopes: list[str]) -> list[str]:
     """Return the scopes whose instruments in alphakraken.yaml are all excluded."""
-    instruments = [
-        (instrument_id, config.get(YamlKeys.TYPE))
-        for instrument_id, config in YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).items()
-    ]
+    instruments = list(get_instrument_types().items())
     result = []
     for scope in scopes:
         matching = [i for i in instruments if _scopes_match([scope], *i)]

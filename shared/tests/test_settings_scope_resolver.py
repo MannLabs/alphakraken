@@ -238,7 +238,7 @@ def test_raw_file_id_filters_ignored_when_raw_file_id_is_none() -> None:
 
 
 @patch.dict(
-    "shared.settings_scope_resolver.YAMLSETTINGS",
+    "shared.yamlsettings.YAMLSETTINGS",
     {"instruments": {"test1": {}, "test2": {}}},
     clear=True,
 )
@@ -262,7 +262,7 @@ def test_known_scopes() -> None:
     ],
 )
 @patch.dict(
-    "shared.settings_scope_resolver.YAMLSETTINGS",
+    "shared.yamlsettings.YAMLSETTINGS",
     {
         "instruments": {
             "test1": {"type": "thermo"},

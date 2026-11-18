@@ -15,7 +15,8 @@ from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     """Return the settings assignments with their settings, oldest first.
 
-    An assignment whose settings no longer exist is left out.
+    An assignment whose settings no longer exist is left out and logged as an error; the
+    application never removes settings, so this needs a direct edit of the database.
 
     :param project_ids: only the assignments of these projects, None for all, also those of
         archived and deleted projects

@@ -38,7 +38,6 @@ from plugins.common.keys import (
 )
 
 from airflow_src.tests.helpers import container_locations, runner_view
-from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFileStatus
 from shared.keys import JobEngines
 from shared.path_views import Locations, View
@@ -242,30 +241,6 @@ def test_resolve_settings(
         parents=True, exist_ok=True
     )
     assert result == ["sid1", "sid2"]
-
-
-@patch("shared.db.raw_files.get")
-@patch("shared.db.project_settings.find")
-@patch("dags.impl.processor_impl.get_instrument_settings")
-def test_resolve_settings_no_project_raise(
-    mock_get_instrument_settings: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-) -> None:
-    """Test that resolve_settings raises an exception if no project is found."""
-    mock_raw_file = factories.raw_file(
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_get_instrument_settings.return_value = "thermo"
-
-    mock_get_settings.side_effect = NotFoundError("gone")
-
-    with pytest.raises(AirflowFailException):
-        resolve_settings(raw_file_id="test_file.raw")
 
 
 @patch("shared.db.raw_files.get")

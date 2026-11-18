@@ -513,7 +513,7 @@ class RawFileWrapperFactory:
 
         if handler_class is None:
             raise ValueError(
-                f"Unsupported vendor or handler type for {instrument_id}: {instrument_type}, {handler_type}"
+                f"Unsupported instrument type or handler type for {instrument_id}: {instrument_type}, {handler_type}"
             )
 
         return handler_class(instrument_id, **kwargs)

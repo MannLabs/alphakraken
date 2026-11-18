@@ -279,7 +279,7 @@ class ProjectSettings(Document):
 
     project = ReferenceField(Project, required=True)
     settings = ReferenceField(Settings, required=True)
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes = ListField(StringField(max_length=64), default=lambda: [DEFAULT_SCOPE])
     excluded_scopes = ListField(StringField(max_length=64), default=list)
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches

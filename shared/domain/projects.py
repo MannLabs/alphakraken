@@ -48,7 +48,7 @@ class ProjectSettings:
     id: str
     project_id: str
     settings: Settings
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes: list[str]
     excluded_scopes: list[str]
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches

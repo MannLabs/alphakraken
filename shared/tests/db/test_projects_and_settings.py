@@ -982,7 +982,7 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
 def test_assign_with_unknown_scope_raises(
     assignable: dict[str, MagicMock], scopes: dict[str, list[str]]
 ) -> None:
-    """A scope that is neither a vendor nor a configured instrument would never match."""
+    """A scope that is neither an instrument type nor a configured instrument would never match."""
     with pytest.raises(ValidationError, match=r"Unknown scopes \['test9'\]"):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, **scopes)
 
@@ -992,7 +992,7 @@ def test_assign_with_unknown_scope_raises(
 def test_assign_with_fully_excluded_scope_raises(
     assignable: dict[str, MagicMock],
 ) -> None:
-    """An instrument whose vendor is excluded would never match."""
+    """An instrument whose type is excluded would never match."""
     with (
         patch(
             "shared.db.project_settings.fully_excluded_scopes", return_value=["test1"]

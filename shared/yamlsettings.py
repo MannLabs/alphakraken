@@ -162,7 +162,7 @@ def get_notification_setting(setting_key: str, default: Any = _REQUIRED) -> Any:
 
 
 def get_instrument_types() -> dict[str, str]:
-    """Return the vendor type of each instrument of the yaml settings, keyed by instrument id."""
+    """Return the type of each instrument of the yaml settings, keyed by instrument id."""
     return {
         instrument_id: config.get(YamlKeys.TYPE, "")
         for instrument_id, config in YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).items()

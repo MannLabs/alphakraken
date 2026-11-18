@@ -227,19 +227,19 @@ with c_assign1:
 
             c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
             selected_scopes = c1.multiselect(
-                "Select instrument or vendor scopes",
+                "Select instrument or instrument type scopes",
                 options=SCOPE_OPTIONS,
                 default=[DEFAULT_SCOPE],
                 format_func=_display_scope,
                 key="assign_scopes_select",
-                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, vendor name = all instruments of that vendor, instrument ID = that instrument.",
+                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, instrument type = all instruments of that type, instrument ID = that instrument.",
             )
 
             selected_excluded_scopes = c2.multiselect(
                 "Exclude scopes (optional)",
                 options=SCOPE_OPTIONS[1:],
                 key="assign_excluded_scopes_select",
-                help="Vendors or instruments to exclude. Exclusion wins over inclusion.",
+                help="Instrument types or instruments to exclude. Exclusion wins over inclusion.",
             )
 
             raw_file_id_filter_input = c3.text_input(
@@ -356,7 +356,7 @@ with c1.expander("Click here for help ..."):
         - Archived projects are not shown and their settings assignments can no longer be changed
         - New raw files for archived projects are assigned to the fallback project
         - Deleted projects are no longer shown, behave like archived ones, and their id cannot be reused. Archived projects cannot be deleted
-        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
+        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise an instrument type or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
         """,

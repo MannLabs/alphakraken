@@ -453,7 +453,7 @@ upload_checkbox = (
 is_update = selected_name_option != CREATE_NEW_OPTION
 if is_update:
     c1.info(
-        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+        f"This will create a new version of the existing settings '{selected_name_option}'. "
         f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
         "Make sure to update (all or selected) projects to use the new version after creating it.",
         icon="ℹ️",  # noqa: RUF001

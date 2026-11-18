@@ -262,6 +262,35 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
 OWNER_SELECT_LABEL = "Owner"
 
 
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_archive_checkbox_names_the_latest_active_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """The checkbox names the version `settings.create` archives: the latest active one, not a newer archived one."""
+    mock_df.return_value = _settings_df().assign(
+        id=["new settings_v1", "new settings_v2"],
+        name=["new settings", "new settings"],
+        version=[1, 2],
+        status=["active", "inactive"],
+    )
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    assert [c.label for c in at.checkbox if c.label.startswith("Archive")] == [
+        "Archive previous version (1) after creating the new version"
+    ]
+    # version 3 will be created, the page only knows the active versions
+    assert any("new version of the existing settings" in i.value for i in at.info)
+
+
 @patch("shared.db.users.find")
 @patch("shared.db.project_settings.find", return_value=[])
 @patch("shared.db.projects.find", return_value=[])

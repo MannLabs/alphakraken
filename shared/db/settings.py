@@ -79,6 +79,8 @@ def create(  # noqa: PLR0913
 ) -> Settings:
     """Create new settings, as the next version of the settings with the same name, cf. `NewSettings`.
 
+    :param slurm_cpus_per_task: None for the default of the software type, likewise `slurm_mem`,
+        `slurm_time` and `num_threads`
     :param archive_previous: archive the latest active version of the name afterwards
 
     Raises:

@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from pydantic import (
     AfterValidator,
@@ -14,9 +14,21 @@ from pydantic import (
 )
 
 from shared.config_params import check_config_params
-from shared.domain.inputs import InputModel, OptionalStr, RequiredStr, matching
+from shared.domain.inputs import (
+    InputModel,
+    OptionalStr,
+    RequiredStr,
+    empty_to_none,
+    matching,
+)
 from shared.domain.users import OptionalLowerCasedEmail
-from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
+from shared.keys import (
+    DEFAULT_RESOURCE_PARAMS,
+    SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    SOFTWARE_TYPE_TO_METRICS_TYPES,
+    MetricsTypes,
+    SoftwareTypes,
+)
 from shared.validation import check_for_malicious_content
 
 
@@ -97,8 +109,14 @@ def selectable_metrics_types(software_type: str) -> list[str]:
     )
 
 
+_RESOURCE_FIELDS = ("slurm_cpus_per_task", "slurm_mem", "slurm_time", "num_threads")
+
+
 class NewSettings(InputModel):
-    """Settings to create, cf. `Settings`. Empty optional strings are None."""
+    """Settings to create, cf. `Settings`.
+
+    Empty optional strings are None; missing resource parameters are the defaults of the software type.
+    """
 
     name: Annotated[
         RequiredStr,
@@ -139,6 +157,27 @@ class NewSettings(InputModel):
     )
     num_threads: int | None = Field(default=None, ge=1)
     owner_email: OptionalLowerCasedEmail = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_resources(cls, data: Any) -> Any:
+        """Fill missing or empty resource parameters with the defaults of the software type."""
+        if not isinstance(data, dict):
+            return data
+        software_type = data.get("software_type")
+        # `get`, as an unknown or invalid software type is reported by its own rule
+        defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS.get(
+            software_type.strip() if isinstance(software_type, str) else "",
+            DEFAULT_RESOURCE_PARAMS,
+        )
+        return {
+            **data,
+            **{
+                field: getattr(defaults, field)
+                for field in _RESOURCE_FIELDS
+                if empty_to_none(data.get(field)) is None
+            },
+        }
 
     @field_validator("software_type")
     @classmethod

@@ -1,6 +1,7 @@
 """Tests for the db.models module."""
 
 from datetime import UTC, datetime
+from typing import get_args
 
 import pytest
 import pytz
@@ -18,8 +19,12 @@ from shared.db._mongo.models import (
     SlurmJob,
     User,
 )
+from shared.domain.alerts import NewSuppression
+from shared.domain.inputs import InputModel, max_length
+from shared.domain.projects import NewAssignment, NewProject
 from shared.domain.raw_files import parse_file_info_item
-from shared.domain.settings import split_unique_settings_name
+from shared.domain.settings import NewSettings, split_unique_settings_name
+from shared.domain.users import NewUser
 
 
 def test_parse_file_info_item_empty_tuple() -> None:
@@ -142,3 +147,61 @@ def test_alert_suppression_rejects_empty_match_fields(field: str) -> None:
 def test_audit_timestamp_defaults_are_utc_aware(document: Document, field: str) -> None:
     """Every stored timestamp is explicitly UTC, so that no reader has to guess."""
     assert getattr(document, field).tzinfo is UTC
+
+
+# each input type with the model it is stored in, and the model's name of a field if it differs
+_STORED_AS: list[tuple[type[InputModel], type[Document], dict[str, str]]] = [
+    (NewUser, User, {}),
+    (NewSuppression, AlertSuppression, {}),
+    (NewProject, Project, {"project_id": "id"}),
+    (NewSettings, Settings, {}),
+]
+
+
+def _has_max_length(metadata: list) -> bool:
+    return any(getattr(m, "max_length", None) is not None for m in metadata)
+
+
+def _length_limited_fields() -> list:
+    """Return input type, model and both names of every length-limited field of an input type."""
+    return [
+        pytest.param(
+            input_type,
+            field,
+            model,
+            renamed.get(field, field),
+            id=f"{input_type.__name__}.{field}",
+        )
+        for input_type, model, renamed in _STORED_AS
+        for field, info in input_type.model_fields.items()
+        if _has_max_length(info.metadata)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("input_type", "field", "model", "model_field"), _length_limited_fields()
+)
+def test_input_type_and_model_have_the_same_max_length(
+    input_type: type[InputModel], field: str, model: type[Document], model_field: str
+) -> None:
+    """A value passing the input type must not fail in the model, whose error names the model's fields."""
+    assert max_length(input_type, field) == getattr(model, model_field).max_length
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["scopes", "excluded_scopes", "raw_file_id_filter", "raw_file_id_exclude_filter"],
+)
+def test_assignment_entries_have_the_same_max_length_in_input_type_and_model(
+    field: str,
+) -> None:
+    """The entries of the scope and filter lists are limited alike."""
+    (entry_type,) = get_args(NewAssignment.model_fields[field].annotation)
+    (entry_limit,) = (
+        m.max_length
+        for info in entry_type.__metadata__
+        for m in info.metadata
+        if getattr(m, "max_length", None) is not None
+    )
+
+    assert entry_limit == getattr(ProjectSettings, field).field.max_length

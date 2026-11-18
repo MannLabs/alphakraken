@@ -708,8 +708,8 @@ def test_add_project_with_invalid_field_raises(
     mock_find: MagicMock, mock_backend_add: MagicMock
 ) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p1'"):
-        projects.add(project_id="p1", name="n")
+    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p123'"):
+        projects.add(project_id="p123", name="n")
 
     mock_find.assert_not_called()
     mock_backend_add.assert_not_called()

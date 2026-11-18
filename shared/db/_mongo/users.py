@@ -5,6 +5,7 @@ from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_user
 from shared.domain.errors import NotFoundError
 from shared.domain.users import NewUser, User, UserStatus, UserUpdate
+from shared.keys import FALLBACK_PROJECT_ID
 
 
 @db_backend_function
@@ -22,7 +23,7 @@ def find(*, include_inactive: bool) -> list[User]:
 def project_owner(raw_file_id: str) -> User | None:
     """Return the active owner of the project of a raw file, cf. `shared.db.users`."""
     raw_file = models.RawFile.objects(id=raw_file_id).only("project_id").first()
-    if raw_file is None or not raw_file.has_project:
+    if raw_file is None or raw_file.project_id == FALLBACK_PROJECT_ID:
         return None
     project = models.Project.objects(id=raw_file.project_id).only("owner").first()
     owner = project.owner if project is not None else None

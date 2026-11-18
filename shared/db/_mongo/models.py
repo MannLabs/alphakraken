@@ -91,11 +91,6 @@ class RawFile(Document):
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
     updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
-    @property
-    def has_project(self) -> bool:
-        """Return whether the raw file has a project assigned or belongs to the fallback project."""
-        return self.project_id != FALLBACK_PROJECT_ID
-
 
 class Metrics(DynamicDocument):
     """Schema for metrics calculated for a raw file.

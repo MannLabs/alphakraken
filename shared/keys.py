@@ -126,6 +126,7 @@ DEFAULT_RESOURCE_PARAMS = ResourceParams(
     slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
 )
 
+# TODO: these should become configurable per yaml
 SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdict(
     lambda: DEFAULT_RESOURCE_PARAMS,
     {

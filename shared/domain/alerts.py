@@ -60,6 +60,8 @@ class NewSuppression(InputModel):
     identifier: _MatchField = Field(max_length=256)
     details: _MatchField = Field(max_length=256)
     comment: _Comment = Field(max_length=512)
+    # not checked further: strings and numbers are converted, a datetime without timezone is
+    # stored as if it were UTC, one in the past is accepted
     expires_at: datetime | None = None
     created_by: OptionalStr = Field(default=None, max_length=64)
 

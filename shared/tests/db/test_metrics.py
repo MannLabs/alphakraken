@@ -61,31 +61,6 @@ def test_to_metrics_without_output_path() -> None:
     assert result.output_display_base_path is None
 
 
-def test_to_metrics_renames_legacy_keys() -> None:
-    """Keys of older calculator versions are served under their current name."""
-    document = _document(values={"raw:gradient_length_m": 20.0})
-
-    assert backend._to_metrics(document).values == {"gradient_length": 20.0}
-
-
-def test_to_metrics_prefers_current_key_over_legacy_key() -> None:
-    """If a document holds both, the current key wins."""
-    document = _document(
-        values={"raw:gradient_length_m": 20.0, "gradient_length": 21.0}
-    )
-
-    assert backend._to_metrics(document).values == {"gradient_length": 21.0}
-
-
-def test_stored_keys_include_legacy_keys() -> None:
-    """A projection on a current key also loads its legacy key."""
-    assert backend._stored_keys(["gradient_length", "proteins"]) == [
-        "gradient_length",
-        "proteins",
-        "raw:gradient_length_m",
-    ]
-
-
 # latest_by_raw_file
 
 
@@ -135,11 +110,11 @@ def test_latest_by_raw_file_keeps_newest_per_type(mock_objects: MagicMock) -> No
 def test_latest_by_raw_file_projects_fields_with_metadata(
     mock_objects: MagicMock,
 ) -> None:
-    """A projection always loads the metadata, plus the fields and their legacy keys."""
+    """A projection always loads the metadata, plus the fields."""
     latest_by_raw_file(["f1"], fields=["gradient_length"])
 
     mock_objects.return_value.only.assert_called_once_with(
-        *backend._METADATA_FIELDS, "gradient_length", "raw:gradient_length_m"
+        *backend._METADATA_FIELDS, "gradient_length"
     )
 
 

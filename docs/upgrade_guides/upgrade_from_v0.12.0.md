@@ -20,6 +20,18 @@ Backfill existing metrics with the current `display_paths.output`:
 ./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py --dry-run
 ```
 
+## Metric key names
+
+Metrics written by older versions carry old key names (`msqc_` prefix, `quanting_time_elapsed`,
+`raw:gradient_length_m`). They are no longer renamed when read, so until the migration has run,
+`gradient_length` and `evosep_pump_hp_pressure_max` are missing for those metrics
+(pump pressure alert, MCP server).
+
+After deploying, rename the keys of the existing metrics:
+```
+./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_migrate_legacy_metrics_keys.py --dry-run
+```
+
 ## Adding users (owner of projects and settings)
 
 The webapp now writes to the new `user` collection. On databases created before this change,

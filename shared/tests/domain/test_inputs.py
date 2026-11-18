@@ -131,6 +131,12 @@ def test_matching_rejects_mismatch_with_the_given_message() -> None:
     assert str(e.value) == "must be lower-case letters."
 
 
+def test_matching_rejects_trailing_newline() -> None:
+    """A trailing newline is not ignored, although `$` matches before it."""
+    with pytest.raises(ValueError):
+        matching(r"^[a-z]+$", "must be lower-case letters.")("abc\n")
+
+
 @pytest.mark.parametrize("value", ["abc", None])
 def test_matching_passes_match_and_none(value: str | None) -> None:
     """A matching string and None, the value of an empty optional field, pass."""

@@ -76,7 +76,8 @@ def matching(pattern: str, message: str) -> Callable[[str | None], str | None]:
 
     def _matching(value: str | None) -> str | None:
         """Reject a string that does not match the pattern."""
-        if value is not None and not re.match(pattern, value):
+        # `fullmatch`, as `$` also matches before a trailing newline
+        if value is not None and not re.fullmatch(pattern, value):
             raise ValueError(message)
         return value
 

@@ -46,7 +46,7 @@ def split_unique_settings_name(unique_name: str) -> tuple[str, int]:
         ValueError: if `unique_name` does not have the expected format.
 
     """
-    if (match := _UNIQUE_SETTINGS_NAME_REGEX.match(unique_name)) is None:
+    if (match := _UNIQUE_SETTINGS_NAME_REGEX.fullmatch(unique_name)) is None:
         raise ValueError(
             f"'{unique_name}' is not of the form <name>{SETTINGS_VERSION_SEPARATOR}<version>"
         )

@@ -64,7 +64,8 @@ def check_for_malicious_content(value: str, *, allow_spaces: bool = False) -> li
         pattern = EXECUTABLE_NAME_PATTERN
         error_msg = INVALID_CHARS_ERROR
 
-    if not re.match(pattern, value):
+    # `fullmatch`, as `$` also matches before a trailing newline
+    if not re.fullmatch(pattern, value):
         errors.append(error_msg)
 
     return errors

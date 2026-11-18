@@ -1,7 +1,6 @@
 """Project queries."""
 
 import logging
-from typing import Any
 
 from shared.db import users
 from shared.db._mongo import projects as _backend
@@ -56,19 +55,29 @@ def get(project_id: str) -> Project:
     return found[0]
 
 
-def add(**fields: Any) -> None:
-    """Add a new active project.
-
-    :param fields: the fields of `NewProject`
+def add(
+    *,
+    project_id: str,
+    name: str,
+    description: str | None = None,
+    owner_email: str | None = None,
+) -> None:
+    """Add a new active project, cf. `NewProject`.
 
     Raises:
         AlreadyExistsError: if the project id is in use.
         NotFoundError: if there is no user with `owner_email`.
-        ValidationError: if a field is missing or invalid, the project id was used by a deleted
-            project, or the owner is inactive.
+        ValidationError: if a field is invalid, the project id was used by a deleted project, or
+            the owner is inactive.
 
     """
-    new = parse(NewProject, **fields)
+    new = parse(
+        NewProject,
+        project_id=project_id,
+        name=name,
+        description=description,
+        owner_email=owner_email,
+    )
     logging.info(f"Adding to DB: {new!r}")
     errors = []
     existing = find(ids=[new.project_id], include_deleted=True)

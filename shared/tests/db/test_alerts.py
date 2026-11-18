@@ -103,7 +103,9 @@ def test_add_suppression(mock_models: MagicMock) -> None:
         "created_by": "me",
     }
 
-    alerts.add_suppression(**{**fields, "alert": " PumpPressureAlert "})
+    entered: dict[str, Any] = {**fields, "alert": " PumpPressureAlert "}
+
+    alerts.add_suppression(**entered)
 
     mock_models.AlertSuppression.assert_called_once_with(**fields)
     # a field added to the input type must be mapped in the backend
@@ -114,9 +116,13 @@ def test_add_suppression(mock_models: MagicMock) -> None:
 @patch("shared.db._mongo.alerts.models")
 def test_add_invalid_suppression_raises(mock_models: MagicMock) -> None:
     """An invalid suppression is rejected before anything is stored."""
-    with pytest.raises(ValidationError, match="comment: Field required"):
+    with pytest.raises(ValidationError, match="comment: is required"):
         alerts.add_suppression(
-            alert="PumpPressureAlert", instrument_id="*", identifier="*", details="*"
+            alert="PumpPressureAlert",
+            instrument_id="*",
+            identifier="*",
+            details="*",
+            comment=" ",
         )
 
     mock_models.AlertSuppression.assert_not_called()

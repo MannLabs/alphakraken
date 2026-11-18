@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime
-from typing import Any
 
 from shared.db._mongo import alerts as _backend
 from shared.domain.alerts import AlertIssue, AlertSuppression, NewSuppression
@@ -34,16 +33,32 @@ def find_suppressions(*, active_only: bool = False) -> list[AlertSuppression]:
     return _backend.find_suppressions(active_only=active_only)
 
 
-def add_suppression(**fields: Any) -> None:
-    """Add an alert suppression.
-
-    :param fields: the fields of `NewSuppression`
+def add_suppression(  # noqa: PLR0913
+    *,
+    alert: str,
+    instrument_id: str,
+    identifier: str,
+    details: str,
+    comment: str,
+    expires_at: datetime | None = None,
+    created_by: str | None = None,
+) -> None:
+    """Add an alert suppression, cf. `NewSuppression`.
 
     Raises:
-        ValidationError: if a field is missing or invalid, or the suppression would mute all alerts.
+        ValidationError: if a field is invalid, or the suppression would mute all alerts.
 
     """
-    new = parse(NewSuppression, **fields)
+    new = parse(
+        NewSuppression,
+        alert=alert,
+        instrument_id=instrument_id,
+        identifier=identifier,
+        details=details,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    )
     logging.info(f"Adding alert suppression to DB: {new!r}")
     _backend.add_suppression(new)
 

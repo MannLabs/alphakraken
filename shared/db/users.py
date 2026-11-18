@@ -1,7 +1,6 @@
 """User queries."""
 
 import logging
-from typing import Any
 
 from shared.db._mongo import users as _backend
 from shared.domain.errors import ValidationError
@@ -41,16 +40,14 @@ def check_active(email: str | None) -> list[str]:
     return []
 
 
-def add(**fields: Any) -> User:
-    """Add a new active user.
-
-    :param fields: the fields of `NewUser`
+def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:
+    """Add a new active user, cf. `NewUser`.
 
     Raises:
-        ValidationError: if a field is missing or invalid, or the email or the initials are taken.
+        ValidationError: if a field is invalid, or the email or the initials are taken.
 
     """
-    new = parse(NewUser, **fields)
+    new = parse(NewUser, email=email, initials=initials, messenger_id=messenger_id)
     errors = []
     if _backend.email_taken(new.email):
         errors.append(f"A user with email '{new.email}' already exists.")
@@ -64,18 +61,18 @@ def add(**fields: Any) -> User:
     return user
 
 
-def update(email: str, **fields: Any) -> None:
-    """Update a user, the email is immutable.
+def update(email: str, *, initials: str, messenger_id: str | None) -> None:
+    """Update a user, cf. `UserUpdate`; the email is immutable.
 
-    :param fields: the fields of `UserUpdate`
+    :param messenger_id: None clears it
 
     Raises:
         NotFoundError: if there is no such user.
-        ValidationError: if a field is missing or invalid, or another user has the initials.
+        ValidationError: if a field is invalid, or another user has the initials.
 
     """
     email = normalize_email(email)
-    changes = parse(UserUpdate, **fields)
+    changes = parse(UserUpdate, initials=initials, messenger_id=messenger_id)
     if _backend.initials_taken(changes.initials, except_email=email):
         raise ValidationError([_initials_taken_message(changes.initials)])
 

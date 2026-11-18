@@ -1,7 +1,6 @@
 """Settings queries."""
 
 import logging
-from typing import Any
 
 from shared.db import users
 from shared.db._mongo import settings as _backend
@@ -59,19 +58,53 @@ def latest_active(name: str) -> Settings | None:
     return max(active, key=lambda s: s.version, default=None)
 
 
-def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
-    """Create new settings, as the next version of the settings with the same name.
+def create(  # noqa: PLR0913
+    *,
+    name: str,
+    software_type: str,
+    software: str,
+    runner_name: str,
+    metrics_type: str,
+    description: str | None = None,
+    fasta_file_name: str | None = None,
+    speclib_file_name: str | None = None,
+    config_file_name: str | None = None,
+    config_params: str | None = None,
+    slurm_cpus_per_task: int | None = None,
+    slurm_mem: str | None = None,
+    slurm_time: str | None = None,
+    num_threads: int | None = None,
+    owner_email: str | None = None,
+    archive_previous: bool = False,
+) -> Settings:
+    """Create new settings, as the next version of the settings with the same name, cf. `NewSettings`.
 
     :param archive_previous: archive the latest active version of the name afterwards
-    :param fields: the fields of `NewSettings`
 
     Raises:
         NotFoundError: if there is no user with `owner_email`.
-        ValidationError: if a field is missing or invalid, the runner is unknown or cannot run
-            the software type, or the owner is inactive.
+        ValidationError: if a field is invalid, the runner is unknown or cannot run the software
+            type, or the owner is inactive.
 
     """
-    new = parse(NewSettings, **fields)
+    new = parse(
+        NewSettings,
+        name=name,
+        software_type=software_type,
+        software=software,
+        runner_name=runner_name,
+        metrics_type=metrics_type,
+        description=description,
+        fasta_file_name=fasta_file_name,
+        speclib_file_name=speclib_file_name,
+        config_file_name=config_file_name,
+        config_params=config_params,
+        slurm_cpus_per_task=slurm_cpus_per_task,
+        slurm_mem=slurm_mem,
+        slurm_time=slurm_time,
+        num_threads=num_threads,
+        owner_email=owner_email,
+    )
     errors = check_runner_supports_software_type(new.runner_name, new.software_type)
     errors += users.check_active(new.owner_email)
     if errors:

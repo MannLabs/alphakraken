@@ -311,18 +311,6 @@ def test_update_assignment_to_already_assigned_latest_raises(
     updatable["backend_set_settings"].assert_not_called()
 
 
-def test_assign_with_misspelled_keyword_raises(
-    assignable: dict[str, MagicMock],
-) -> None:
-    """A misspelled keyword is an error, not silently replaced by the default."""
-    with pytest.raises(ValidationError, match="scope: Extra inputs are not permitted"):
-        project_settings.assign(
-            "P1", "fallback_v7", allow_fallback=False, scope=["thermo"]
-        )
-
-    assignable["backend_assign"].assert_not_called()
-
-
 @pytest.mark.parametrize("latest", [None, factories.settings()])
 def test_update_assignment_without_newer_version_raises(
     updatable: dict[str, MagicMock], latest: Any
@@ -442,18 +430,6 @@ def test_create_settings_with_invalid_field_raises(
         "slurm_mem: Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'.",
     ]
     creatable["find"].assert_not_called()
-    creatable["backend_create"].assert_not_called()
-
-
-def test_create_settings_with_misspelled_keyword_raises(
-    creatable: dict[str, MagicMock],
-) -> None:
-    """A misspelled keyword is an error, not silently ignored."""
-    with pytest.raises(
-        ValidationError, match="archive_previos: Extra inputs are not permitted"
-    ):
-        settings.create(**CREATE_FIELDS, name="fallback", archive_previos=True)
-
     creatable["backend_create"].assert_not_called()
 
 

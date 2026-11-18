@@ -1,7 +1,6 @@
 """Queries on the assignments of settings to projects."""
 
 import logging
-from typing import Any
 
 from shared.db import projects, settings
 from shared.db._mongo import project_settings as _backend
@@ -9,7 +8,7 @@ from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
 
@@ -24,14 +23,24 @@ def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     return _backend.find(project_ids)
 
 
-def assign(
-    project_id: str, settings_id: str, *, allow_fallback: bool, **fields: Any
+def assign(  # noqa: PLR0913
+    project_id: str,
+    settings_id: str,
+    *,
+    allow_fallback: bool,
+    scopes: list[str] | None = None,
+    excluded_scopes: list[str] | None = None,
+    raw_file_id_filter: list[str] | None = None,
+    raw_file_id_exclude_filter: list[str] | None = None,
 ) -> ProjectSettings:
-    """Assign settings to a project.
+    """Assign settings to a project, cf. `NewAssignment`.
 
     :param settings_id: the unique name of the settings, e.g. `fallback_v7`
     :param allow_fallback: whether the caller may change the assignments of the fallback project
-    :param fields: the other fields of `NewAssignment`
+    :param scopes: None for all instruments
+    :param excluded_scopes: None for none
+    :param raw_file_id_filter: None for all files
+    :param raw_file_id_exclude_filter: None for none
 
     Raises:
         NotFoundError: if the project or the settings do not exist.
@@ -41,7 +50,17 @@ def assign(
             with the same file name filters.
 
     """
-    new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
+    new = parse(
+        NewAssignment,
+        project_id=project_id,
+        settings_id=settings_id,
+        scopes=[DEFAULT_SCOPE] if scopes is None else scopes,
+        excluded_scopes=[] if excluded_scopes is None else excluded_scopes,
+        raw_file_id_filter=[] if raw_file_id_filter is None else raw_file_id_filter,
+        raw_file_id_exclude_filter=[]
+        if raw_file_id_exclude_filter is None
+        else raw_file_id_exclude_filter,
+    )
     errors = _scope_errors(new)
     errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
     assigned = settings.get(new.settings_id)

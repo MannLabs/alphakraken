@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
+import pydantic
 from pydantic import (
     AfterValidator,
     BeforeValidator,
@@ -12,6 +13,7 @@ from pydantic import (
     TypeAdapter,
 )
 
+from shared.domain.errors import ValidationError
 from shared.domain.inputs import (
     InputModel,
     OptionalStr,
@@ -39,8 +41,16 @@ OptionalLowerCasedEmail = Annotated[
 
 
 def normalize_email(email: str) -> str:
-    """Return the email as it is stored: stripped and lower-cased."""
-    return _EMAIL_ADAPTER.validate_python(email)
+    """Return the email as it is stored: stripped and lower-cased.
+
+    Raises:
+        ValidationError: if it is not a string.
+
+    """
+    try:
+        return _EMAIL_ADAPTER.validate_python(email)
+    except pydantic.ValidationError as e:
+        raise ValidationError(["email: must be a string."]) from e
 
 
 class UserStatus:

@@ -11,6 +11,7 @@ from shared.domain.users import (
     USER_INITIALS_REGEX,
     NewUser,
     UserUpdate,
+    normalize_email,
 )
 
 
@@ -75,3 +76,17 @@ def test_new_user_rejects_invalid_fields(overrides: dict[str, Any], error: str) 
 def test_new_user_schema_shows_pattern(field: str, pattern: str) -> None:
     """The JSON schema shows the pattern that the field is checked against."""
     assert NewUser.model_json_schema()["properties"][field]["pattern"] == pattern
+
+
+def test_normalize_email_strips_and_lower_cases() -> None:
+    """An email is looked up as it is stored."""
+    assert normalize_email(" Jane@B.de ") == "jane@b.de"
+
+
+@pytest.mark.parametrize("email", [None, 1, ["a@b.de"]])
+def test_normalize_email_rejects_non_string_with_the_domain_error(email: Any) -> None:
+    """Clients only catch the errors of `shared.domain.errors`."""
+    with pytest.raises(ValidationError) as e:
+        normalize_email(email)
+
+    assert e.value.errors == ["email: must be a string."]

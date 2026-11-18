@@ -772,13 +772,10 @@ def test_backend_add_project_resolves_owner(
 
 @pytest.mark.parametrize("write", [projects.archive, projects.delete])
 @patch("shared.db._mongo.projects.set_status")
-@patch("shared.db.projects.find")
 def test_fallback_project_cannot_be_archived_or_deleted(
-    mock_find: MagicMock, mock_set_status: MagicMock, write: Callable[[str], None]
+    mock_set_status: MagicMock, write: Callable[[str], None]
 ) -> None:
     """The fallback project stays active, as raw files without an active project are assigned to it."""
-    mock_find.return_value = [factories.project(id=FALLBACK_PROJECT_ID)]
-
     with pytest.raises(
         ValidationError, match="Project '_FALLBACK' cannot be archived or deleted"
     ):

@@ -154,7 +154,7 @@ def update(  # noqa: PLR0913
     *,
     new_status: str = NO_UPDATE,
     status_details: str | None = NO_UPDATE,
-    size: float = NO_UPDATE,
+    size: int = NO_UPDATE,
     file_info: dict[str, FileInfoItem] = NO_UPDATE,
     backup_status: str = NO_UPDATE,
     backup_display_base_path: str = NO_UPDATE,

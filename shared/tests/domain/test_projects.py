@@ -112,14 +112,6 @@ def test_new_assignment_strips_entries() -> None:
     ("overrides", "error"),
     [
         (
-            {"excluded_scopes": ["*"]},
-            "The scope '*' cannot be excluded, the assignment would never apply.",
-        ),
-        (
-            {"scopes": ["test1", "thermo"], "excluded_scopes": ["thermo", "test2"]},
-            "Scopes ['thermo'] are both included and excluded, these entries would never apply.",
-        ),
-        (
             {"scopes": []},
             "scopes: At least one scope is required, use '*' for all instruments.",
         ),

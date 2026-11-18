@@ -254,6 +254,9 @@ def test_known_scopes() -> None:
         (["thermo"], ["test1", "test2"], ["thermo"]),
         (["*"], ["thermo", "test3"], ["*"]),
         (["thermo", "test3"], ["test1"], []),
+        # excluded directly
+        (["thermo", "test3"], ["thermo"], ["thermo"]),
+        (["test1", "test3"], ["*"], ["test1", "test3"]),
         # no instrument of the vendor: nothing to exclude
         (["sciex"], ["test1"], []),
     ],

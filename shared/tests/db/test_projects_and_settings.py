@@ -963,14 +963,8 @@ def test_assign_archived_or_deleted_settings_raises(
 
 def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="are both included and excluded"):
-        project_settings.assign(
-            "P1",
-            "fallback_v7",
-            allow_fallback=False,
-            scopes=["test1"],
-            excluded_scopes=["test1"],
-        )
+    with pytest.raises(ValidationError, match="At least one scope is required"):
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=[])
 
     assignable["find_projects"].assert_not_called()
     assignable["backend_assign"].assert_not_called()

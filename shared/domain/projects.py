@@ -104,16 +104,9 @@ class NewAssignment(InputModel):
         return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value
 
     @model_validator(mode="after")
-    def _every_entry_can_apply(self) -> Self:
-        """Reject excluding the default scope and entries that would never apply."""
-        if DEFAULT_SCOPE in self.excluded_scopes:
-            raise ValueError(
-                f"The scope '{DEFAULT_SCOPE}' cannot be excluded, the assignment would never apply."
-            )
-        if overlap := sorted(set(self.scopes) & set(self.excluded_scopes)):
-            raise ValueError(
-                f"Scopes {overlap} are both included and excluded, these entries would never apply."
-            )
+    def _every_file_filter_can_apply(self) -> Self:
+        """Reject file name filters that would never apply."""
+        # scopes that would never apply need alphakraken.yaml, cf. `fully_excluded_scopes`
         # the exclude filter is case-insensitive, cf. `resolve_scoped_settings`
         if never_matching := [
             included

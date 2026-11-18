@@ -82,7 +82,8 @@ def create(  # noqa: PLR0913
     :param archive_previous: archive the latest active version of the name afterwards
 
     Raises:
-        NotFoundError: if there is no user with `owner_email`.
+        NotFoundError: if there is no user with `owner_email`; raised instead of the
+            ValidationError, so its rule errors are not reported then.
         ValidationError: if a field is invalid, the runner is unknown or cannot run the software
             type, or the owner is inactive.
 

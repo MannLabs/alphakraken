@@ -12,7 +12,10 @@ alphakraken.yaml (known scopes, runners), so every process that writes needs tha
 #    misspelled optional key would fall back to its default (e.g. `scope` -> all instruments);
 #    REST: a body model with `extra="forbid"` or the domain input type; MCP: check the received
 #    keys if FastMCP cannot forbid extra arguments,
-# 3. have a test sending a misspelled key that expects a validation error.
+# 3. have a test sending a misspelled key that expects a validation error,
+# 4. answer the NotFoundError of a creating call (`projects.add`, `settings.create`,
+#    `project_settings.assign`) like a validation error, not with "not found": there it means
+#    that the request refers to an owner, project or settings that do not exist.
 
 from shared.db._mongo import connection as _connection
 

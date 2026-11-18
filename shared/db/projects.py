@@ -66,7 +66,8 @@ def add(
 
     Raises:
         AlreadyExistsError: if the project id is in use.
-        NotFoundError: if there is no user with `owner_email`.
+        NotFoundError: if there is no user with `owner_email`; raised instead of the
+            ValidationError, so its rule errors are not reported then.
         ValidationError: if a field is invalid, the project id was used by a deleted project, or
             the owner is inactive.
 

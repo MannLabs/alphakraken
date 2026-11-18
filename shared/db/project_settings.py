@@ -43,7 +43,8 @@ def assign(  # noqa: PLR0913
     :param raw_file_id_exclude_filter: None for none
 
     Raises:
-        NotFoundError: if the project or the settings do not exist.
+        NotFoundError: if the project or the settings do not exist; raised instead of the
+            ValidationError, so its rule errors are not reported then.
         ValidationError: if a field is invalid, a scope is unknown, a scope or file name filter
             entry would never apply, the fallback project is not allowed, the project or the
             settings are archived or deleted, or the settings are already assigned to the project

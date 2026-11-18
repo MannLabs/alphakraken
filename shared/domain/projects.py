@@ -1,16 +1,22 @@
 """Project domain types and constants."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import Field, field_validator
+
+from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
 from shared.domain.settings import Settings
+from shared.domain.users import OptionalLowerCasedEmail
 from shared.keys import FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
-FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX = r"[^A-Z0-9]"
-# exempt from the project id rules
-SPECIAL_PROJECT_IDS = [FALLBACK_PROJECT_ID]
+# upper-case letters and digits, not only digits
+PROJECT_ID_REGEX = (
+    rf"^(?!\d+$)[A-Z0-9]{{{PROJECT_ID_MIN_LENGTH},{PROJECT_ID_MAX_LENGTH}}}$"
+)
 
 
 class ProjectStatus:
@@ -48,3 +54,22 @@ class ProjectSettings:
     raw_file_id_filter: list[str]
     raw_file_id_exclude_filter: list[str]
     created_at_: datetime
+
+
+class NewProject(InputModel):
+    """A project to add, cf. `Project`."""
+
+    project_id: RequiredStr = Field(max_length=PROJECT_ID_MAX_LENGTH)
+    name: RequiredStr = Field(max_length=64)
+    description: OptionalStr = Field(default=None, max_length=512)
+    owner_email: OptionalLowerCasedEmail = None
+
+    @field_validator("project_id")
+    @classmethod
+    def _valid_project_id(cls, value: str) -> str:
+        # the fallback project is exempt from the rule
+        if value != FALLBACK_PROJECT_ID and not re.match(PROJECT_ID_REGEX, value):
+            raise ValueError(
+                f"Invalid project id '{value}'. Please choose a different one."
+            )
+        return value

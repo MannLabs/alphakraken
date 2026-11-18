@@ -17,11 +17,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.domain.projects import (
-    PROJECT_ID_MAX_LENGTH,
-    PROJECT_ID_MIN_LENGTH,
-    ProjectStatus,
-)
+from shared.domain.projects import PROJECT_ID_MIN_LENGTH, ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.settings import (
     SETTINGS_NAME_REGEX,
@@ -207,7 +203,7 @@ class Project(Document):
         required=True,
         primary_key=True,
         min_length=PROJECT_ID_MIN_LENGTH,
-        max_length=PROJECT_ID_MAX_LENGTH,
+        max_length=16,
     )
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)

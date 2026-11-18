@@ -1,10 +1,13 @@
 """Project queries."""
 
 import logging
+from typing import Any
 
+from shared.db import users
 from shared.db._mongo import projects as _backend
 from shared.domain.errors import NotFoundError, ValidationError
-from shared.domain.projects import Project, ProjectStatus
+from shared.domain.inputs import parse
+from shared.domain.projects import NewProject, Project, ProjectStatus
 
 
 def find(
@@ -52,33 +55,31 @@ def get(project_id: str) -> Project:
     return found[0]
 
 
-def add(
-    *, project_id: str, name: str, description: str, owner_email: str | None = None
-) -> None:
+def add(**fields: Any) -> None:
     """Add a new active project.
+
+    :param fields: the fields of `NewProject`
 
     Raises:
         AlreadyExistsError: if the project id is in use.
         NotFoundError: if there is no user with `owner_email`.
-        ValidationError: if the project id was used by a deleted project or a field violates its constraints.
+        ValidationError: if a field is missing or invalid, the project id was used by a deleted
+            project, or the owner is inactive.
 
     """
-    logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    existing = find(ids=[project_id], include_deleted=True)
+    new = parse(NewProject, **fields)
+    logging.info(f"Adding to DB: {new!r}")
+    errors = []
+    existing = find(ids=[new.project_id], include_deleted=True)
     if existing and existing[0].status == ProjectStatus.DELETED:
-        raise ValidationError(
-            [
-                f"Project id '{project_id}' was used by a deleted project. Please choose a different one."
-            ]
+        errors.append(
+            f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
+    errors += users.check_active(new.owner_email)
+    if errors:
+        raise ValidationError(errors)
 
-    _backend.add(
-        project_id=project_id,
-        name=name,
-        description=description,
-        owner_email=owner_email,
-    )
+    _backend.add(new)
 
 
 def archive(project_id: str) -> None:
@@ -86,10 +87,10 @@ def archive(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
+        ValidationError: if the project is not active.
 
     """
-    _backend.set_status(project_id, ProjectStatus.INACTIVE)
-    logging.info(f"Archived project: {project_id=}")
+    _set_status(project_id, ProjectStatus.INACTIVE)
 
 
 def delete(project_id: str) -> None:
@@ -97,12 +98,18 @@ def delete(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
-        ValidationError: if the project is archived.
+        ValidationError: if the project is not active.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    if get(project_id).status == ProjectStatus.INACTIVE:
-        raise ValidationError([f"Cannot delete archived project '{project_id}'"])
+    _set_status(project_id, ProjectStatus.DELETED)
 
-    _backend.set_status(project_id, ProjectStatus.DELETED)
-    logging.info(f"Deleted project: {project_id=}")
+
+def _set_status(project_id: str, status: str) -> None:
+    current = get(project_id).status
+    # archiving and deleting are final
+    if current != ProjectStatus.ACTIVE:
+        raise ValidationError(
+            [f"Cannot set project '{project_id}' from '{current}' to '{status}'."]
+        )
+    _backend.set_status(project_id, status)
+    logging.info(f"Set project status: {project_id=} {status=}")

@@ -25,7 +25,7 @@ PARENT_DIR_ERROR = "Cannot contain '..'"
 ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
 # a trailing backslash escapes the closing quote of `export KEY="value"`, cf. `posix_export_lines`
 TRAILING_BACKSLASH_ERROR = "Cannot end with a backslash"
-# keep in sync with `_ALLOWED_RAW_FILE_NAME_CHARACTERS`
+# keep in sync with `EXECUTABLE_NAME_PATTERN` and `EXECUTABLE_NAME_PATTERN_WITH_SPACES`
 INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward and back slashes are allowed"
 INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward and back slashes, and spaces are allowed"
 

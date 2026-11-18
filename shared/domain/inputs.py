@@ -69,6 +69,9 @@ def matching(pattern: str, message: str) -> Callable[[str | None], str | None]:
     """Return a validator rejecting a string that does not match the pattern; None passes.
 
     :param message: the error message, as pydantic's one for `pattern=` only shows the regex
+
+    The JSON schema does not show the pattern, so the field also needs
+    `json_schema_extra={"pattern": pattern}`.
     """
 
     def _matching(value: str | None) -> str | None:

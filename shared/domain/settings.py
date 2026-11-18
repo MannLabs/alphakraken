@@ -107,7 +107,7 @@ class NewSettings(InputModel):
                 SETTINGS_NAME_REGEX, "may only contain letters, digits and underscores."
             )
         ),
-    ] = Field(max_length=64)
+    ] = Field(max_length=64, json_schema_extra={"pattern": SETTINGS_NAME_REGEX})
     software_type: RequiredStr
     software: RequiredStr = Field(max_length=128)
     runner_name: RequiredStr = Field(max_length=64)
@@ -126,13 +126,17 @@ class NewSettings(InputModel):
                 "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'.",
             )
         ),
-    ] = Field(default=None, max_length=16)
+    ] = Field(
+        default=None, max_length=16, json_schema_extra={"pattern": SLURM_MEM_REGEX}
+    )
     slurm_time: Annotated[
         OptionalStr,
         AfterValidator(
             matching(SLURM_TIME_REGEX, "SLURM time must be in HH:MM:SS format.")
         ),
-    ] = Field(default=None, max_length=16)
+    ] = Field(
+        default=None, max_length=16, json_schema_extra={"pattern": SLURM_TIME_REGEX}
+    )
     num_threads: int | None = Field(default=None, ge=1)
     owner_email: OptionalLowerCasedEmail = None
 

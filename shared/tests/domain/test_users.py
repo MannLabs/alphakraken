@@ -6,7 +6,12 @@ import pytest
 
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.users import NewUser, UserUpdate
+from shared.domain.users import (
+    USER_EMAIL_REGEX,
+    USER_INITIALS_REGEX,
+    NewUser,
+    UserUpdate,
+)
 
 
 def test_new_user_cleans_fields() -> None:
@@ -61,3 +66,12 @@ def test_new_user_rejects_invalid_fields(overrides: dict[str, Any], error: str) 
         parse(NewUser, **fields)
 
     assert len(e.value.errors) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "pattern"),
+    [("email", USER_EMAIL_REGEX), ("initials", USER_INITIALS_REGEX)],
+)
+def test_new_user_schema_shows_pattern(field: str, pattern: str) -> None:
+    """The JSON schema shows the pattern that the field is checked against."""
+    assert NewUser.model_json_schema()["properties"][field]["pattern"] == pattern

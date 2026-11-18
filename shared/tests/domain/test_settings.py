@@ -6,7 +6,13 @@ import pytest
 
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import parse
-from shared.domain.settings import NewSettings, selectable_metrics_types
+from shared.domain.settings import (
+    SETTINGS_NAME_REGEX,
+    SLURM_MEM_REGEX,
+    SLURM_TIME_REGEX,
+    NewSettings,
+    selectable_metrics_types,
+)
 
 ALPHADIA: dict[str, Any] = {
     "name": "plasma_fast",
@@ -175,3 +181,16 @@ def test_new_settings_alphadia_accepts_speclib_only() -> None:
     fields = {**ALPHADIA, "fasta_file_name": None, "speclib_file_name": "lib.speclib"}
 
     assert parse(NewSettings, **fields).speclib_file_name == "lib.speclib"
+
+
+@pytest.mark.parametrize(
+    ("field", "pattern"),
+    [
+        ("name", SETTINGS_NAME_REGEX),
+        ("slurm_mem", SLURM_MEM_REGEX),
+        ("slurm_time", SLURM_TIME_REGEX),
+    ],
+)
+def test_new_settings_schema_shows_pattern(field: str, pattern: str) -> None:
+    """The JSON schema shows the pattern that the field is checked against."""
+    assert NewSettings.model_json_schema()["properties"][field]["pattern"] == pattern

@@ -140,7 +140,7 @@ def add(  # noqa: PLR0913 too many arguments
 
 
 def delete(raw_file_id: str) -> None:
-    """Remove a raw file."""
+    """Remove a raw file; does nothing if there is none."""
     logging.info(f"Removing from DB: {raw_file_id=}")
     _backend.delete(raw_file_id)
 

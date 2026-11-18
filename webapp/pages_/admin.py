@@ -20,9 +20,9 @@ from shared.db import users as user_store
 from shared.domain.inputs import max_length
 from shared.domain.users import NewUser, UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
-from shared.yamlsettings import get_instrument_types
+from shared.yamlsettings import get_instruments
 
-_INSTRUMENT_IDS = list(get_instrument_types())
+_INSTRUMENT_IDS = list(get_instruments())
 
 _MESSENGER_ID_MAX_CHARS = max_length(NewUser, "messenger_id")
 _MESSENGER_ID_HELP = (

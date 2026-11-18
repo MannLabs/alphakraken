@@ -59,7 +59,7 @@ from service.utils import (
 )
 from streamlit.delta_generator import DeltaGenerator
 
-from shared.yamlsettings import get_instrument_types
+from shared.yamlsettings import get_instruments
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -140,7 +140,7 @@ display_info_message()
 st.markdown("## Data")
 
 instruments_query_param = get_query_param(QueryParams.INSTRUMENTS)
-instrument_names = list(get_instrument_types())
+instrument_names = list(get_instruments())
 instrument_options = [ALL, *instrument_names, FORCE_ALL]
 if instruments_query_param and instruments_query_param not in instrument_options:
     instrument_options = [instruments_query_param, *instrument_options]

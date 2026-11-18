@@ -28,7 +28,7 @@ from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 from shared.path_views import Locations
 from shared.settings_scope_resolver import known_scopes
-from shared.yamlsettings import get_instrument_types
+from shared.yamlsettings import get_instruments
 
 SCOPE_OPTIONS = known_scopes()
 DEFAULT_SCOPE_DISPLAY = "(all)"
@@ -286,7 +286,7 @@ with c_assign2:
         )
         try:
             resolved_df = get_resolved_settings_df(
-                selected_project_id, get_instrument_types()
+                selected_project_id, get_instruments()
             )
         except Exception as e:  # noqa: BLE001
             st.error(f"Could not resolve settings: {e}")

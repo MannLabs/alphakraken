@@ -203,8 +203,8 @@ class TestGetTimezone:
             get_timezone()
 
 
-class TestGetInstrumentTypes:
-    """Tests for the get_instrument_types function."""
+class TestGetInstruments:
+    """Tests for the get_instruments function."""
 
     @patch(
         "shared.yamlsettings.YAMLSETTINGS",
@@ -212,16 +212,16 @@ class TestGetInstrumentTypes:
     )
     def test_returns_type_by_instrument_id(self) -> None:
         """Test that each instrument is returned with its type, empty if none is configured."""
-        from shared.yamlsettings import get_instrument_types
+        from shared.yamlsettings import get_instruments
 
-        assert get_instrument_types() == {"test1": "thermo", "test2": ""}
+        assert get_instruments() == {"test1": "thermo", "test2": ""}
 
     @patch("shared.yamlsettings.YAMLSETTINGS", {})
     def test_returns_nothing_without_instruments(self) -> None:
         """Test that a yaml without instruments yields no instrument."""
-        from shared.yamlsettings import get_instrument_types
+        from shared.yamlsettings import get_instruments
 
-        assert get_instrument_types() == {}
+        assert get_instruments() == {}
 
 
 class TestGetNotificationSetting:

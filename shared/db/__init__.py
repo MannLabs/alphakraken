@@ -2,7 +2,9 @@
 
 More than persistence: the write functions enforce the rules of the data, i.e. input validation,
 status changes, the protection of the fallback project and duplicate detection. Some rules read
-alphakraken.yaml (known scopes, runners), so every process that writes needs that file.
+alphakraken.yaml (known scopes, runners): it is loaded when `shared.db.settings` or
+`shared.db.project_settings` is imported, so every process using them needs that file, also
+for reading.
 """
 
 # The write functions take explicit keyword parameters, so an unknown key is a TypeError, not a

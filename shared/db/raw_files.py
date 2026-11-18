@@ -167,6 +167,7 @@ def update(  # noqa: PLR0913
 
     Raises:
         NotFoundError: if there is no such raw file.
+        InvalidInputError: if a value violates the limits of its field, e.g. its length.
 
     """
     logging.info(

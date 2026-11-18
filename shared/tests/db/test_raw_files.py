@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from dataclasses import fields
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import mongoengine
@@ -531,6 +532,35 @@ def test_backend_update_raises_if_missing(mock_objects: MagicMock) -> None:
 
     with pytest.raises(NotFoundError, match="unknown.raw"):
         backend.update("unknown.raw", {"status": RawFileStatus.DONE})
+
+
+@pytest.mark.parametrize(
+    ("fields_", "error"),
+    [
+        ({"status_details": "x" * 1025}, "status_details: String value is too long"),
+        ({"size": -2}, "size: Integer value is too small"),
+        ({"status": 7}, "status: StringField only accepts string values"),
+    ],
+)
+def test_backend_update_rejects_values_the_model_does_not_allow(
+    fields_: dict[str, Any], error: str
+) -> None:
+    """The values are checked against the model, which a queryset update skips."""
+    with (
+        patch("shared.db._mongo.connection.ensure_connected"),
+        patch.object(models.RawFile, "objects") as mock_objects,
+        pytest.raises(InvalidInputError, match=error),
+    ):
+        backend.update("file.raw", fields_)
+
+    mock_objects.with_id.return_value.update.assert_not_called()
+
+
+def test_backend_update_lets_none_clear_a_field(mock_objects: MagicMock) -> None:
+    """None is not checked, it clears the field."""
+    backend.update("file.raw", {"status_details": None})
+
+    mock_objects.with_id.return_value.update.assert_called_once()
 
 
 def test_delete(mock_objects: MagicMock) -> None:

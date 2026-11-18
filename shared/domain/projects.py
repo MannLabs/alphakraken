@@ -68,6 +68,7 @@ class NewProject(InputModel):
     @field_validator("project_id")
     @classmethod
     def _valid_project_id(cls, value: str) -> str:
+        """Reject a project id that violates `PROJECT_ID_REGEX`."""
         # the fallback project is exempt from the rule
         if value != FALLBACK_PROJECT_ID and not re.match(PROJECT_ID_REGEX, value):
             raise ValueError(
@@ -94,6 +95,7 @@ class NewAssignment(InputModel):
     @field_validator("scopes")
     @classmethod
     def _default_scope_absorbs_others(cls, value: list[str]) -> list[str]:
+        """Reject an empty list of scopes, reduce a list with the default scope to it."""
         if not value:
             raise ValueError(
                 f"At least one scope is required, use '{DEFAULT_SCOPE}' for all instruments."
@@ -103,6 +105,7 @@ class NewAssignment(InputModel):
 
     @model_validator(mode="after")
     def _every_entry_can_apply(self) -> Self:
+        """Reject excluding the default scope and entries that would never apply."""
         if DEFAULT_SCOPE in self.excluded_scopes:
             raise ValueError(
                 f"The scope '{DEFAULT_SCOPE}' cannot be excluded, the assignment would never apply."

@@ -129,6 +129,7 @@ def delete(unique_name: str) -> None:
 
 
 def _check_active(settings: Settings, new_status: str) -> None:
+    """Raise unless the settings are active."""
     # archiving and deleting are final
     if settings.status != SettingsStatus.ACTIVE:
         raise ValidationError(

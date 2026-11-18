@@ -105,6 +105,7 @@ def delete(project_id: str) -> None:
 
 
 def _set_status(project_id: str, status: str) -> None:
+    """Set the status of an active project, cf. `archive` and `delete`."""
     current = get(project_id).status
     # archiving and deleting are final
     if current != ProjectStatus.ACTIVE:

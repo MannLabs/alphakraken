@@ -5,6 +5,16 @@ import logging
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+
+
+def known_scopes() -> list[str]:
+    """Return the scopes an assignment can have: the default scope, the vendors and the instruments of alphakraken.yaml."""
+    return [
+        DEFAULT_SCOPE,
+        *KNOWN_VENDOR_NAMES,
+        *YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}),
+    ]
 
 
 def resolve_scoped_settings(

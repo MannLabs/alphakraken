@@ -3,13 +3,14 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import Field, field_validator
 
 from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
 from shared.domain.settings import Settings
 from shared.domain.users import OptionalLowerCasedEmail
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
@@ -73,3 +74,29 @@ class NewProject(InputModel):
                 f"Invalid project id '{value}'. Please choose a different one."
             )
         return value
+
+
+_Scope = Annotated[str, Field(min_length=1, max_length=64)]
+_FileIdFilter = Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class NewAssignment(InputModel):
+    """An assignment of settings to a project to add, cf. `ProjectSettings`."""
+
+    project_id: RequiredStr
+    # the unique name of the settings, e.g. `fallback_v7`
+    settings_id: RequiredStr
+    scopes: list[_Scope] = Field(default_factory=lambda: [DEFAULT_SCOPE])
+    excluded_scopes: list[_Scope] = Field(default_factory=list)
+    raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
+    raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
+
+    @field_validator("scopes")
+    @classmethod
+    def _default_scope_absorbs_others(cls, value: list[str]) -> list[str]:
+        if not value:
+            raise ValueError(
+                f"At least one scope is required, use '{DEFAULT_SCOPE}' for all instruments."
+            )
+        # the default scope matches everything, so any other entry next to it is redundant
+        return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value

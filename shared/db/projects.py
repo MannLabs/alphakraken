@@ -123,7 +123,7 @@ def _set_status(project_id: str, status: str) -> None:
             [f"Project '{FALLBACK_PROJECT_ID}' cannot be archived or deleted."]
         )
     current = get(project_id).status
-    # archiving and deleting are final
+    # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if current != ProjectStatus.ACTIVE:
         raise InvalidInputError(
             [f"Cannot set project '{project_id}' from '{current}' to '{status}'."]

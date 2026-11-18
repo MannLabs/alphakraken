@@ -65,6 +65,7 @@ def assign(  # noqa: PLR0913
     )
     errors = _scope_errors(new)
     errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
+    # check and write are separate steps; a race between concurrent writes is accepted, cf. `settings.delete`
     assigned = settings.get(new.settings_id)
     if assigned.status != SettingsStatus.ACTIVE:
         errors.append(

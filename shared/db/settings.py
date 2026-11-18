@@ -151,6 +151,7 @@ def delete(unique_name: str) -> None:
     """
     settings = get(unique_name)
     _check_active(settings, SettingsStatus.DELETED)
+    # check and write are separate steps; a race between concurrent writes is accepted: an assignment made meanwhile points to deleted settings
     project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
         raise InvalidInputError(
@@ -166,7 +167,7 @@ def delete(unique_name: str) -> None:
 
 def _check_active(settings: Settings, new_status: str) -> None:
     """Raise unless the settings are active."""
-    # archiving and deleting are final
+    # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if settings.status != SettingsStatus.ACTIVE:
         raise InvalidInputError(
             [

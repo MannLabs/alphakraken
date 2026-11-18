@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
 from shared.domain.users import (
     USER_EMAIL_REGEX,
@@ -36,7 +36,7 @@ def test_user_update_drops_empty_messenger_id(messenger_id: str | None) -> None:
 
 def test_user_update_requires_messenger_id() -> None:
     """Leaving the messenger id out is an error, so that it cannot be cleared by accident."""
-    with pytest.raises(ValidationError, match="messenger_id: Field required"):
+    with pytest.raises(InvalidInputError, match="messenger_id: Field required"):
         parse(UserUpdate, initials="JD")
 
 
@@ -63,7 +63,7 @@ def test_new_user_rejects_invalid_fields(overrides: dict[str, Any], error: str) 
     """Malformed emails and initials and too long values are rejected."""
     fields = {"email": "a@b.de", "initials": "AB", **overrides}
 
-    with pytest.raises(ValidationError, match=error) as e:
+    with pytest.raises(InvalidInputError, match=error) as e:
         parse(NewUser, **fields)
 
     assert len(e.value.errors) == 1
@@ -86,7 +86,7 @@ def test_normalize_email_strips_and_lower_cases() -> None:
 @pytest.mark.parametrize("email", [None, 1, ["a@b.de"]])
 def test_normalize_email_rejects_non_string_with_the_domain_error(email: Any) -> None:
     """Clients only catch the errors of `shared.domain.errors`."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         normalize_email(email)
 
     assert e.value.errors == ["email: must be a string."]

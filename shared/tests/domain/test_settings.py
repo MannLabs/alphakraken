@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
 from shared.domain.settings import (
     SETTINGS_NAME_REGEX,
@@ -117,7 +117,7 @@ def test_new_settings_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
     """Each rule is reported once, with today's messages for the hand-written ones."""
-    with pytest.raises(ValidationError, match=error) as e:
+    with pytest.raises(InvalidInputError, match=error) as e:
         parse(NewSettings, **{**ALPHADIA, **overrides})
 
     assert len(e.value.errors) == 1
@@ -136,7 +136,7 @@ def test_new_settings_rejects_unsafe_config_params(
     config_params: str, error: str
 ) -> None:
     """Unknown placeholders are reported first, then content that is unsafe after substitution."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewSettings, **{**CUSTOM, "config_params": config_params})
 
     assert len(e.value.errors) == 1
@@ -167,7 +167,7 @@ def test_selectable_metrics_types(software_type: str, expected: list[str]) -> No
 
 def test_new_settings_reports_all_invalid_fields() -> None:
     """Several invalid fields are reported together."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewSettings, **{**ALPHADIA, "software": "/x", "slurm_time": "soon"})
 
     assert e.value.errors == [

@@ -6,7 +6,7 @@ alphakraken.yaml (known scopes, runners), so every process that writes needs tha
 """
 
 # The write functions take explicit keyword parameters, so an unknown key is a TypeError, not a
-# ValidationError. A REST route or MCP tool calling them must:
+# InvalidInputError. A REST route or MCP tool calling them must:
 # 1. declare the same parameters and pass them one by one, never a request body as `**payload`,
 # 2. reject unknown keys: FastAPI and FastMCP likely drop them silently by default, so a
 #    misspelled optional key would fall back to its default (e.g. `scope` -> all instruments);

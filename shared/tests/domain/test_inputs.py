@@ -10,7 +10,7 @@ from pydantic import (
     model_validator,
 )
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import (
     InputModel,
     empty_to_none,
@@ -46,7 +46,7 @@ def test_parse_returns_input_type() -> None:
 
 def test_parse_reports_every_invalid_field() -> None:
     """Each invalid field gets one entry, prefixed with its name."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="reserved", size="big")
 
     assert e.value.errors == [
@@ -57,13 +57,13 @@ def test_parse_reports_every_invalid_field() -> None:
 
 def test_parse_reports_missing_field() -> None:
     """A missing required field is an error like an invalid one."""
-    with pytest.raises(ValidationError, match="name: Field required"):
+    with pytest.raises(InvalidInputError, match="name: Field required"):
         parse(_Input)
 
 
 def test_parse_reports_cross_field_rule_without_prefix() -> None:
     """A rule spanning several fields is reported with its bare message."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="abc", size=4)
 
     assert e.value.errors == ["Size exceeds the name."]
@@ -91,7 +91,7 @@ def test_max_length(field: str, expected: int) -> None:
 
 def test_parse_rejects_unknown_field() -> None:
     """A misspelled field is an error, not silently dropped."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="abc", sise=2)
 
     assert e.value.errors == ["sise: Extra inputs are not permitted"]

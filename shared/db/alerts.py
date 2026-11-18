@@ -46,7 +46,7 @@ def add_suppression(  # noqa: PLR0913
     """Add an alert suppression, cf. `NewSuppression`.
 
     Raises:
-        ValidationError: if a field is invalid, or the suppression would mute all alerts.
+        InvalidInputError: if a field is invalid, or the suppression would mute all alerts.
 
     """
     new = parse(

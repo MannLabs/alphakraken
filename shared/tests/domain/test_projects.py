@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import max_length, parse
 from shared.domain.projects import NewAssignment, NewProject
 
@@ -34,7 +34,7 @@ def test_new_project_accepts_project_id(project_id: str) -> None:
 @pytest.mark.parametrize("project_id", ["1234", "a123", "A-123", "A 123", "_OTHER"])
 def test_new_project_rejects_project_id(project_id: str) -> None:
     """All digits or other characters are rejected."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewProject, project_id=project_id, name="n")
 
     assert e.value.errors == [
@@ -64,7 +64,7 @@ def test_new_project_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
     """The name is required, project id, name and description are limited in length."""
-    with pytest.raises(ValidationError, match=error):
+    with pytest.raises(InvalidInputError, match=error):
         parse(NewProject, **{"project_id": "P123", "name": "n", **overrides})
 
 
@@ -134,7 +134,7 @@ def test_new_assignment_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
     """No scopes, entries that would never apply and empty or too long entries are rejected."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewAssignment, **{**ASSIGNMENT, **overrides})
 
     assert e.value.errors == [error]

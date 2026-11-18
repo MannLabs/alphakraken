@@ -12,8 +12,8 @@ from shared.domain.errors import (
     AlreadyExistsError,
     DatabaseError,
     DatabaseUnavailableError,
+    InvalidInputError,
     NotFoundError,
-    ValidationError,
 )
 
 P = ParamSpec("P")
@@ -32,7 +32,7 @@ def translate_errors(func: Callable[P, R]) -> Callable[P, R]:
         except (mongoengine.NotUniqueError, pymongo.errors.DuplicateKeyError) as e:
             raise AlreadyExistsError(str(e)) from e
         except mongoengine.ValidationError as e:
-            raise ValidationError(_messages(e)) from e
+            raise InvalidInputError(_messages(e)) from e
         except pymongo.errors.ConnectionFailure as e:
             raise DatabaseUnavailableError(str(e)) from e
         except (

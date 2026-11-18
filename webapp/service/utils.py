@@ -14,7 +14,7 @@ import streamlit.delta_generator
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # mapping of filter strings to url query parameters
@@ -65,7 +65,7 @@ def toast_result(success_msg: str) -> Iterator[None]:
     """Show the success message as toast after the block, or the exception it raised as error toast."""
     try:
         yield
-    except ValidationError as e:
+    except InvalidInputError as e:
         show_error_toast(_format_validation_errors(e.errors))
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

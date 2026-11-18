@@ -4,7 +4,7 @@ import logging
 
 from shared.db import projects, settings
 from shared.db._mongo import project_settings as _backend
-from shared.domain.errors import NotFoundError, ValidationError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
@@ -44,8 +44,8 @@ def assign(  # noqa: PLR0913
 
     Raises:
         NotFoundError: if the project or the settings do not exist; raised instead of the
-            ValidationError, so its rule errors are not reported then.
-        ValidationError: if a field is invalid, a scope is unknown, a scope or file name filter
+            InvalidInputError, so its rule errors are not reported then.
+        InvalidInputError: if a field is invalid, a scope is unknown, a scope or file name filter
             entry would never apply, the fallback project is not allowed, the project or the
             settings are archived or deleted, or the settings are already assigned to the project
             with the same file name filters.
@@ -76,7 +76,7 @@ def assign(  # noqa: PLR0913
         new.raw_file_id_exclude_filter,
     )
     if errors:
-        raise ValidationError(errors)
+        raise InvalidInputError(errors)
 
     assignment = _backend.assign(new)
     logging.info(f"Created project-settings assignment: {new!r}")
@@ -146,13 +146,13 @@ def unassign(assignment_id: str, *, allow_fallback: bool) -> None:
 
     Raises:
         NotFoundError: if there is no such assignment.
-        ValidationError: if its project is archived or deleted, or is the fallback project and
+        InvalidInputError: if its project is archived or deleted, or is the fallback project and
             that is not allowed.
 
     """
     project_id = _backend.get_project_id(assignment_id)
     if errors := _project_errors(project_id, allow_fallback=allow_fallback):
-        raise ValidationError(errors)
+        raise InvalidInputError(errors)
 
     _backend.unassign(assignment_id)
     logging.info(f"Removed project-settings assignment: {assignment_id=}")
@@ -165,7 +165,7 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
 
     Raises:
         NotFoundError: if there is no such assignment, or its settings no longer exist.
-        ValidationError: if there is no newer active version, the project is archived or deleted, or
+        InvalidInputError: if there is no newer active version, the project is archived or deleted, or
             the latest version is already assigned to the project with the same file name filters.
 
     """
@@ -176,7 +176,7 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
         raise NotFoundError(f"Settings of assignment {assignment_id} do not exist")
     latest = settings.latest_active(current.settings.name)
     if latest is None or latest.version <= current.settings.version:
-        raise ValidationError(
+        raise InvalidInputError(
             [
                 f"No newer active version of settings '{current.settings.name}' "
                 f"than version {current.settings.version}"
@@ -191,7 +191,7 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
         current.raw_file_id_exclude_filter,
     )
     if errors:
-        raise ValidationError(errors)
+        raise InvalidInputError(errors)
 
     updated = _backend.set_settings(assignment_id, latest.id)
     logging.info(

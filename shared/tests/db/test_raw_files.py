@@ -32,8 +32,8 @@ from shared.domain.errors import (
     AlreadyExistsError,
     DatabaseError,
     DatabaseUnavailableError,
+    InvalidInputError,
     NotFoundError,
-    ValidationError,
 )
 from shared.domain.raw_files import BackupStatus, InstrumentFileStatus, RawFileStatus
 from shared.tests.factories import raw_file
@@ -340,7 +340,7 @@ def test_translate_errors_lists_one_message_per_invalid_field() -> None:
     def fail() -> None:
         document.validate()
 
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(InvalidInputError) as excinfo:
         fail()
     assert sorted(message.split(":")[0] for message in excinfo.value.errors) == [
         "email",

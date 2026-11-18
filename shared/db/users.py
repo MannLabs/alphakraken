@@ -3,7 +3,7 @@
 import logging
 
 from shared.db._mongo import users as _backend
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
 from shared.domain.users import (
     NewUser,
@@ -44,7 +44,7 @@ def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:
     """Add a new active user, cf. `NewUser`.
 
     Raises:
-        ValidationError: if a field is invalid, or the email or the initials are taken.
+        InvalidInputError: if a field is invalid, or the email or the initials are taken.
 
     """
     new = parse(NewUser, email=email, initials=initials, messenger_id=messenger_id)
@@ -54,7 +54,7 @@ def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:
     if _backend.initials_taken(new.initials):
         errors.append(_initials_taken_message(new.initials))
     if errors:
-        raise ValidationError(errors)
+        raise InvalidInputError(errors)
 
     user = _backend.add(new)
     logging.info(f"Added user: {new!r}")
@@ -68,13 +68,13 @@ def update(email: str, *, initials: str, messenger_id: str | None) -> None:
 
     Raises:
         NotFoundError: if there is no such user.
-        ValidationError: if a field is invalid, or another user has the initials.
+        InvalidInputError: if a field is invalid, or another user has the initials.
 
     """
     email = normalize_email(email)
     changes = parse(UserUpdate, initials=initials, messenger_id=messenger_id)
     if _backend.initials_taken(changes.initials, except_email=email):
-        raise ValidationError([_initials_taken_message(changes.initials)])
+        raise InvalidInputError([_initials_taken_message(changes.initials)])
 
     _backend.update(email, changes)
     logging.info(f"Updated user: {email=} {changes!r}")
@@ -90,13 +90,13 @@ def set_status(email: str, status: str) -> None:
 
     Raises:
         NotFoundError: if there is no such user.
-        ValidationError: if the status is unknown or the one the user has.
+        InvalidInputError: if the status is unknown or the one the user has.
 
     """
     email = normalize_email(email)
     current = _backend.get(email).status
     if status == current or status not in (UserStatus.ACTIVE, UserStatus.INACTIVE):
-        raise ValidationError(
+        raise InvalidInputError(
             [f"Cannot set user '{email}' from '{current}' to '{status}'."]
         )
     _backend.set_status(email, status)

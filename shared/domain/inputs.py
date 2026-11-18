@@ -6,7 +6,7 @@ from typing import Annotated, Any, TypeVar
 
 import pydantic
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 
 
 class InputModel(pydantic.BaseModel):
@@ -27,14 +27,14 @@ def parse(model: type[T], **fields: Any) -> T:
     """Build the input type from the given fields.
 
     Raises:
-        ValidationError: if the fields are invalid, with one `<field>: <message>` entry per
+        InvalidInputError: if the fields are invalid, with one `<field>: <message>` entry per
             field and the bare message for a rule spanning several fields.
 
     """
     try:
         return model(**fields)
     except pydantic.ValidationError as e:
-        raise ValidationError([_message(error) for error in e.errors()]) from e
+        raise InvalidInputError([_message(error) for error in e.errors()]) from e
 
 
 def _message(error: Any) -> str:

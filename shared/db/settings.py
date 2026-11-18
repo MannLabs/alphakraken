@@ -4,7 +4,7 @@ import logging
 
 from shared.db import users
 from shared.db._mongo import settings as _backend
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.runner_checks import check_runner_supports_software_type
@@ -83,8 +83,8 @@ def create(  # noqa: PLR0913
 
     Raises:
         NotFoundError: if there is no user with `owner_email`; raised instead of the
-            ValidationError, so its rule errors are not reported then.
-        ValidationError: if a field is invalid, the runner is unknown or cannot run the software
+            InvalidInputError, so its rule errors are not reported then.
+        InvalidInputError: if a field is invalid, the runner is unknown or cannot run the software
             type, or the owner is inactive.
 
     """
@@ -109,7 +109,7 @@ def create(  # noqa: PLR0913
     errors = check_runner_supports_software_type(new.runner_name, new.software_type)
     errors += users.check_active(new.owner_email)
     if errors:
-        raise ValidationError(errors)
+        raise InvalidInputError(errors)
 
     existing = find(name=new.name, include_deleted=True)
     version = max((s.version for s in existing), default=0) + 1
@@ -131,7 +131,7 @@ def archive(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        ValidationError: if the settings are not active.
+        InvalidInputError: if the settings are not active.
 
     """
     _check_active(get(unique_name), SettingsStatus.INACTIVE)
@@ -144,14 +144,14 @@ def delete(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        ValidationError: if the settings are not active or still assigned to a project.
+        InvalidInputError: if the settings are not active or still assigned to a project.
 
     """
     settings = get(unique_name)
     _check_active(settings, SettingsStatus.DELETED)
     project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
-        raise ValidationError(
+        raise InvalidInputError(
             [
                 f"Cannot delete settings '{settings.name}' version {settings.version}: "
                 f"still assigned to projects {', '.join(project_ids)}"
@@ -166,7 +166,7 @@ def _check_active(settings: Settings, new_status: str) -> None:
     """Raise unless the settings are active."""
     # archiving and deleting are final
     if settings.status != SettingsStatus.ACTIVE:
-        raise ValidationError(
+        raise InvalidInputError(
             [
                 f"Cannot set settings '{settings.name}' version {settings.version} "
                 f"from '{settings.status}' to '{new_status}'."

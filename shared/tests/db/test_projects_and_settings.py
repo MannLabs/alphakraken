@@ -13,7 +13,7 @@ from shared.db._mongo import models
 from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
-from shared.domain.errors import NotFoundError, ValidationError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.projects import NewAssignment, NewProject, ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.domain.users import UserStatus
@@ -305,7 +305,7 @@ def test_update_assignment_to_already_assigned_latest_raises(
         ),
     ]
 
-    with pytest.raises(ValidationError, match="version 8 already assigned"):
+    with pytest.raises(InvalidInputError, match="version 8 already assigned"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_set_settings"].assert_not_called()
@@ -318,7 +318,7 @@ def test_update_assignment_without_newer_version_raises(
     """Without a newer active version, the assignment is left alone."""
     updatable["latest_active"].return_value = latest
 
-    with pytest.raises(ValidationError, match="No newer active version"):
+    with pytest.raises(InvalidInputError, match="No newer active version"):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_set_settings"].assert_not_called()
@@ -344,7 +344,9 @@ def test_update_assignment_of_archived_project_raises(
         factories.project(status=ProjectStatus.INACTIVE)
     ]
 
-    with pytest.raises(ValidationError, match="Cannot change the settings assignments"):
+    with pytest.raises(
+        InvalidInputError, match="Cannot change the settings assignments"
+    ):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
     updatable["backend_set_settings"].assert_not_called()
@@ -422,7 +424,7 @@ def test_create_settings_with_invalid_field_raises(
     creatable: dict[str, MagicMock],
 ) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         settings.create(**CREATE_FIELDS, name="fall back", slurm_mem="lots")
 
     assert e.value.errors == [
@@ -439,7 +441,7 @@ def test_create_settings_on_unsuitable_runner_raises(
     """A runner that is unknown or cannot run the software type is a validation error."""
     creatable["check_runner"].return_value = ["Unknown runner 'slurm'"]
 
-    with pytest.raises(ValidationError, match="Unknown runner 'slurm'"):
+    with pytest.raises(InvalidInputError, match="Unknown runner 'slurm'"):
         settings.create(**CREATE_FIELDS, name="fallback")
 
     creatable["backend_create"].assert_not_called()
@@ -452,7 +454,7 @@ def test_create_settings_reports_all_rule_errors(
     creatable["check_runner"].return_value = ["Unknown runner 'slurm'"]
     creatable["check_active"].return_value = ["User 'a@b.de' is inactive."]
 
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         settings.create(**CREATE_FIELDS, name="fallback", owner_email="a@b.de")
 
     assert e.value.errors == ["Unknown runner 'slurm'", "User 'a@b.de' is inactive."]
@@ -548,7 +550,7 @@ def test_archive_settings_only_if_active(
         mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.INACTIVE)
     else:
         with pytest.raises(
-            ValidationError,
+            InvalidInputError,
             match=f"Cannot set settings 'fallback' version 7 from '{status}' to 'inactive'",
         ):
             settings.archive("fallback_v7")
@@ -618,7 +620,7 @@ def test_delete_archived_settings_raises(
     mock_get.return_value = factories.settings(status=SettingsStatus.INACTIVE)
 
     with pytest.raises(
-        ValidationError,
+        InvalidInputError,
         match="Cannot set settings 'fallback' version 7 from 'inactive' to 'deleted'",
     ):
         settings.delete("fallback_v7")
@@ -637,7 +639,7 @@ def test_delete_assigned_settings_raises(
     """Settings assigned to any project, also an archived or deleted one, cannot be deleted."""
     mock_get.return_value = factories.settings()
 
-    with pytest.raises(ValidationError, match="still assigned to projects P1, P2"):
+    with pytest.raises(InvalidInputError, match="still assigned to projects P1, P2"):
         settings.delete("fallback_v7")
 
     mock_assigned.assert_called_once_with("fallback_v7")
@@ -684,7 +686,9 @@ def test_add_project_with_invalid_field_raises(
     mock_find: MagicMock, mock_backend_add: MagicMock
 ) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p123'"):
+    with pytest.raises(
+        InvalidInputError, match="project_id: Invalid project id 'p123'"
+    ):
         projects.add(project_id="p123", name="n")
 
     mock_find.assert_not_called()
@@ -699,7 +703,7 @@ def test_add_project_with_id_of_deleted_project_raises(
     """The id of a deleted project cannot be reused."""
     mock_find.return_value = [factories.project(status=ProjectStatus.DELETED)]
 
-    with pytest.raises(ValidationError, match="was used by a deleted project"):
+    with pytest.raises(InvalidInputError, match="was used by a deleted project"):
         projects.add(project_id="P123", name="n", description="d")
 
     mock_backend_add.assert_not_called()
@@ -716,7 +720,7 @@ def test_add_project_with_inactive_owner_raises(
     """Only an active user can own a new project."""
     mock_get_user.return_value = factories.user(status=UserStatus.INACTIVE)
 
-    with pytest.raises(ValidationError, match="User 'a@b.de' is inactive"):
+    with pytest.raises(InvalidInputError, match="User 'a@b.de' is inactive"):
         projects.add(project_id="P123", name="n", owner_email="a@b.de")
 
     mock_backend_add.assert_not_called()
@@ -753,7 +757,7 @@ def test_fallback_project_cannot_be_archived_or_deleted(
 ) -> None:
     """The fallback project stays active, as raw files without an active project are assigned to it."""
     with pytest.raises(
-        ValidationError, match="Project '_FALLBACK' cannot be archived or deleted"
+        InvalidInputError, match="Project '_FALLBACK' cannot be archived or deleted"
     ):
         write(FALLBACK_PROJECT_ID)
 
@@ -781,7 +785,7 @@ def test_archive_project_only_if_active(
         mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
     else:
         with pytest.raises(
-            ValidationError,
+            InvalidInputError,
             match=f"Cannot set project 'P1' from '{status}' to 'inactive'",
         ):
             projects.archive("P1")
@@ -809,7 +813,7 @@ def test_delete_project_only_if_active(
         mock_set_status.assert_called_once_with("P1", ProjectStatus.DELETED)
     else:
         with pytest.raises(
-            ValidationError,
+            InvalidInputError,
             match=f"Cannot set project 'P1' from '{status}' to 'deleted'",
         ):
             projects.delete("P1")
@@ -930,7 +934,7 @@ def test_assign_settings_to_archived_or_deleted_project_raises(
     """Assignments of archived and deleted projects are frozen."""
     assignable["find_projects"].return_value = [factories.project(status=status)]
 
-    with pytest.raises(ValidationError, match="archived or deleted project 'P1'"):
+    with pytest.raises(InvalidInputError, match="archived or deleted project 'P1'"):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False)
 
     assignable["backend_assign"].assert_not_called()
@@ -944,7 +948,7 @@ def test_assign_archived_or_deleted_settings_raises(
     assignable["get_settings"].return_value = factories.settings(status=status)
 
     with pytest.raises(
-        ValidationError, match="Cannot assign archived or deleted settings"
+        InvalidInputError, match="Cannot assign archived or deleted settings"
     ):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False)
 
@@ -953,7 +957,7 @@ def test_assign_archived_or_deleted_settings_raises(
 
 def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="At least one scope is required"):
+    with pytest.raises(InvalidInputError, match="At least one scope is required"):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=[])
 
     assignable["find_projects"].assert_not_called()
@@ -973,7 +977,7 @@ def test_assign_with_unknown_scope_raises(
     assignable: dict[str, MagicMock], scopes: dict[str, list[str]]
 ) -> None:
     """A scope that is neither an instrument type nor a configured instrument would never match."""
-    with pytest.raises(ValidationError, match=r"Unknown scopes \['test9'\]"):
+    with pytest.raises(InvalidInputError, match=r"Unknown scopes \['test9'\]"):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, **scopes)
 
     assignable["backend_assign"].assert_not_called()
@@ -988,7 +992,8 @@ def test_assign_with_fully_excluded_scope_raises(
             "shared.db.project_settings.fully_excluded_scopes", return_value=["test1"]
         ) as fully_excluded,
         pytest.raises(
-            ValidationError, match=r"All instruments of scopes \['test1'\] are excluded"
+            InvalidInputError,
+            match=r"All instruments of scopes \['test1'\] are excluded",
         ),
     ):
         project_settings.assign(
@@ -1012,7 +1017,7 @@ def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> Non
         status=SettingsStatus.INACTIVE
     )
 
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         project_settings.assign(
             "P1", "fallback_v7", allow_fallback=False, scopes=["test9"]
         )
@@ -1057,7 +1062,7 @@ def test_fallback_assignments_change_only_if_allowed(
             if allow_fallback:
                 write()
             else:
-                with pytest.raises(ValidationError, match="is not allowed"):
+                with pytest.raises(InvalidInputError, match="is not allowed"):
                     write()
 
     assert assignable["backend_assign"].called is allow_fallback
@@ -1075,7 +1080,7 @@ def test_assign_same_settings_with_same_filters_raises(
         )
     ]
 
-    with pytest.raises(ValidationError, match="already assigned"):
+    with pytest.raises(InvalidInputError, match="already assigned"):
         project_settings.assign(
             "P1",
             "fallback_v7",
@@ -1120,7 +1125,9 @@ def test_unassign_settings_from_archived_project_raises(
         factories.project(status=ProjectStatus.INACTIVE)
     ]
 
-    with pytest.raises(ValidationError, match="Cannot change the settings assignments"):
+    with pytest.raises(
+        InvalidInputError, match="Cannot change the settings assignments"
+    ):
         project_settings.unassign("assignment1", allow_fallback=False)
 
     assignable["backend_unassign"].assert_not_called()

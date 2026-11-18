@@ -17,6 +17,20 @@ def known_scopes() -> list[str]:
     ]
 
 
+def fully_excluded_scopes(scopes: list[str], excluded_scopes: list[str]) -> list[str]:
+    """Return the scopes whose instruments in alphakraken.yaml are all excluded."""
+    instruments = [
+        (instrument_id, config.get(YamlKeys.TYPE))
+        for instrument_id, config in YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).items()
+    ]
+    result = []
+    for scope in scopes:
+        matching = [i for i in instruments if _scopes_match([scope], *i)]
+        if matching and all(_scopes_match(excluded_scopes, *i) for i in matching):
+            result.append(scope)
+    return result
+
+
 def resolve_scoped_settings(
     project_settings: list[ProjectSettings],
     *,

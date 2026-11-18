@@ -2,9 +2,12 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from shared.keys import KNOWN_VENDOR_NAMES
 from shared.settings_scope_resolver import (
     _scopes_match,
+    fully_excluded_scopes,
     known_scopes,
     resolve_scoped_settings,
 )
@@ -242,3 +245,32 @@ def test_raw_file_id_filters_ignored_when_raw_file_id_is_none() -> None:
 def test_known_scopes() -> None:
     """The default scope comes first, then the vendors, then the instruments of the yaml."""
     assert known_scopes() == ["*", *KNOWN_VENDOR_NAMES, "test1", "test2"]
+
+
+@pytest.mark.parametrize(
+    ("scopes", "excluded_scopes", "expected"),
+    [
+        (["test1"], ["thermo"], ["test1"]),
+        (["thermo"], ["test1", "test2"], ["thermo"]),
+        (["*"], ["thermo", "test3"], ["*"]),
+        (["thermo", "test3"], ["test1"], []),
+        # no instrument of the vendor: nothing to exclude
+        (["sciex"], ["test1"], []),
+    ],
+)
+@patch.dict(
+    "shared.settings_scope_resolver.YAMLSETTINGS",
+    {
+        "instruments": {
+            "test1": {"type": "thermo"},
+            "test2": {"type": "thermo"},
+            "test3": {"type": "bruker"},
+        }
+    },
+    clear=True,
+)
+def test_fully_excluded_scopes(
+    scopes: list[str], excluded_scopes: list[str], expected: list[str]
+) -> None:
+    """A scope is fully excluded if each of its instruments matches an excluded scope."""
+    assert fully_excluded_scopes(scopes, excluded_scopes) == expected

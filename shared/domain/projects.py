@@ -3,9 +3,9 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
 from shared.domain.settings import Settings
@@ -100,3 +100,27 @@ class NewAssignment(InputModel):
             )
         # the default scope matches everything, so any other entry next to it is redundant
         return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value
+
+    @model_validator(mode="after")
+    def _exclusion_leaves_something(self) -> Self:
+        if DEFAULT_SCOPE in self.excluded_scopes:
+            raise ValueError(
+                f"The scope '{DEFAULT_SCOPE}' cannot be excluded, the assignment would never apply."
+            )
+        if overlap := sorted(set(self.scopes) & set(self.excluded_scopes)):
+            raise ValueError(
+                f"Scopes {overlap} are both included and excluded, they would never apply."
+            )
+        # the exclude filter is case-insensitive, cf. `resolve_scoped_settings`
+        if never_matching := [
+            included
+            for included in self.raw_file_id_filter
+            if any(
+                excluded.lower() in included.lower()
+                for excluded in self.raw_file_id_exclude_filter
+            )
+        ]:
+            raise ValueError(
+                f"Files matching {never_matching} always match an exclude filter, they would never apply."
+            )
+        return self

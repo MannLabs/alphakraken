@@ -112,10 +112,25 @@ def test_new_assignment_strips_entries() -> None:
     ("overrides", "error"),
     [
         (
+            {"excluded_scopes": ["*"]},
+            "The scope '*' cannot be excluded, the assignment would never apply.",
+        ),
+        (
+            {"scopes": ["test1", "thermo"], "excluded_scopes": ["thermo", "test2"]},
+            "Scopes ['thermo'] are both included and excluded, they would never apply.",
+        ),
+        (
             {"scopes": []},
             "scopes: At least one scope is required, use '*' for all instruments.",
         ),
         ({"scopes": "x*y"}, "scopes: Input should be a valid list"),
+        (
+            {
+                "raw_file_id_filter": ["HeLa_QC", "plasma"],
+                "raw_file_id_exclude_filter": ["hela"],
+            },
+            "Files matching ['HeLa_QC'] always match an exclude filter, they would never apply.",
+        ),
         (
             {"raw_file_id_filter": ["a", " "]},
             "raw_file_id_filter.1: String should have at least 1 character",
@@ -130,7 +145,7 @@ def test_new_assignment_strips_entries() -> None:
 def test_new_assignment_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
-    """No scopes and empty or too long entries are rejected."""
+    """No scopes, exclusions that leave nothing and empty or too long entries are rejected."""
     with pytest.raises(ValidationError) as e:
         parse(NewAssignment, **ASSIGNMENT, **overrides)
 

@@ -134,7 +134,10 @@ def test_admin_bulk_adds_users_and_reports_failures(
     mock_add_user: MagicMock,
 ) -> None:
     """Test that valid rows are added and failing rows are reported with their line."""
-    mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
+    mock_add_user.side_effect = [
+        _user("Ab"),
+        ValueError("initials 'CD' already exists."),
+    ]
     at = _admin_app().run()
 
     at.text_area[0].set_value("a@b.de,Ab,U123\n\nC@D.de,CD\nbad row")
@@ -157,9 +160,10 @@ def test_admin_bulk_adds_users_and_reports_failures(
 @patch("shared.db.users.find", return_value=[])
 def test_admin_bulk_add_report_is_shown_once(
     mock_get_users: MagicMock,  # noqa: ARG001
-    mock_add_user: MagicMock,  # noqa: ARG001
+    mock_add_user: MagicMock,
 ) -> None:
     """Test that the report disappears on the next interaction."""
+    mock_add_user.return_value = _user("ab")
     at = _admin_app().run()
     at.text_area[0].set_value("a@b.de,ab")
     at.button[1].click().run()

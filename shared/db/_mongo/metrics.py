@@ -6,6 +6,7 @@ from typing import Any
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import as_utc
+from shared.domain.errors import InvalidInputError
 from shared.domain.metrics import Metrics
 
 _METADATA_FIELDS = (
@@ -17,6 +18,8 @@ _METADATA_FIELDS = (
     "output_display_base_path",
     "created_at_",
 )
+# names a metric value must not have: the fields of a metrics document and its id
+_RESERVED_NAMES = {*_METADATA_FIELDS, "id", "pk", "_id"}
 
 
 @db_backend_function
@@ -53,6 +56,8 @@ def add(  # noqa: PLR0913
     output_display_base_path: str,
 ) -> None:
     """Add metrics for a raw file, cf. `shared.db.metrics`."""
+    if errors := _value_name_errors(values):
+        raise InvalidInputError(errors)
     raw_file = models.RawFile.objects.get(id=raw_file_id)
 
     models.Metrics(
@@ -63,7 +68,23 @@ def add(  # noqa: PLR0913
         relative_output_path=relative_output_path,
         output_display_base_path=output_display_base_path,
         **values,
-    ).save()
+    ).save(force_insert=True)
+
+
+def _value_name_errors(values: dict[str, Any]) -> list[str]:
+    """Return why names of the metric values cannot be stored."""
+    errors = [
+        f"values: '{name}' is a field of a metrics entry."
+        for name in values
+        if name in _RESERVED_NAMES
+    ]
+    # MongoDB reads them as a path or an operator
+    errors += [
+        f"values: '{name}' must not contain '.' or '$'."
+        for name in values
+        if "." in name or "$" in name
+    ]
+    return errors
 
 
 def _to_metrics(doc: models.Metrics) -> Metrics:

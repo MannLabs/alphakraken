@@ -10,6 +10,7 @@ import pytest
 from shared.db._mongo import metrics as backend
 from shared.db._mongo import models
 from shared.db.metrics import add, find, latest_by_raw_file
+from shared.domain.errors import InvalidInputError
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics
 
@@ -170,4 +171,40 @@ def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa
         output_display_base_path="/output",
         proteins=5000,
     )
-    mock_models.Metrics.return_value.save.assert_called_once()
+    # never overwrites existing metrics
+    mock_models.Metrics.return_value.save.assert_called_once_with(force_insert=True)
+
+
+@pytest.mark.parametrize(
+    ("name", "error"),
+    [
+        ("type", "values: 'type' is a field of a metrics entry."),
+        ("created_at_", "values: 'created_at_' is a field of a metrics entry."),
+        ("id", "values: 'id' is a field of a metrics entry."),
+        ("_id", "values: '_id' is a field of a metrics entry."),
+        ("raw.proteins", "values: 'raw.proteins' must not contain '.' or '$'."),
+        ("$set", "values: '$set' must not contain '.' or '$'."),
+    ],
+)
+@patch("shared.db._mongo.connection.ensure_connected")
+@patch("shared.db._mongo.metrics.models")
+def test_add_rejects_value_names_that_cannot_be_stored(
+    mock_models: MagicMock,
+    mock_connected: MagicMock,  # noqa: ARG001
+    name: str,
+    error: str,
+) -> None:
+    """A value must not overwrite the metadata or the id, nor be read as a path or an operator."""
+    with pytest.raises(InvalidInputError) as e:
+        add(
+            "f1",
+            metrics_type="alphadia",
+            values={name: 1, "proteins": 5000},
+            settings_name="fallback",
+            settings_version=1,
+            relative_output_path="P1/out_f1/fallback_v1",
+            output_display_base_path="/output",
+        )
+
+    assert e.value.errors == [error]
+    mock_models.Metrics.assert_not_called()

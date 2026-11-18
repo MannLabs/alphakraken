@@ -71,7 +71,7 @@ def test_new_settings_accepts_custom_software_with_resources() -> None:
 @pytest.mark.parametrize(
     ("overrides", "error"),
     [
-        ({"name": "plasma fast"}, "name: String should match pattern"),
+        ({"name": "plasma fast"}, "name: may only contain letters, digits and"),
         ({"name": ""}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
         ({"software_type": "other"}, "software_type: Unknown software type 'other'"),

@@ -438,7 +438,7 @@ def test_create_settings_with_invalid_field_raises(
         settings.create(**CREATE_FIELDS, name="fall back", slurm_mem="lots")
 
     assert e.value.errors == [
-        "name: String should match pattern '^[a-zA-Z0-9_]+$'",
+        "name: may only contain letters, digits and underscores.",
         "slurm_mem: Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'.",
     ]
     creatable["find"].assert_not_called()

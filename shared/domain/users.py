@@ -4,13 +4,20 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BeforeValidator, Field, StringConstraints, TypeAdapter
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+)
 
 from shared.domain.inputs import (
     InputModel,
     OptionalStr,
     RequiredStr,
     empty_to_none,
+    matching,
     required,
 )
 
@@ -58,9 +65,10 @@ class User:
 class UserUpdate(InputModel):
     """The changeable fields of a user, cf. `User`."""
 
-    initials: RequiredStr = Field(
-        max_length=USER_INITIALS_MAX_LENGTH, pattern=USER_INITIALS_REGEX
-    )
+    initials: Annotated[
+        RequiredStr,
+        AfterValidator(matching(USER_INITIALS_REGEX, "must be 2 to 8 letters.")),
+    ] = Field(max_length=USER_INITIALS_MAX_LENGTH)
     # required, so that leaving it out cannot clear it
     messenger_id: OptionalStr = Field(max_length=512)
 
@@ -68,7 +76,14 @@ class UserUpdate(InputModel):
 class NewUser(UserUpdate):
     """A user to add, cf. `User`. The email is lower-cased."""
 
-    email: Annotated[LowerCasedEmail, BeforeValidator(required())] = Field(
-        max_length=128, pattern=USER_EMAIL_REGEX
-    )
+    email: Annotated[
+        LowerCasedEmail,
+        BeforeValidator(required()),
+        AfterValidator(
+            matching(
+                USER_EMAIL_REGEX,
+                "must be an email address, e.g. 'jane.doe@example.org'.",
+            )
+        ),
+    ] = Field(max_length=128)
     messenger_id: OptionalStr = Field(default=None, max_length=512)

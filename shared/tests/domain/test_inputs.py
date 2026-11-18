@@ -14,6 +14,7 @@ from shared.domain.errors import ValidationError
 from shared.domain.inputs import (
     InputModel,
     empty_to_none,
+    matching,
     max_length,
     parse,
     required,
@@ -120,3 +121,17 @@ def test_required_rejects_missing_value(
 def test_required_passes_given_value(value: Any) -> None:
     """Any other value is returned as it is."""
     assert required()(value) == value
+
+
+def test_matching_rejects_mismatch_with_the_given_message() -> None:
+    """A string that does not match the pattern is rejected with the message, not the regex."""
+    with pytest.raises(ValueError) as e:
+        matching(r"^[a-z]+$", "must be lower-case letters.")("A1")
+
+    assert str(e.value) == "must be lower-case letters."
+
+
+@pytest.mark.parametrize("value", ["abc", None])
+def test_matching_passes_match_and_none(value: str | None) -> None:
+    """A matching string and None, the value of an empty optional field, pass."""
+    assert matching(r"^[a-z]+$", "must be lower-case letters.")(value) == value

@@ -3,9 +3,10 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import (
+    AfterValidator,
     Field,
     ValidationInfo,
     field_validator,
@@ -13,7 +14,7 @@ from pydantic import (
 )
 
 from shared.config_params import check_config_params
-from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
+from shared.domain.inputs import InputModel, OptionalStr, RequiredStr, matching
 from shared.domain.users import OptionalLowerCasedEmail
 from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
@@ -99,7 +100,14 @@ def selectable_metrics_types(software_type: str) -> list[str]:
 class NewSettings(InputModel):
     """Settings to create, cf. `Settings`. Empty optional strings are None."""
 
-    name: RequiredStr = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
+    name: Annotated[
+        RequiredStr,
+        AfterValidator(
+            matching(
+                SETTINGS_NAME_REGEX, "may only contain letters, digits and underscores."
+            )
+        ),
+    ] = Field(max_length=64)
     software_type: RequiredStr
     software: RequiredStr = Field(max_length=128)
     runner_name: RequiredStr = Field(max_length=64)
@@ -110,8 +118,21 @@ class NewSettings(InputModel):
     config_file_name: OptionalStr = Field(default=None, max_length=128)
     config_params: OptionalStr = Field(default=None, max_length=2048)
     slurm_cpus_per_task: int | None = Field(default=None, ge=1)
-    slurm_mem: OptionalStr = Field(default=None, max_length=16)
-    slurm_time: OptionalStr = Field(default=None, max_length=16)
+    slurm_mem: Annotated[
+        OptionalStr,
+        AfterValidator(
+            matching(
+                SLURM_MEM_REGEX,
+                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'.",
+            )
+        ),
+    ] = Field(default=None, max_length=16)
+    slurm_time: Annotated[
+        OptionalStr,
+        AfterValidator(
+            matching(SLURM_TIME_REGEX, "SLURM time must be in HH:MM:SS format.")
+        ),
+    ] = Field(default=None, max_length=16)
     num_threads: int | None = Field(default=None, ge=1)
     owner_email: OptionalLowerCasedEmail = None
 
@@ -156,24 +177,6 @@ class NewSettings(InputModel):
         """Reject unknown placeholders and content that could be used for command injection."""
         if value and (errors := check_config_params(value)):
             raise ValueError("; ".join(errors))
-        return value
-
-    @field_validator("slurm_mem")
-    @classmethod
-    def _slurm_mem_format(cls, value: str | None) -> str | None:
-        """Reject a memory value that is not a number followed by a unit."""
-        if value and not re.match(SLURM_MEM_REGEX, value):
-            raise ValueError(
-                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
-            )
-        return value
-
-    @field_validator("slurm_time")
-    @classmethod
-    def _slurm_time_format(cls, value: str | None) -> str | None:
-        """Reject a time limit that is not of the form HH:MM:SS."""
-        if value and not re.match(SLURM_TIME_REGEX, value):
-            raise ValueError("SLURM time must be in HH:MM:SS format.")
         return value
 
     @model_validator(mode="after")

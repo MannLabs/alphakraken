@@ -1,5 +1,6 @@
 """Building of the input types that user-triggered writes are validated with."""
 
+import re
 from collections.abc import Callable
 from typing import Annotated, Any, TypeVar
 
@@ -62,6 +63,21 @@ def required(hint: str | None = None) -> Callable[[Any], Any]:
         return value
 
     return _required
+
+
+def matching(pattern: str, message: str) -> Callable[[str | None], str | None]:
+    """Return a validator rejecting a string that does not match the pattern; None passes.
+
+    :param message: the error message, as pydantic's one for `pattern=` only shows the regex
+    """
+
+    def _matching(value: str | None) -> str | None:
+        """Reject a string that does not match the pattern."""
+        if value is not None and not re.match(pattern, value):
+            raise ValueError(message)
+        return value
+
+    return _matching
 
 
 RequiredStr = Annotated[str, pydantic.BeforeValidator(required())]

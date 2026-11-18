@@ -208,7 +208,7 @@ def test_add_cleans_fields(taken: dict[str, MagicMock]) -> None:
 
 def test_add_rejects_invalid_fields(taken: dict[str, MagicMock]) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="initials: String should match"):
+    with pytest.raises(ValidationError, match="initials: must be 2 to 8 letters."):
         users.add(email="new@b.de", initials="N1")
 
     taken["email"].assert_not_called()
@@ -280,7 +280,7 @@ def test_update_without_messenger_id_raises(taken: dict[str, MagicMock]) -> None
 
 def test_update_rejects_invalid_initials(taken: dict[str, MagicMock]) -> None:
     """Invalid initials are a validation error also on update."""
-    with pytest.raises(ValidationError, match="initials: String should match"):
+    with pytest.raises(ValidationError, match="initials: must be 2 to 8 letters."):
         users.update("a@b.de", initials="J1", messenger_id=None)
 
     taken["backend_update"].assert_not_called()

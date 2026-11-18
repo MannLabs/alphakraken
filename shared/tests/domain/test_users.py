@@ -42,11 +42,11 @@ def test_new_user_needs_no_messenger_id() -> None:
 @pytest.mark.parametrize(
     ("overrides", "error"),
     [
-        ({"email": "no-at-sign"}, "email: String should match pattern"),
-        ({"email": "a b@c.de"}, "email: String should match pattern"),
+        ({"email": "no-at-sign"}, "email: must be an email address"),
+        ({"email": "a b@c.de"}, "email: must be an email address"),
         ({"email": f"{'a' * 125}@b.de"}, "email: String should have at most 128"),
-        ({"initials": "J"}, "initials: String should match pattern"),
-        ({"initials": "J1"}, "initials: String should match pattern"),
+        ({"initials": "J"}, "initials: must be 2 to 8 letters."),
+        ({"initials": "J1"}, "initials: must be 2 to 8 letters."),
         ({"initials": "toolongxx"}, "initials: String should have at most 8"),
         ({"initials": " "}, "initials: is required."),
         ({"email": ""}, "email: is required."),

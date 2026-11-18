@@ -19,7 +19,7 @@ from shared.domain.users import NewUser, UserUpdate
     [
         (alerts.add_suppression, NewSuppression, set()),
         (project_settings.assign, NewAssignment, {"allow_fallback"}),
-        (projects.add, NewProject, set()),
+        (projects.add, NewProject, {"allow_fallback"}),
         (settings.create, NewSettings, {"archive_previous"}),
         (users.add, NewUser, set()),
         (users.update, UserUpdate, {"email"}),

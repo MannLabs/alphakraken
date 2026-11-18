@@ -656,7 +656,13 @@ def test_add_project(
     mock_find: MagicMock, mock_backend_add: MagicMock, mock_check_active: MagicMock
 ) -> None:
     """A project with an unused id and an active owner is stored, with the fields cleaned."""
-    projects.add(project_id=" P123 ", name="n", description=" ", owner_email="a@b.de")
+    projects.add(
+        project_id=" P123 ",
+        name="n",
+        description=" ",
+        owner_email="a@b.de",
+        allow_fallback=False,
+    )
 
     mock_find.assert_called_once_with(ids=["P123"], include_deleted=True)
     mock_check_active.assert_called_once_with("a@b.de")
@@ -674,7 +680,7 @@ def test_add_project_without_owner(
     mock_check_active: MagicMock,
 ) -> None:
     """A project needs no owner."""
-    projects.add(project_id="P123", name="n", owner_email="")
+    projects.add(project_id="P123", name="n", owner_email="", allow_fallback=False)
 
     mock_check_active.assert_called_once_with(None)
     mock_backend_add.assert_called_once()
@@ -689,7 +695,7 @@ def test_add_project_with_invalid_field_raises(
     with pytest.raises(
         InvalidInputError, match="project_id: Invalid project id 'p123'"
     ):
-        projects.add(project_id="p123", name="n")
+        projects.add(project_id="p123", name="n", allow_fallback=False)
 
     mock_find.assert_not_called()
     mock_backend_add.assert_not_called()
@@ -704,9 +710,32 @@ def test_add_project_with_id_of_deleted_project_raises(
     mock_find.return_value = [factories.project(status=ProjectStatus.DELETED)]
 
     with pytest.raises(InvalidInputError, match="was used by a deleted project"):
-        projects.add(project_id="P123", name="n", description="d")
+        projects.add(project_id="P123", name="n", description="d", allow_fallback=False)
 
     mock_backend_add.assert_not_called()
+
+
+@pytest.mark.parametrize("allow_fallback", [True, False])
+@patch("shared.db.users.check_active", return_value=[])
+@patch("shared.db._mongo.projects.add")
+@patch("shared.db.projects.find", return_value=[])
+def test_add_fallback_project_only_if_allowed(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,
+    mock_check_active: MagicMock,  # noqa: ARG001
+    *,
+    allow_fallback: bool,
+) -> None:
+    """Only callers that say they may create the fallback project."""
+    if allow_fallback:
+        projects.add(project_id=FALLBACK_PROJECT_ID, name="n", allow_fallback=True)
+        mock_backend_add.assert_called_once()
+    else:
+        with pytest.raises(
+            InvalidInputError, match="Creating project '_FALLBACK' is not allowed"
+        ):
+            projects.add(project_id=FALLBACK_PROJECT_ID, name="n", allow_fallback=False)
+        mock_backend_add.assert_not_called()
 
 
 @patch("shared.db._mongo.users.get")
@@ -721,7 +750,9 @@ def test_add_project_with_inactive_owner_raises(
     mock_get_user.return_value = factories.user(status=UserStatus.INACTIVE)
 
     with pytest.raises(InvalidInputError, match="User 'a@b.de' is inactive"):
-        projects.add(project_id="P123", name="n", owner_email="a@b.de")
+        projects.add(
+            project_id="P123", name="n", owner_email="a@b.de", allow_fallback=False
+        )
 
     mock_backend_add.assert_not_called()
 

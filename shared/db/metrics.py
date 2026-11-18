@@ -62,6 +62,10 @@ def add(  # noqa: PLR0913
 ) -> None:
     """Add metrics of one type for a raw file.
 
+    :param values: the metrics by name; not checked: a name must not be one of the other
+        fields of a metrics entry (`type`, `raw_file`, `settings_name`, `created_at_`, ...) nor
+        contain `.` or `$`
+
     Raises:
         NotFoundError: if the raw file does not exist.
 

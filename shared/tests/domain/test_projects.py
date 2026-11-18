@@ -117,7 +117,7 @@ def test_new_assignment_strips_entries() -> None:
         ),
         (
             {"scopes": ["test1", "thermo"], "excluded_scopes": ["thermo", "test2"]},
-            "Scopes ['thermo'] are both included and excluded, they would never apply.",
+            "Scopes ['thermo'] are both included and excluded, these entries would never apply.",
         ),
         (
             {"scopes": []},
@@ -129,7 +129,7 @@ def test_new_assignment_strips_entries() -> None:
                 "raw_file_id_filter": ["HeLa_QC", "plasma"],
                 "raw_file_id_exclude_filter": ["hela"],
             },
-            "Files matching ['HeLa_QC'] always match an exclude filter, they would never apply.",
+            "File name filters ['HeLa_QC'] always match an exclude filter, these entries would never apply.",
         ),
         (
             {"raw_file_id_filter": ["a", " "]},
@@ -145,7 +145,7 @@ def test_new_assignment_strips_entries() -> None:
 def test_new_assignment_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
-    """No scopes, exclusions that leave nothing and empty or too long entries are rejected."""
+    """No scopes, entries that would never apply and empty or too long entries are rejected."""
     with pytest.raises(ValidationError) as e:
         parse(NewAssignment, **ASSIGNMENT, **overrides)
 

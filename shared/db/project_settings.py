@@ -35,9 +35,10 @@ def assign(
 
     Raises:
         NotFoundError: if the project or the settings do not exist.
-        ValidationError: if a field is invalid, a scope is unknown or fully excluded, the fallback project is not
-            allowed, the project or the settings are archived or deleted, or the settings are
-            already assigned to the project with the same file name filters.
+        ValidationError: if a field is invalid, a scope is unknown, a scope or file name filter
+            entry would never apply, the fallback project is not allowed, the project or the
+            settings are archived or deleted, or the settings are already assigned to the project
+            with the same file name filters.
 
     """
     new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
@@ -70,7 +71,7 @@ def _scope_errors(new: NewAssignment) -> list[str]:
         errors.append(f"Unknown scopes {unknown}, known are: {known}.")
     if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
         errors.append(
-            f"All instruments of scopes {excluded} are excluded, they would never apply."
+            f"All instruments of scopes {excluded} are excluded, these entries would never apply."
         )
     return errors
 

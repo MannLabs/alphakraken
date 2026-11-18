@@ -102,14 +102,14 @@ class NewAssignment(InputModel):
         return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value
 
     @model_validator(mode="after")
-    def _exclusion_leaves_something(self) -> Self:
+    def _every_entry_can_apply(self) -> Self:
         if DEFAULT_SCOPE in self.excluded_scopes:
             raise ValueError(
                 f"The scope '{DEFAULT_SCOPE}' cannot be excluded, the assignment would never apply."
             )
         if overlap := sorted(set(self.scopes) & set(self.excluded_scopes)):
             raise ValueError(
-                f"Scopes {overlap} are both included and excluded, they would never apply."
+                f"Scopes {overlap} are both included and excluded, these entries would never apply."
             )
         # the exclude filter is case-insensitive, cf. `resolve_scoped_settings`
         if never_matching := [
@@ -121,6 +121,6 @@ class NewAssignment(InputModel):
             )
         ]:
             raise ValueError(
-                f"Files matching {never_matching} always match an exclude filter, they would never apply."
+                f"File name filters {never_matching} always match an exclude filter, these entries would never apply."
             )
         return self

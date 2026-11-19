@@ -1,14 +1,17 @@
 """Settings queries on MongoDB."""
 
-from typing import Any
-
 from mongoengine import QuerySet
 
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import reference_id, to_settings
 from shared.domain.errors import NotFoundError
-from shared.domain.settings import Settings, SettingsStatus, split_unique_settings_name
+from shared.domain.settings import (
+    NewSettings,
+    Settings,
+    SettingsStatus,
+    split_unique_settings_name,
+)
 
 
 def _query(
@@ -82,10 +85,28 @@ def assigned_project_ids(unique_name: str) -> list[str]:
 
 
 @db_backend_function
-def create(*, owner_email: str | None, **fields: Any) -> Settings:
+def create(new: NewSettings, *, number: int, version: int) -> Settings:
     """Insert new settings, cf. `shared.db.settings`."""
-    owner = models.User.objects.get(email=owner_email) if owner_email else None
-    settings = models.Settings(owner=owner, **fields)
+    owner = models.User.objects.get(email=new.owner_email) if new.owner_email else None
+    settings = models.Settings(
+        owner=owner,
+        number=number,
+        version=version,
+        name=new.name,
+        description=new.description,
+        fasta_file_name=new.fasta_file_name,
+        speclib_file_name=new.speclib_file_name,
+        config_file_name=new.config_file_name,
+        config_params=new.config_params,
+        software_type=new.software_type,
+        software=new.software,
+        runner_name=new.runner_name,
+        metrics_type=new.metrics_type,
+        slurm_cpus_per_task=new.slurm_cpus_per_task,
+        slurm_mem=new.slurm_mem,
+        slurm_time=new.slurm_time,
+        num_threads=new.num_threads,
+    )
     settings.save(force_insert=True)
     return to_settings(settings)
 

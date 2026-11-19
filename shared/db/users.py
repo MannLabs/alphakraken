@@ -84,6 +84,7 @@ def update(email: str, **fields: Any) -> None:
 
 
 def _initials_taken_message(initials: str) -> str:
+    """Return the error message for initials that another user has."""
     return f"A user with initials '{initials}' already exists."
 
 

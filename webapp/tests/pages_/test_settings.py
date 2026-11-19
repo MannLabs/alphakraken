@@ -5,10 +5,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
+from shared.domain.errors import ValidationError
 from shared.runners import RUNNERS
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
@@ -74,6 +76,29 @@ def test_settings(
 
     assert not at.exception
     assert expected_data == at.table[0].value.to_dict()
+
+
+@pytest.mark.parametrize("software_type", ["msqc", "skyline", "custom"])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_renders_for_software_types_without_file_inputs(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    software_type: str,
+) -> None:
+    """A software type that lacks some of the file name inputs does not break the page."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    next(s for s in at.selectbox if s.label == "Type").set_value(software_type).run(
+        timeout=10
+    )
+
+    assert not at.exception
 
 
 @patch("shared.db.project_settings.find", return_value=[])
@@ -237,6 +262,35 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
 OWNER_SELECT_LABEL = "Owner"
 
 
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_archive_checkbox_names_the_latest_active_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """The checkbox names the version `settings.create` archives: the latest active one, not a newer archived one."""
+    mock_df.return_value = _settings_df().assign(
+        id=["new settings_v1", "new settings_v2"],
+        name=["new settings", "new settings"],
+        version=[1, 2],
+        status=["active", "inactive"],
+    )
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    assert [c.label for c in at.checkbox if c.label.startswith("Archive")] == [
+        "Archive previous version (1) after creating the new version"
+    ]
+    # version 3 will be created, the page only knows the active versions
+    assert any("new version of the existing settings" in i.value for i in at.info)
+
+
 @patch("shared.db.users.find")
 @patch("shared.db.project_settings.find", return_value=[])
 @patch("shared.db.projects.find", return_value=[])
@@ -342,3 +396,33 @@ def test_create_settings_passes_selected_owner(  # noqa: PLR0913
 
     assert not at.exception
     assert mock_create_settings.call_args.kwargs["owner_email"] == "a@b.de"
+
+
+@patch("shared.db.settings.create", side_effect=ValidationError(["archiving failed"]))
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_create_settings_reloads_settings_after_error(  # noqa: PLR0913
+    mock_df: MagicMock,
+    mock_find_settings: MagicMock,
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    mock_get_users: MagicMock,  # noqa: ARG001
+    mock_create_settings: MagicMock,
+) -> None:
+    """Test that the settings are read anew after a failed create: they exist if only archiving the previous version failed."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+    next(c for c in at.checkbox if c.label.startswith("I have uploaded")).check()
+    reads_before = mock_find_settings.call_count
+
+    next(b for b in at.button if b.label.startswith("Update settings")).click().run(
+        timeout=10
+    )
+
+    assert not at.exception
+    mock_create_settings.assert_called_once()
+    assert mock_find_settings.call_count == reads_before + 1

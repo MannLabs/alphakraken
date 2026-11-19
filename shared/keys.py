@@ -46,7 +46,7 @@ class InstrumentTypes(metaclass=ConstantsClass):
     SCIEX: str = "sciex"
 
 
-KNOWN_VENDOR_NAMES: tuple[str, ...] = tuple(InstrumentTypes.get_values())
+KNOWN_INSTRUMENT_TYPES: tuple[str, ...] = tuple(InstrumentTypes.get_values())
 
 
 class InternalPaths(metaclass=ConstantsClass):

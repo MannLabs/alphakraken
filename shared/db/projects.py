@@ -8,6 +8,7 @@ from shared.db._mongo import projects as _backend
 from shared.domain.errors import NotFoundError, ValidationError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewProject, Project, ProjectStatus
+from shared.keys import FALLBACK_PROJECT_ID
 
 
 def find(
@@ -87,7 +88,7 @@ def archive(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
-        ValidationError: if the project is not active.
+        ValidationError: if the project is not active or is the fallback project.
 
     """
     _set_status(project_id, ProjectStatus.INACTIVE)
@@ -98,13 +99,19 @@ def delete(project_id: str) -> None:
 
     Raises:
         NotFoundError: if there is no such project.
-        ValidationError: if the project is not active.
+        ValidationError: if the project is not active or is the fallback project.
 
     """
     _set_status(project_id, ProjectStatus.DELETED)
 
 
 def _set_status(project_id: str, status: str) -> None:
+    """Set the status of an active project, cf. `archive` and `delete`."""
+    # raw files without an active project are assigned to the fallback project
+    if project_id == FALLBACK_PROJECT_ID:
+        raise ValidationError(
+            [f"Project '{FALLBACK_PROJECT_ID}' cannot be archived or deleted."]
+        )
     current = get(project_id).status
     # archiving and deleting are final
     if current != ProjectStatus.ACTIVE:

@@ -72,7 +72,7 @@ class NewProject(InputModel):
         # the fallback project is exempt from the rule
         if value != FALLBACK_PROJECT_ID and not re.fullmatch(PROJECT_ID_REGEX, value):
             raise ValueError(
-                f"Invalid project id '{value}'. Please choose a different one."
+                f"Invalid project id '{value}': only upper-case letters and digits, not only digits."
             )
         return value
 

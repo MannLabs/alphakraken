@@ -14,13 +14,12 @@ for reading.
 # InvalidInputError. A REST route or MCP tool calling them must:
 # 1. declare the same parameters and pass them one by one, never a request body as `**payload`,
 # 2. reject unknown keys: FastAPI and FastMCP likely drop them silently by default, so a
-#    misspelled optional key would fall back to its default (e.g. `scope` -> all instruments);
+#    misspelled optional key would fall back to its default (e.g. `excluded_scope` -> none excluded);
 #    REST: a body model with `extra="forbid"` or the domain input type; MCP: check the received
 #    keys if FastMCP cannot forbid extra arguments,
 # 3. have a test sending a misspelled key that expects a validation error,
-# 4. answer the NotFoundError of a creating call (`projects.add`, `settings.create`,
-#    `project_settings.assign`) like a validation error, not with "not found": there it means
-#    that the request refers to an owner, project or settings that do not exist.
+# 4. derive `allow_fallback` from the caller's authentication (e.g. an admin role), never from
+#    the request, so that a client cannot grant itself the right to change the fallback project.
 
 from shared.db._mongo import connection as _connection
 

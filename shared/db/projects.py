@@ -69,10 +69,8 @@ def add(
 
     Raises:
         AlreadyExistsError: if the project id is in use.
-        NotFoundError: if there is no user with `owner_email`; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
         InvalidInputError: if a field is invalid, the project id was used by a deleted project,
-            the fallback project is not allowed, or the owner is inactive.
+            the fallback project is not allowed, or the owner does not exist or is not active.
 
     """
     new = parse(
@@ -82,7 +80,6 @@ def add(
         description=description,
         owner_email=owner_email,
     )
-    logging.info(f"Adding to DB: {new!r}")
     errors = []
     if new.project_id == FALLBACK_PROJECT_ID and not allow_fallback:
         errors.append(f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed.")
@@ -91,10 +88,11 @@ def add(
         errors.append(
             f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
-    errors += users.check_active(new.owner_email)
+    errors += users.owner_errors(new.owner_email)
     if errors:
         raise InvalidInputError(errors)
 
+    logging.info(f"Adding to DB: {new!r}")
     _backend.add(new)
 
 

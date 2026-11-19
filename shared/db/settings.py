@@ -82,13 +82,14 @@ def create(  # noqa: PLR0913
 
     :param slurm_cpus_per_task: None for the default of the software type, likewise `slurm_mem`,
         `slurm_time` and `num_threads`
-    :param archive_previous: archive the latest active version of the name afterwards
+    :param archive_previous: archive the latest active version of the name afterwards; if that
+        fails, e.g. as it was archived concurrently, the error is raised although the new version
+        exists, and a retry creates yet another version
 
     Raises:
-        NotFoundError: if there is no user with `owner_email`; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
+        AlreadyExistsError: if a concurrent create took the same version or number.
         InvalidInputError: if a field is invalid, the runner is unknown or cannot run the software
-            type, or the owner is inactive.
+            type, or the owner does not exist or is not active.
 
     """
     new = parse(
@@ -110,7 +111,7 @@ def create(  # noqa: PLR0913
         owner_email=owner_email,
     )
     errors = check_runner_supports_software_type(new.runner_name, new.software_type)
-    errors += users.check_active(new.owner_email)
+    errors += users.owner_errors(new.owner_email)
     if errors:
         raise InvalidInputError(errors)
 
@@ -137,7 +138,7 @@ def archive(unique_name: str) -> None:
         InvalidInputError: if the settings are not active.
 
     """
-    _check_active(get(unique_name), SettingsStatus.INACTIVE)
+    _check_status_change(get(unique_name), SettingsStatus.INACTIVE)
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 
@@ -151,17 +152,12 @@ def delete(unique_name: str) -> None:
 
     """
     settings = get(unique_name)
-    _check_active(settings, SettingsStatus.DELETED)
+    _check_status_change(settings, SettingsStatus.DELETED)
     # check and write are separate steps; a race between concurrent writes is accepted: an assignment made meanwhile points to deleted settings
     project_ids = _backend.assigned_project_ids(unique_name)
     # archiving and deleting a project are final, so its assignments never apply again
-    active_ids = (
-        sorted(
-            p.id
-            for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
-        )
-        if project_ids
-        else []
+    active_ids = sorted(
+        p.id for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
     )
     if active_ids:
         raise InvalidInputError(
@@ -175,7 +171,7 @@ def delete(unique_name: str) -> None:
     logging.info(f"Deleted settings: {unique_name=}")
 
 
-def _check_active(settings: Settings, new_status: str) -> None:
+def _check_status_change(settings: Settings, new_status: str) -> None:
     """Raise unless the settings are active."""
     # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if settings.status != SettingsStatus.ACTIVE:

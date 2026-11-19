@@ -324,6 +324,25 @@ def test_update_assignment_without_newer_version_raises(
     updatable["backend_set_settings"].assert_not_called()
 
 
+def test_update_assignment_reports_project_and_version_errors_together(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """The project errors come first and are reported with a missing newer version."""
+    updatable["find_projects"].return_value = [
+        factories.project(status=ProjectStatus.INACTIVE)
+    ]
+    updatable["latest_active"].return_value = None
+
+    with pytest.raises(InvalidInputError) as e:
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    assert [error.split(" '")[0] for error in e.value.errors] == [
+        "Project",
+        "No newer active version of settings",
+    ]
+    updatable["backend_set_settings"].assert_not_called()
+
+
 def test_update_assignment_whose_settings_are_gone_raises(
     updatable: dict[str, MagicMock],
 ) -> None:
@@ -345,7 +364,7 @@ def test_update_assignment_of_archived_project_raises(
     ]
 
     with pytest.raises(
-        InvalidInputError, match="Cannot change the settings assignments"
+        InvalidInputError, match=r"Project 'P1' is not active \(status 'inactive'\)"
     ):
         project_settings.update_to_latest("assignment1", allow_fallback=False)
 
@@ -373,7 +392,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
         patch(
             "shared.db.settings.check_runner_supports_software_type", return_value=[]
         ) as check_runner,
-        patch("shared.db.users.check_active", return_value=[]) as check_active,
+        patch("shared.db.users.owner_errors", return_value=[]) as owner_errors,
         patch("shared.db._mongo.settings.create") as backend_create,
         patch("shared.db._mongo.settings.set_status") as backend_set_status,
     ):
@@ -383,7 +402,7 @@ def creatable() -> Iterator[dict[str, MagicMock]]:
             "count": count,
             "get": get,
             "check_runner": check_runner,
-            "check_active": check_active,
+            "owner_errors": owner_errors,
             "backend_create": backend_create,
             "backend_set_status": backend_set_status,
         }
@@ -402,7 +421,7 @@ def test_create_settings_as_next_version(creatable: dict[str, MagicMock]) -> Non
     creatable["find"].assert_called_once_with(name="fallback", include_deleted=True)
     creatable["count"].assert_called_once_with(include_deleted=True)
     creatable["check_runner"].assert_called_once_with("slurm", "alphadia")
-    creatable["check_active"].assert_called_once_with("a@b.de")
+    creatable["owner_errors"].assert_called_once_with("a@b.de")
     creatable["backend_create"].assert_called_once_with(
         NewSettings(**CREATE_FIELDS, name="fallback", owner_email="a@b.de"),
         number=42,
@@ -417,7 +436,7 @@ def test_create_settings_first_version(creatable: dict[str, MagicMock]) -> None:
 
     stored = creatable["backend_create"].call_args.kwargs
     assert (stored["version"], stored["number"]) == (1, 1)
-    creatable["check_active"].assert_called_once_with(None)
+    creatable["owner_errors"].assert_called_once_with(None)
 
 
 def test_create_settings_with_invalid_field_raises(
@@ -452,12 +471,17 @@ def test_create_settings_reports_all_rule_errors(
 ) -> None:
     """The runner and the owner error are reported together."""
     creatable["check_runner"].return_value = ["Unknown runner 'slurm'"]
-    creatable["check_active"].return_value = ["User 'a@b.de' is inactive."]
+    creatable["owner_errors"].return_value = [
+        "User 'a@b.de' is not active (status 'inactive')."
+    ]
 
     with pytest.raises(InvalidInputError) as e:
         settings.create(**CREATE_FIELDS, name="fallback", owner_email="a@b.de")
 
-    assert e.value.errors == ["Unknown runner 'slurm'", "User 'a@b.de' is inactive."]
+    assert e.value.errors == [
+        "Unknown runner 'slurm'",
+        "User 'a@b.de' is not active (status 'inactive').",
+    ]
 
 
 def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> None:
@@ -594,10 +618,14 @@ def test_backend_set_status_of_unknown_project_raises(mock_models: MagicMock) ->
 
 
 @patch("shared.db._mongo.settings.set_status")
+@patch("shared.db.projects.find", return_value=[])
 @patch("shared.db._mongo.settings.assigned_project_ids", return_value=[])
 @patch("shared.db.settings.get")
 def test_delete_settings(
-    mock_get: MagicMock, mock_assigned: MagicMock, mock_set_status: MagicMock
+    mock_get: MagicMock,
+    mock_assigned: MagicMock,
+    mock_find_projects: MagicMock,  # noqa: ARG001
+    mock_set_status: MagicMock,
 ) -> None:
     """Active settings that are not assigned are soft-deleted."""
     mock_get.return_value = factories.settings()
@@ -678,11 +706,11 @@ def test_delete_settings_assigned_only_to_archived_or_deleted_projects(
 # project writes
 
 
-@patch("shared.db.users.check_active", return_value=[])
+@patch("shared.db.users.owner_errors", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_project(
-    mock_find: MagicMock, mock_backend_add: MagicMock, mock_check_active: MagicMock
+    mock_find: MagicMock, mock_backend_add: MagicMock, mock_owner_errors: MagicMock
 ) -> None:
     """A project with an unused id and an active owner is stored, with the fields cleaned."""
     projects.add(
@@ -694,24 +722,24 @@ def test_add_project(
     )
 
     mock_find.assert_called_once_with(ids=["P123"], include_deleted=True)
-    mock_check_active.assert_called_once_with("a@b.de")
+    mock_owner_errors.assert_called_once_with("a@b.de")
     mock_backend_add.assert_called_once_with(
         NewProject(project_id="P123", name="n", owner_email="a@b.de")
     )
 
 
-@patch("shared.db.users.check_active", return_value=[])
+@patch("shared.db.users.owner_errors", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_project_without_owner(
     mock_find: MagicMock,  # noqa: ARG001
     mock_backend_add: MagicMock,
-    mock_check_active: MagicMock,
+    mock_owner_errors: MagicMock,
 ) -> None:
     """A project needs no owner."""
     projects.add(project_id="P123", name="n", owner_email="", allow_fallback=False)
 
-    mock_check_active.assert_called_once_with(None)
+    mock_owner_errors.assert_called_once_with(None)
     mock_backend_add.assert_called_once()
 
 
@@ -745,13 +773,13 @@ def test_add_project_with_id_of_deleted_project_raises(
 
 
 @pytest.mark.parametrize("allow_fallback", [True, False])
-@patch("shared.db.users.check_active", return_value=[])
+@patch("shared.db.users.owner_errors", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_fallback_project_only_if_allowed(
     mock_find: MagicMock,  # noqa: ARG001
     mock_backend_add: MagicMock,
-    mock_check_active: MagicMock,  # noqa: ARG001
+    mock_owner_errors: MagicMock,  # noqa: ARG001
     *,
     allow_fallback: bool,
 ) -> None:
@@ -778,7 +806,9 @@ def test_add_project_with_inactive_owner_raises(
     """Only an active user can own a new project."""
     mock_get_user.return_value = factories.user(status=UserStatus.INACTIVE)
 
-    with pytest.raises(InvalidInputError, match="User 'a@b.de' is inactive"):
+    with pytest.raises(
+        InvalidInputError, match=r"User 'a@b.de' is not active \(status 'inactive'\)"
+    ):
         projects.add(
             project_id="P123", name="n", owner_email="a@b.de", allow_fallback=False
         )
@@ -945,8 +975,10 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
 
 
 def test_assign_settings_with_defaults(assignable: dict[str, MagicMock]) -> None:
-    """Without scopes and filters, the assignment applies to all instruments and files."""
-    result = project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+    """Without exclusions and filters, the assignment applies to all files of its scopes."""
+    result = project_settings.assign(
+        "P1", "fallback_v7", allow_fallback=False, scopes=["*"]
+    )
 
     assignable["backend_assign"].assert_called_once_with(
         NewAssignment(
@@ -994,8 +1026,10 @@ def test_assign_settings_to_archived_or_deleted_project_raises(
     """Assignments of archived and deleted projects are frozen."""
     assignable["find_projects"].return_value = [factories.project(status=status)]
 
-    with pytest.raises(InvalidInputError, match="archived or deleted project 'P1'"):
-        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+    with pytest.raises(
+        InvalidInputError, match=f"Project 'P1' is not active \\(status '{status}'\\)"
+    ):
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
@@ -1008,9 +1042,10 @@ def test_assign_archived_or_deleted_settings_raises(
     assignable["get_settings"].return_value = factories.settings(status=status)
 
     with pytest.raises(
-        InvalidInputError, match="Cannot assign archived or deleted settings"
+        InvalidInputError,
+        match=f"Settings 'fallback' version 7 is not active \\(status '{status}'\\)",
     ):
-        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
@@ -1028,7 +1063,7 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
     "scopes",
     [
         {"scopes": ["test9"]},
-        {"excluded_scopes": ["test9"]},
+        {"scopes": ["*"], "excluded_scopes": ["test9"]},
         # reported once
         {"scopes": ["test9"], "excluded_scopes": ["test9"]},
     ],
@@ -1068,6 +1103,24 @@ def test_assign_with_fully_excluded_scope_raises(
     assignable["backend_assign"].assert_not_called()
 
 
+def test_assign_reports_unknown_project_and_settings_as_rule_errors(
+    assignable: dict[str, MagicMock],
+) -> None:
+    """Unknown references are reported with the other rule errors, not as a NotFoundError."""
+    assignable["find_projects"].return_value = []
+    assignable["get_settings"].side_effect = NotFoundError("No settings fallback_v9")
+
+    with pytest.raises(InvalidInputError) as e:
+        project_settings.assign(
+            "P9", "fallback_v9", allow_fallback=False, scopes=["test9"]
+        )
+
+    assert e.value.errors[0] == "Project 'P9' does not exist."
+    assert "Settings 'fallback_v9' do not exist." in e.value.errors
+    assert any(error.startswith("Unknown scopes") for error in e.value.errors)
+    assignable["backend_assign"].assert_not_called()
+
+
 def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> None:
     """The errors of the scopes, the project and the settings are reported together."""
     assignable["find_projects"].return_value = [
@@ -1083,9 +1136,9 @@ def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> Non
         )
 
     assert [error.split(",")[0].split(" '")[0] for error in e.value.errors] == [
+        "Project",
         "Unknown scopes ['test9']",
-        "Cannot change the settings assignments of archived or deleted project",
-        "Cannot assign archived or deleted settings",
+        "Settings",
     ]
 
 
@@ -1106,6 +1159,7 @@ def test_fallback_assignments_change_only_if_allowed(
             FALLBACK_PROJECT_ID,
             "fallback_v7",
             allow_fallback=allow_fallback,
+            scopes=["*"],
             raw_file_id_filter=["other"],
         ),
         lambda: project_settings.unassign("assignment1", allow_fallback=allow_fallback),
@@ -1145,6 +1199,7 @@ def test_assign_same_settings_with_same_filters_raises(
             "P1",
             "fallback_v7",
             allow_fallback=False,
+            scopes=["*"],
             raw_file_id_filter=["b", "a"],
             raw_file_id_exclude_filter=["blank"],
         )
@@ -1162,7 +1217,11 @@ def test_assign_same_settings_with_different_filters_succeeds(
     ]
 
     project_settings.assign(
-        "P1", "fallback_v7", allow_fallback=False, raw_file_id_filter=["b"]
+        "P1",
+        "fallback_v7",
+        allow_fallback=False,
+        scopes=["*"],
+        raw_file_id_filter=["b"],
     )
 
     assignable["backend_assign"].assert_called_once()
@@ -1186,7 +1245,7 @@ def test_unassign_settings_from_archived_project_raises(
     ]
 
     with pytest.raises(
-        InvalidInputError, match="Cannot change the settings assignments"
+        InvalidInputError, match=r"Project 'P1' is not active \(status 'inactive'\)"
     ):
         project_settings.unassign("assignment1", allow_fallback=False)
 
@@ -1311,7 +1370,7 @@ def test_backend_get_project_id_of_unknown_assignment_raises(
 
 
 def test_backend_assigned_project_ids(mock_models: MagicMock) -> None:
-    """Only the assignments of the given settings are read, their project ids come sorted and unique."""
+    """Only the assignments of the given settings are read, their project ids come unique."""
     settings_document = _settings_document()
     mock_models.Settings.objects.return_value.first.return_value = settings_document
     mock_models.ProjectSettings.objects.return_value = [
@@ -1323,7 +1382,7 @@ def test_backend_assigned_project_ids(mock_models: MagicMock) -> None:
 
     result = settings_backend.assigned_project_ids("fallback_v7")
 
-    assert result == ["P1", "P2"]
+    assert sorted(result) == ["P1", "P2"]
     mock_models.Settings.objects.assert_called_once_with(name="fallback", version=7)
     mock_models.ProjectSettings.objects.assert_called_once_with(
         settings=settings_document

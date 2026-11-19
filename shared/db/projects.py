@@ -80,7 +80,6 @@ def add(
         description=description,
         owner_email=owner_email,
     )
-    logging.info(f"Adding to DB: {new!r}")
     errors = []
     if new.project_id == FALLBACK_PROJECT_ID and not allow_fallback:
         errors.append(f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed.")
@@ -93,6 +92,7 @@ def add(
     if errors:
         raise InvalidInputError(errors)
 
+    logging.info(f"Adding to DB: {new!r}")
     _backend.add(new)
 
 

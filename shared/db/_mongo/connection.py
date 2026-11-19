@@ -1,8 +1,11 @@
 """Connection handling of the Mongo backend."""
 
+import functools
 import logging
 import os
+from collections.abc import Callable
 from functools import cache
+from typing import ParamSpec, TypeVar
 
 from mongoengine import (
     ConnectionFailure,
@@ -12,6 +15,9 @@ from mongoengine.connection import get_db
 
 from shared.db._mongo.errors import translate_errors
 from shared.keys import EnvVars
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 DB_NAME: str = "krakendb"
 
@@ -65,8 +71,22 @@ def ensure_connected() -> None:
     connect_db(raise_on_error=True)
 
 
-@translate_errors
+def db_backend_function(func: Callable[P, R]) -> Callable[P, R]:
+    """Make `func` connect on first use and raise domain errors instead of mongoengine and pymongo ones.
+
+    For every function of the backend that accesses the database.
+    """
+
+    @functools.wraps(func)
+    @translate_errors
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        ensure_connected()
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@db_backend_function
 def ping() -> None:
     """Check that the database is reachable, cf. `shared.db.ping`."""
-    ensure_connected()
     get_db().command("ping")

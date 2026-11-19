@@ -18,7 +18,7 @@ NOW = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 def mock_slurm_job() -> Iterator[MagicMock]:
     """Patch the SlurmJob model and the clock of the backend."""
     with (
-        patch("shared.db._mongo.slurm_jobs.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.slurm_jobs.datetime") as mock_datetime,
         patch("shared.db._mongo.slurm_jobs.models") as mock_models,
     ):

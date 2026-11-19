@@ -16,6 +16,7 @@ from dags.impl.s3_uploader_impl import (
 )
 
 from shared.domain.raw_files import BackupStatus
+from shared.tests.factories import raw_file
 
 
 def test_s3_upload_failed_exception_is_airflow_fail_exception() -> None:
@@ -101,6 +102,7 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 
     upload_raw_file_to_s3(ti, **kwargs)
 
+    mock_get_raw_file.assert_called_once_with("test.raw", include_file_info=True)
     mock_update.assert_any_call(
         "test.raw", backup_status=BackupStatus.UPLOAD_IN_PROGRESS
     )
@@ -315,12 +317,12 @@ def test_prepare_upload_should_create_correct_mapping(
     """Test _prepare_upload creates correct file paths to S3 key mapping."""
     mock_get_key_prefix.return_value = "prefix/"
 
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {
-        "file1.d/analysis.tdf": ("hash1", 123, "etag1"),
-        "file1.d/1234.m/file.txt": ("hash2", 1234, "etag2"),
-    }
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        file_info={
+            "file1.d/analysis.tdf": ("hash1", 123, "etag1"),
+            "file1.d/1234.m/file.txt": ("hash2", 1234, "etag2"),
+        }
+    )
     target_folder_path = Path("/dst/backup")
 
     result, key_prefix = _prepare_upload(mock_raw_file, target_folder_path)

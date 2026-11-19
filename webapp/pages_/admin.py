@@ -2,32 +2,27 @@
 
 import pandas as pd
 import streamlit as st
-from pages_.impl.admin_utils import (
-    end_of_day,
-    get_suppressions_df,
-    validate_suppression,
-)
+from pages_.impl.admin_utils import end_of_day, get_suppressions_df
 from service.admin import is_admin
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.timezone import display_now, to_display_timezone
-from service.user_input import clean_initials, clean_messenger_id, parse_user_row
+from service.user_input import parse_user_row
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.db import alerts as alert_store
 from shared.db import users as user_store
-from shared.domain.users import UserStatus
+from shared.domain.inputs import max_length
+from shared.domain.users import NewUser, UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.yamlsettings import get_instruments
 
-_INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
+_INSTRUMENT_IDS = list(get_instruments())
 
 _MESSENGER_ID_HELP = (
     "Id of the user in the messenger (e.g. Slack member ID), inserted into the user alerts URL to notify the user directly "
@@ -78,24 +73,20 @@ c1, _ = st.columns([0.5, 0.5])
 c1.markdown("### Add user")
 
 with c1.form("add_user_form"):
-    new_email = st.text_input("Email*", max_chars=128)
-    new_initials = st.text_input("Initials*", max_chars=8)
+    new_email = st.text_input("Email*", max_chars=max_length(NewUser, "email"))
+    new_initials = st.text_input("Initials*", max_chars=max_length(NewUser, "initials"))
     new_messenger_id = st.text_input(
-        "Messenger id", max_chars=64, help=_MESSENGER_ID_HELP
+        "Messenger id",
+        max_chars=max_length(NewUser, "messenger_id"),
+        help=_MESSENGER_ID_HELP,
     )
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
 if add_submit:
-    try:
+    with toast_result("Added user."):
         user_store.add(
-            email=new_email,
-            initials=clean_initials(new_initials),
-            messenger_id=clean_messenger_id(new_messenger_id),
+            email=new_email, initials=new_initials, messenger_id=new_messenger_id
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast(f"Added user '{clean_initials(new_initials)}'.")
 
 # cleared, as the report lists the failed rows
 with c1.form("bulk_add_users_form"):
@@ -113,11 +104,13 @@ if bulk_submit:
             continue
         try:
             email, initials, messenger_id = parse_user_row(row)
-            user_store.add(email=email, initials=initials, messenger_id=messenger_id)
+            added_user = user_store.add(
+                email=email, initials=initials, messenger_id=messenger_id
+            )
         except Exception as e:  # noqa: BLE001
             failures.append(f"line {line_number}: {e}")
         else:
-            added.append(initials)
+            added.append(added_user.initials)
     # shown after the rerun, which refreshes the users table
     set_session_state(SessionStateKeys.BULK_ADD_USERS_REPORT, (added, failures))
     st.rerun()
@@ -145,12 +138,15 @@ if all_users:
 
     # keyed by user, so that the input is prefilled anew when another user is selected
     initials = c1.text_input(
-        "Initials*", value=user.initials, max_chars=8, key=f"initials_{selected_email}"
+        "Initials*",
+        value=user.initials,
+        max_chars=max_length(NewUser, "initials"),
+        key=f"initials_{selected_email}",
     )
     messenger_id = c1.text_input(
         "Messenger id",
         value=user.messenger_id or "",
-        max_chars=64,
+        max_chars=max_length(NewUser, "messenger_id"),
         key=f"messenger_id_{selected_email}",
         help=_MESSENGER_ID_HELP,
     )
@@ -160,16 +156,10 @@ if all_users:
 
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
-        try:
+        with toast_result(f"Updated user '{selected_email}'."):
             user_store.update(
-                selected_email,
-                initials=clean_initials(initials),
-                messenger_id=clean_messenger_id(messenger_id),
+                selected_email, initials=initials, messenger_id=messenger_id
             )
-        except Exception as e:  # noqa: BLE001
-            show_error_toast(str(e))
-        else:
-            show_success_toast(f"Updated user '{clean_initials(initials)}'.")
 
     is_active = user.status == UserStatus.ACTIVE
     if col_status.button(
@@ -177,12 +167,12 @@ if all_users:
         disabled=DISABLE_WRITE,
         help="Inactive users can't be selected as owner, but stay owner of existing projects and settings.",
     ):
-        user_store.set_status(
-            selected_email, UserStatus.INACTIVE if is_active else UserStatus.ACTIVE
-        )
-        show_success_toast(
+        with toast_result(
             f"{'Deactivated' if is_active else 'Reactivated'} user '{user.initials}'."
-        )
+        ):
+            user_store.set_status(
+                selected_email, UserStatus.INACTIVE if is_active else UserStatus.ACTIVE
+            )
 
 
 # ########################################### ALERT SUPPRESSIONS
@@ -228,12 +218,8 @@ else:
                 disabled=DISABLE_WRITE,
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result("Deleted alert suppression."):
                     alert_store.delete_suppression(suppression_id)
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
-                else:
-                    show_success_toast("Deleted alert suppression.")
 
 st.markdown("### Add suppression")
 
@@ -283,24 +269,13 @@ with st.form("add_suppression_form"):
     )
 
 if form_submit:
-    try:
-        validate_suppression(
+    with toast_result("Added alert suppression."):
+        alert_store.add_suppression(
             alert=alert,
             instrument_id=instrument_id,
             identifier=identifier,
             details=details,
             comment=comment,
-        )
-        alert_store.add_suppression(
-            alert=alert.strip(),
-            instrument_id=instrument_id,
-            identifier=identifier.strip(),
-            details=details.strip(),
-            comment=comment.strip(),
             expires_at=end_of_day(expires_on) if expires_on else None,
-            created_by=empty_to_none(created_by),
+            created_by=created_by,
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast("Added alert suppression.")

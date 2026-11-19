@@ -1,6 +1,5 @@
 """Page allowing Project mgmt."""
 
-import re
 from typing import Any
 
 import pandas as pd
@@ -15,25 +14,23 @@ from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS
-from shared.domain.projects import ProjectStatus
+from shared.domain.inputs import max_length
+from shared.domain.projects import NewProject, ProjectStatus
 from shared.domain.settings import SettingsStatus
-from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 from shared.path_views import Locations
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.settings_scope_resolver import known_scopes
+from shared.yamlsettings import get_instruments
 
-_INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
-_INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
-SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
+SCOPE_OPTIONS = known_scopes()
 DEFAULT_SCOPE_DISPLAY = "(all)"
 FALLBACK_ADMIN_ONLY_MESSAGE = (
     "Changing settings assignment to _FALLBACK project requires admin privileges."
@@ -45,13 +42,6 @@ _log(f"loading {__file__} {get_all_query_params()}")
 def _split_filter(text: str) -> list[str]:
     """Split a comma-separated filter input into its non-empty entries."""
     return [t.strip() for t in text.split(",") if t.strip()]
-
-
-def _check_assignment_allowed(project_id: str) -> None:
-    """Raise if the assignments of the project can't be changed by the current session."""
-    # the buttons are disabled as well, but this is enforced client-side only
-    if project_id == FALLBACK_PROJECT_ID and not is_admin():
-        raise PermissionError(FALLBACK_ADMIN_ONLY_MESSAGE)
 
 
 def _display_scope(scope: str) -> str:
@@ -190,14 +180,13 @@ with c_assign1:
                     help=f"Unassign '{ps.settings.name}' from this project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                     icon=":material/link_off:",
                 ):
-                    try:
-                        _check_assignment_allowed(selected_project_id)
-                        project_settings_store.unassign(ps_id)
-                        show_success_toast(
-                            f"Removed settings assignment from project {selected_project_id}."
+                    with toast_result(
+                        f"Removed settings assignment from project {selected_project_id}."
+                    ):
+                        # the button is disabled as well, but only on the client
+                        project_settings_store.unassign(
+                            ps_id, allow_fallback=is_admin()
                         )
-                    except Exception as e:  # noqa: BLE001
-                        show_error_toast(str(e))
 
                 update_help = (
                     f"Update to version {latest.version}"
@@ -211,36 +200,16 @@ with c_assign1:
                     help=update_help,
                     icon=":material/upgrade:",
                 ):
-                    try:
-                        _check_assignment_allowed(selected_project_id)
-                        project_settings_store.check_not_assigned_with_same_filters(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            list(ps.raw_file_id_filter),
-                            list(ps.raw_file_id_exclude_filter),
+                    with toast_result(
+                        f"Updated '{ps.settings.name}' to its latest version."
+                    ):
+                        project_settings_store.update_to_latest(
+                            ps_id, allow_fallback=is_admin()
                         )
-                        project_settings_store.unassign(ps_id)
-                        project_settings_store.assign(
-                            selected_project_id,
-                            latest.id,  # type: ignore[union-attr]
-                            scopes=list(ps.scopes),
-                            excluded_scopes=list(ps.excluded_scopes),
-                            raw_file_id_filter=list(ps.raw_file_id_filter),
-                            raw_file_id_exclude_filter=list(
-                                ps.raw_file_id_exclude_filter
-                            ),
-                        )
-                        show_success_toast(
-                            f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
-                        )
-                    except Exception as e:  # noqa: BLE001
-                        show_error_toast(str(e))
         else:
             st.info("No settings assigned to this project.")
 
-        all_settings = [
-            s for s in settings_store.find() if s.status == SettingsStatus.ACTIVE
-        ]
+        all_settings = settings_store.find(statuses=[SettingsStatus.ACTIVE])
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
@@ -258,19 +227,19 @@ with c_assign1:
 
             c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
             selected_scopes = c1.multiselect(
-                "Select instrument or vendor scopes",
+                "Select instrument or instrument type scopes",
                 options=SCOPE_OPTIONS,
                 default=[DEFAULT_SCOPE],
                 format_func=_display_scope,
                 key="assign_scopes_select",
-                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, vendor name = all instruments of that vendor, instrument ID = that instrument.",
+                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, instrument type = all instruments of that type, instrument ID = that instrument.",
             )
 
             selected_excluded_scopes = c2.multiselect(
                 "Exclude scopes (optional)",
                 options=SCOPE_OPTIONS[1:],
                 key="assign_excluded_scopes_select",
-                help="Vendors or instruments to exclude. Exclusion wins over inclusion.",
+                help="Instrument types or instruments to exclude. Exclusion wins over inclusion.",
             )
 
             raw_file_id_filter_input = c3.text_input(
@@ -293,12 +262,14 @@ with c_assign1:
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):
-                try:
-                    _check_assignment_allowed(selected_project_id)
+                with toast_result(
+                    f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
+                ):
                     new_settings_id = settings_options_map[selected_settings_display]
                     project_settings_store.assign(
                         selected_project_id,
                         new_settings_id,
+                        allow_fallback=is_admin(),
                         scopes=selected_scopes,
                         excluded_scopes=selected_excluded_scopes,
                         raw_file_id_filter=_split_filter(raw_file_id_filter_input),
@@ -306,11 +277,6 @@ with c_assign1:
                             raw_file_id_exclude_filter_input
                         ),
                     )
-                    show_success_toast(
-                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
 
 with c_assign2:
     if selected_project_id:
@@ -320,7 +286,7 @@ with c_assign2:
         )
         try:
             resolved_df = get_resolved_settings_df(
-                selected_project_id, _INSTRUMENT_IDS, _INSTRUMENTS_CONFIG
+                selected_project_id, get_instruments()
             )
         except Exception as e:  # noqa: BLE001
             st.error(f"Could not resolve settings: {e}")
@@ -358,20 +324,20 @@ with c_assign2:
 form_items = {
     "project_id": {
         "label": "Project Id*",
-        "max_chars": 16,
+        "max_chars": max_length(NewProject, "project_id"),
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
     },
     "project_name": {
         "label": "Project Name*",
-        "max_chars": 64,
+        "max_chars": max_length(NewProject, "name"),
         "placeholder": "e.g. Plasma project 42",
         "help": "Human-readable name of the project.",
     },
     "project_description": {
         "label": "Project Description",
-        "max_chars": 256,
+        "max_chars": max_length(NewProject, "description"),
         "placeholder": "(optional)",
         "help": "Human-readable project details.",
     },
@@ -390,7 +356,7 @@ with c1.expander("Click here for help ..."):
         - Archived projects are not shown and their settings assignments can no longer be changed
         - New raw files for archived projects are assigned to the fallback project
         - Deleted projects are no longer shown, behave like archived ones, and their id cannot be reused. Archived projects cannot be deleted
-        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
+        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise an instrument type or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
         """,
@@ -414,38 +380,15 @@ with c1.form("create_project_form"):
     )
 
 
-ALLOWED_CHARACTERS_IN_PROJECT_ID = r"[^A-Z0-9]"
-SPECIAL_PROJECT_IDS = ["_FALLBACK"]
-
-
-def _check_project_id(project_id: str) -> None:
-    """Check if the project id is valid, raise ValueError if not."""
-    if (
-        project_id is None
-        or len(project_id) < 4  # noqa: PLR2004
-        or len(project_id) > 16  # noqa: PLR2004
-        or project_id.isdigit()
-        or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
-    ) and project_id not in SPECIAL_PROJECT_IDS:
-        raise ValueError(
-            f"Invalid project id '{project_id}'. Please choose a different one."
-        )
-
-
 if form_submit:
-    try:
-        _check_project_id(empty_to_none(project_id))
-
+    with toast_result(f"Added new project '{project_id}' to the database."):
         project_store.add(
-            project_id=empty_to_none(project_id),
-            name=empty_to_none(project_name),
+            project_id=project_id,
+            name=project_name,
             description=project_description,
             owner_email=owner_email,
+            allow_fallback=is_admin(),
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast(f"Added new project '{project_id}' to the database.")
 
 
 # ########################################### ARCHIVE/DELETE PROJECTS
@@ -476,19 +419,13 @@ else:
                 disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
                 icon=":material/archive:",
             ):
-                try:
+                with toast_result(f"Archived project '{p.id}'."):
                     project_store.archive(p.id)
-                    show_success_toast(f"Archived project '{p.id}'.")
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
             if col_delete.button(
                 "Delete",
                 key=f"delete_{p.id}",
                 disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result(f"Deleted project '{p.id}'."):
                     project_store.delete(p.id)
-                    show_success_toast(f"Deleted project '{p.id}'.")
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))

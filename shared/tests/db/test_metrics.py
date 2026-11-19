@@ -10,6 +10,7 @@ import pytest
 from shared.db._mongo import metrics as backend
 from shared.db._mongo import models
 from shared.db.metrics import add, find, latest_by_raw_file
+from shared.domain.errors import InvalidInputError
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics
 
@@ -61,31 +62,6 @@ def test_to_metrics_without_output_path() -> None:
     assert result.output_display_base_path is None
 
 
-def test_to_metrics_renames_legacy_keys() -> None:
-    """Keys of older calculator versions are served under their current name."""
-    document = _document(values={"raw:gradient_length_m": 20.0})
-
-    assert backend._to_metrics(document).values == {"gradient_length": 20.0}
-
-
-def test_to_metrics_prefers_current_key_over_legacy_key() -> None:
-    """If a document holds both, the current key wins."""
-    document = _document(
-        values={"raw:gradient_length_m": 20.0, "gradient_length": 21.0}
-    )
-
-    assert backend._to_metrics(document).values == {"gradient_length": 21.0}
-
-
-def test_stored_keys_include_legacy_keys() -> None:
-    """A projection on a current key also loads its legacy key."""
-    assert backend._stored_keys(["gradient_length", "proteins"]) == [
-        "gradient_length",
-        "proteins",
-        "raw:gradient_length_m",
-    ]
-
-
 # latest_by_raw_file
 
 
@@ -108,7 +84,7 @@ def mock_objects() -> Iterator[MagicMock]:
         _document("f2", MetricsTypes.ALPHADIA, NAIVE_TIME, values={"proteins": 3}),
     ]
     with (
-        patch("shared.db._mongo.metrics.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.metrics.models") as mock_models,
     ):
         mock_models.Metrics.objects.return_value = query
@@ -135,11 +111,11 @@ def test_latest_by_raw_file_keeps_newest_per_type(mock_objects: MagicMock) -> No
 def test_latest_by_raw_file_projects_fields_with_metadata(
     mock_objects: MagicMock,
 ) -> None:
-    """A projection always loads the metadata, plus the fields and their legacy keys."""
+    """A projection always loads the metadata, plus the fields."""
     latest_by_raw_file(["f1"], fields=["gradient_length"])
 
     mock_objects.return_value.only.assert_called_once_with(
-        *backend._METADATA_FIELDS, "gradient_length", "raw:gradient_length_m"
+        *backend._METADATA_FIELDS, "gradient_length"
     )
 
 
@@ -171,7 +147,7 @@ def test_find_requires_a_condition() -> None:
         find()
 
 
-@patch("shared.db._mongo.metrics.ensure_connected")
+@patch("shared.db._mongo.connection.ensure_connected")
 @patch("shared.db._mongo.metrics.models")
 def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa: ARG001
     """Metrics are stored for an existing raw file, with the values as fields of the document."""
@@ -195,4 +171,47 @@ def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa
         output_display_base_path="/output",
         proteins=5000,
     )
-    mock_models.Metrics.return_value.save.assert_called_once()
+    # never overwrites existing metrics
+    mock_models.Metrics.return_value.save.assert_called_once_with(force_insert=True)
+
+
+@pytest.mark.parametrize(
+    ("name", "error"),
+    [
+        ("type", "values: 'type' is a field or method of a metrics entry."),
+        (
+            "created_at_",
+            "values: 'created_at_' is a field or method of a metrics entry.",
+        ),
+        ("id", "values: 'id' is a field or method of a metrics entry."),
+        ("validate", "values: 'validate' is a field or method of a metrics entry."),
+        ("objects", "values: 'objects' is a field or method of a metrics entry."),
+        ("_id", "values: '_id' must not start with '_'."),
+        ("_private", "values: '_private' must not start with '_'."),
+        ("raw.proteins", "values: 'raw.proteins' must not contain '.' or '$'."),
+        ("$set", "values: '$set' must not contain '.' or '$'."),
+    ],
+)
+@patch("shared.db._mongo.connection.ensure_connected")
+@patch.object(models.Metrics, "save")
+def test_add_rejects_value_names_that_cannot_be_stored(
+    mock_save: MagicMock,
+    mock_connected: MagicMock,  # noqa: ARG001
+    name: str,
+    error: str,
+) -> None:
+    """A value must not replace a field or method of the document, nor be dropped or read as a path or an operator."""
+    # the real model, as the check reads its attributes; rejected before the database is asked
+    with pytest.raises(InvalidInputError) as e:
+        add(
+            "f1",
+            metrics_type="alphadia",
+            values={name: 1, "proteins": 5000},
+            settings_name="fallback",
+            settings_version=1,
+            relative_output_path="P1/out_f1/fallback_v1",
+            output_display_base_path="/output",
+        )
+
+    assert e.value.errors == [error]
+    mock_save.assert_not_called()

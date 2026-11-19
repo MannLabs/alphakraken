@@ -61,10 +61,7 @@ def _record(alert: str, key: str, last_notified: datetime | None = None) -> Aler
 
 @pytest.fixture(autouse=True)
 def no_project_owner() -> Generator[Mock, None, None]:
-    """Files have no project owner unless a test says otherwise.
-
-    Patched under the spelling imported by `alert_manager` (via `sys.path`), not `monitoring.alerts`.
-    """
+    """Files have no project owner unless a test says otherwise."""
     with patch("shared.db.users.project_owner", return_value=None) as owner:
         yield owner
 

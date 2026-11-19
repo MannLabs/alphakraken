@@ -526,8 +526,6 @@ def compute_metrics(
     )
 
 
-MAX_STATUS_DETAILS_LENGTH = 1024
-
 _TASK_GROUP_PREFIX = f"{TaskGroups.PROCESSING}."
 _PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_JOB_RESULT}"
@@ -654,9 +652,6 @@ def _extract_errors(
 
 
 def _build_status_details(errors: list[tuple[str, str]]) -> str:
-    """Join per-branch error tuples into a single status_details string, truncating if needed."""
+    """Join per-branch error tuples into a single status_details string; `raw_files.update` truncates it."""
     details = "; ".join(f"[{name}] {err}" for name, err in errors)
-    details = f"error while processing: {details}"
-    if len(details) > MAX_STATUS_DETAILS_LENGTH:
-        details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
-    return details
+    return f"error while processing: {details}"

@@ -67,7 +67,7 @@ class RawFile(Document):
     project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
-    # the pipeline truncates to this, cf. `MAX_STATUS_DETAILS_LENGTH`
+    # longer ones are truncated, cf. `RawFileUpdate`
     status_details = StringField(max_length=1024)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes

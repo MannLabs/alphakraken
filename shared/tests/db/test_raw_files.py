@@ -397,8 +397,8 @@ def test_update_passes_only_the_given_fields(mock_backend_update: MagicMock) -> 
     ("fields_", "error"),
     [
         (
-            {"status_details": "x" * 1025},
-            "status_details: String should have at most 1024 characters",
+            {"s3_upload_path": "x" * 1025},
+            "s3_upload_path: String should have at most 1024 characters",
         ),
         ({"size": -2}, "size: Input should be greater than or equal to -1"),
         ({"new_status": 7}, "status: Input should be a valid string"),

@@ -17,7 +17,9 @@ for reading.
 #    misspelled optional key would fall back to its default (e.g. `excluded_scope` -> none excluded);
 #    REST: a body model with `extra="forbid"` or the domain input type; MCP: check the received
 #    keys if FastMCP cannot forbid extra arguments,
-# 3. have a test sending a misspelled key that expects a validation error.
+# 3. have a test sending a misspelled key that expects a validation error,
+# 4. derive `allow_fallback` from the caller's authentication (e.g. an admin role), never from
+#    the request, so that a client cannot grant itself the right to change the fallback project.
 
 from shared.db._mongo import connection as _connection
 

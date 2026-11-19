@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from shared.db.models import RawFile, Settings, get_created_at_year_month
+from shared.domain.raw_files import RawFile, get_created_at_year_month
+from shared.domain.settings import Settings
 
 OUTPUT_FOLDER_PREFIX = "out_"
 
@@ -45,5 +46,5 @@ def get_output_folder_rel_path(
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
     if settings is not None:
-        path = path / settings.unique_name
+        path = path / settings.id
     return path

@@ -29,9 +29,8 @@ from plugins.s3.s3_utils import (
     normalize_bucket_name,
 )
 
-from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFile, get_created_at_year_month
-from shared.domain.raw_files import BackupStatus
+from shared.db import raw_files as raw_file_store
+from shared.domain.raw_files import BackupStatus, RawFile, get_created_at_year_month
 from shared.yamlsettings import get_s3_upload_config
 
 
@@ -66,7 +65,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         )
 
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id, include_file_info=True)
 
     internal_target_folder_path = Path(
         kwargs[DagContext.PARAMS][DagParams.INTERNAL_TARGET_FOLDER_PATH]
@@ -80,7 +79,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
 
     logging.info(f"Starting S3 upload for {raw_file_id} to {bucket_name=} {region=}")
 
-    update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_IN_PROGRESS)
+    raw_file_store.update(raw_file_id, backup_status=BackupStatus.UPLOAD_IN_PROGRESS)
 
     try:
         s3_client = get_s3_client(region)
@@ -115,7 +114,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         msg = f"S3 upload failed for {raw_file_id}: {type(e).__name__} - {e}"
         raise S3UploadFailedException(msg) from e
     else:
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id,
             backup_status=BackupStatus.UPLOAD_DONE,
             s3_upload_path=f"{S3_PROTOCOL_PREFIX}{bucket_name}"
@@ -133,7 +132,7 @@ def _prepare_upload(
 
     key_prefix = _get_key_prefix(raw_file)
 
-    for rel_file_path, size_and_hashes in raw_file.file_info.items():
+    for rel_file_path, size_and_hashes in raw_file.get_file_info().items():
         logging.info(
             f"Preparing file info for upload: {rel_file_path=} {size_and_hashes=}"
         )

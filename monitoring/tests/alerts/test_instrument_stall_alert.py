@@ -52,9 +52,7 @@ class TestInstrumentStallAlert:
         result = InstrumentStallAlert()._get_issues([], NOW)
 
         # then
-        mock_find.assert_called_once_with(
-            RawFileFilter(instrument_ids=["inst1"]), order="-created_at", limit=1
-        )
+        mock_find.assert_called_once_with(RawFileFilter(instrument_id="inst1"), limit=1)
         assert len(result) == 1
         issue = result[0]
         assert issue.identifier == "inst1"

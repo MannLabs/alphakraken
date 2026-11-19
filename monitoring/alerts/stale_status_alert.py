@@ -2,10 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from utils import ensure_utc
-
-from shared.db.models import KrakenStatus
-from shared.domain.status import KrakenStatusEntities
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
 from shared.keys import FILE_REMOVER_STATUS_ID
 
 from .base_alert import BaseAlert, Issue, get_instrument_id
@@ -26,7 +23,7 @@ class StaleStatusAlert(BaseAlert):
         """Check for stale statuses."""
         stale_instruments = []
         for kraken_status in status_objects:
-            last_updated_at = ensure_utc(kraken_status.updated_at_)
+            last_updated_at = kraken_status.updated_at_
             id_ = kraken_status.id
 
             # Use different thresholds based on entry type

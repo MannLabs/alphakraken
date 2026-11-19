@@ -49,6 +49,8 @@ ignore = [
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 "airflow_src/plugins/celery_config.py" = ["TID251"]
+# manual DB interventions work on the documents, like the migration scripts
+"nbs/access_db.ipynb" = ["TID251", "T201"]
 # the API modules are the only importers of the backend
 "shared/db/*.py" = ["TID251"]
 "*.ipynb" = [

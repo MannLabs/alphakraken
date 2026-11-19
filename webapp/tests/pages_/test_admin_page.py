@@ -75,11 +75,11 @@ def test_admin_shows_users(mock_get_users: MagicMock) -> None:
 
 @patch("shared.db.users.add")
 @patch("shared.db.users.find", return_value=[])
-def test_admin_adds_user_with_cleaned_inputs(
+def test_admin_adds_user_with_inputs_as_entered(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
-    """Test that adding a user passes the email and the stripped initials with their case kept."""
+    """Test that adding a user passes the inputs on unchanged, cleaning is not the page's job."""
     at = _admin_app().run()
 
     at.text_input[0].set_value(" A@B.de ")
@@ -89,7 +89,7 @@ def test_admin_adds_user_with_cleaned_inputs(
 
     assert not at.exception
     mock_add_user.assert_called_once_with(
-        email=" A@B.de ", initials="Ab", messenger_id="U123"
+        email=" A@B.de ", initials=" Ab ", messenger_id=" U123 "
     )
 
 
@@ -134,7 +134,10 @@ def test_admin_bulk_adds_users_and_reports_failures(
     mock_add_user: MagicMock,
 ) -> None:
     """Test that valid rows are added and failing rows are reported with their line."""
-    mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
+    mock_add_user.side_effect = [
+        _user("Ab"),
+        ValueError("initials 'CD' already exists."),
+    ]
     at = _admin_app().run()
 
     at.text_area[0].set_value("a@b.de,Ab,U123\n\nC@D.de,CD\nbad row")
@@ -157,9 +160,10 @@ def test_admin_bulk_adds_users_and_reports_failures(
 @patch("shared.db.users.find", return_value=[])
 def test_admin_bulk_add_report_is_shown_once(
     mock_get_users: MagicMock,  # noqa: ARG001
-    mock_add_user: MagicMock,  # noqa: ARG001
+    mock_add_user: MagicMock,
 ) -> None:
     """Test that the report disappears on the next interaction."""
+    mock_add_user.return_value = _user("ab")
     at = _admin_app().run()
     at.text_area[0].set_value("a@b.de,ab")
     at.button[1].click().run()
@@ -212,3 +216,32 @@ def test_admin_page_should_show_suppressions(
     assert df["alert"].tolist() == ["PumpPressureAlert"]
     assert df["instrument"].tolist() == ["astral1"]
     assert at.button(key="delete_suppression_0123456789abcdef01234567")
+
+
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.alerts.add_suppression")
+def test_admin_page_should_pass_suppression_form_as_entered(
+    mock_add_suppression: MagicMock,
+    mock_get_users: MagicMock,  # noqa: ARG001
+) -> None:
+    """The form values are passed on unchanged, validation and cleaning are not the page's job."""
+    # given
+    at = _admin_app().run(timeout=30)
+    at.text_area[1].set_value(" why ")
+
+    # when
+    at.button(key="FormSubmitter:add_suppression_form-Add suppression").click().run(
+        timeout=30
+    )
+
+    # then
+    assert not at.exception
+    mock_add_suppression.assert_called_once_with(
+        alert="*",
+        instrument_id="*",
+        identifier="*",
+        details="*",
+        comment=" why ",
+        expires_at=None,
+        created_by="",
+    )

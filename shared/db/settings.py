@@ -2,12 +2,13 @@
 
 import logging
 
+from shared.db import projects, users
 from shared.db._mongo import settings as _backend
-from shared.domain.errors import ValidationError
-from shared.domain.settings import (
-    Settings,
-    SettingsStatus,
-)
+from shared.domain.errors import InvalidInputError
+from shared.domain.inputs import parse
+from shared.domain.projects import ProjectStatus
+from shared.domain.settings import NewSettings, Settings, SettingsStatus
+from shared.runner_checks import check_runner_supports_software_type
 
 
 def find(
@@ -61,54 +62,71 @@ def latest_active(name: str) -> Settings | None:
 def create(  # noqa: PLR0913
     *,
     name: str,
+    software_type: str,
+    software: str,
+    runner_name: str,
+    metrics_type: str,
     description: str | None = None,
     fasta_file_name: str | None = None,
     speclib_file_name: str | None = None,
     config_file_name: str | None = None,
     config_params: str | None = None,
-    software_type: str,
-    software: str,
-    runner_name: str,
-    metrics_type: str,
     slurm_cpus_per_task: int | None = None,
     slurm_mem: str | None = None,
     slurm_time: str | None = None,
     num_threads: int | None = None,
     owner_email: str | None = None,
+    archive_previous: bool = False,
 ) -> Settings:
-    """Create new settings, as the next version of the settings with the same name.
+    """Create new settings, as the next version of the settings with the same name, cf. `NewSettings`.
+
+    :param slurm_cpus_per_task: None for the default of the software type, likewise `slurm_mem`,
+        `slurm_time` and `num_threads`
+    :param archive_previous: archive the latest active version of the name afterwards; if that
+        fails, e.g. as it was archived concurrently, the error is raised although the new version
+        exists, and a retry creates yet another version
 
     Raises:
-        NotFoundError: if there is no user with `owner_email`.
-        ValidationError: if a field violates its constraints.
+        AlreadyExistsError: if a concurrent create took the same version or number.
+        InvalidInputError: if a field is invalid, the runner is unknown or cannot run the software
+            type, or the owner does not exist or is not active.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    versions = [s.version for s in find(name=name, include_deleted=True)]
-    version = max(versions, default=0) + 1
-    # deliberately ignoring potential race condition
-    number = count(include_deleted=True) + 1
-
-    settings = _backend.create(
-        number=number,
+    new = parse(
+        NewSettings,
         name=name,
-        version=version,
+        software_type=software_type,
+        software=software,
+        runner_name=runner_name,
+        metrics_type=metrics_type,
         description=description,
         fasta_file_name=fasta_file_name,
         speclib_file_name=speclib_file_name,
         config_file_name=config_file_name,
         config_params=config_params,
-        software_type=software_type,
-        software=software,
-        runner_name=runner_name,
-        metrics_type=metrics_type,
         slurm_cpus_per_task=slurm_cpus_per_task,
         slurm_mem=slurm_mem,
         slurm_time=slurm_time,
         num_threads=num_threads,
         owner_email=owner_email,
     )
-    logging.info(f"Created settings: {name=} {version=}")
+    errors = check_runner_supports_software_type(new.runner_name, new.software_type)
+    errors += users.owner_errors(new.owner_email)
+    if errors:
+        raise InvalidInputError(errors)
+
+    existing = find(name=new.name, include_deleted=True)
+    version = max((s.version for s in existing), default=0) + 1
+    active = [s for s in existing if s.status == SettingsStatus.ACTIVE]
+    previous = max(active, key=lambda s: s.version, default=None)
+    # deliberately ignoring potential race condition
+    number = count(include_deleted=True) + 1
+
+    settings = _backend.create(new, number=number, version=version)
+    logging.info(f"Created settings: {new.name=} {version=}")
+
+    if archive_previous and previous:
+        archive(previous.id)
     return settings
 
 
@@ -117,8 +135,10 @@ def archive(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
+        InvalidInputError: if the settings are not active.
 
     """
+    _check_status_change(get(unique_name), SettingsStatus.INACTIVE)
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 
@@ -128,22 +148,36 @@ def delete(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        ValidationError: if the settings are archived or still assigned to a project.
+        InvalidInputError: if the settings are not active or still assigned to an active project.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
     settings = get(unique_name)
-    label = f"'{settings.name}' version {settings.version}"
-    if settings.status == SettingsStatus.INACTIVE:
-        raise ValidationError([f"Cannot delete archived settings {label}"])
+    _check_status_change(settings, SettingsStatus.DELETED)
+    # check and write are separate steps; a race between concurrent writes is accepted: an assignment made meanwhile points to deleted settings
     project_ids = _backend.assigned_project_ids(unique_name)
-    if project_ids:
-        raise ValidationError(
+    # archiving and deleting a project are final, so its assignments never apply again
+    active_ids = sorted(
+        p.id for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
+    )
+    if active_ids:
+        raise InvalidInputError(
             [
-                f"Cannot delete settings {label}: "
-                f"still assigned to projects {', '.join(project_ids)}"
+                f"Cannot delete settings '{settings.name}' version {settings.version}: "
+                f"still assigned to projects {', '.join(active_ids)}"
             ]
         )
 
     _backend.set_status(unique_name, SettingsStatus.DELETED)
     logging.info(f"Deleted settings: {unique_name=}")
+
+
+def _check_status_change(settings: Settings, new_status: str) -> None:
+    """Raise unless the settings are active."""
+    # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
+    if settings.status != SettingsStatus.ACTIVE:
+        raise InvalidInputError(
+            [
+                f"Cannot set settings '{settings.name}' version {settings.version} "
+                f"from '{settings.status}' to '{new_status}'."
+            ]
+        )

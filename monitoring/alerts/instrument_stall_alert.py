@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.status import KrakenStatus
 
 from .base_alert import BaseAlert, Issue
@@ -33,8 +33,8 @@ class InstrumentStallAlert(BaseAlert):
 
         issues = []
         for instrument_id in INSTRUMENT_STALL_INSTRUMENT_IDS:
-            latest_files = raw_files.find(
-                raw_files.RawFileFilter(instrument_id=instrument_id), limit=1
+            latest_files = raw_file_store.find(
+                raw_file_store.RawFileFilter(instrument_id=instrument_id), limit=1
             )
 
             if not latest_files:

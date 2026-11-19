@@ -27,6 +27,7 @@ from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.status import KrakenStatusValues
+from shared.tests.factories import raw_file
 
 
 @patch.dict(
@@ -445,10 +446,9 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
 ) -> None:
     """Test that _safe_remove_files successfully removes files when all checks pass."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.instrument_id = "instrument1"
-    mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        instrument_id="instrument1", file_info={"file1": (100, "hash1")}
+    )
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -463,6 +463,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     _safe_remove_files("raw_file_id", verify_against_s3=False)
 
     # then
+    mock_get_raw_file.assert_called_once_with("raw_file_id", include_file_info=True)
     mock_create_file_identifier.return_value.check_file.assert_called_once_with(
         mock_path_to_delete, Path("file1"), hash_check=True
     )
@@ -494,10 +495,9 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
 ) -> None:
     """Test that _safe_remove_files successfully removes files and the containing folders when all checks pass."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.instrument_id = "instrument1"
-    mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        instrument_id="instrument1", file_info={"file1": (100, "hash1")}
+    )
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
@@ -544,10 +544,9 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_update_raw_file: MagicMock,
 ) -> None:
     """Test that _safe_remove_files gracefully handles nonexisting file to delete."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.instrument_id = "instrument1"
-    mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        instrument_id="instrument1", file_info={"file1": (100, "hash1")}
+    )
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
@@ -584,10 +583,9 @@ def test_safe_remove_files_check_error(
     mock_get_raw_file: MagicMock,
 ) -> None:
     """Test that _safe_remove_files raises FileRemovalError when a check fails."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.instrument_id = "instrument1"
-    mock_raw_file.file_info = {"file1": (100, "hash1")}
-    mock_raw_file.get_file_info.return_value = mock_raw_file.file_info
+    mock_raw_file = raw_file(
+        instrument_id="instrument1", file_info={"file1": (100, "hash1")}
+    )
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))

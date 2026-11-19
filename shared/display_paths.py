@@ -7,6 +7,7 @@ and metrics, respectively, to record which file system holds the data.
 
 from typing import Any
 
+from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
 from shared.path_layout import get_raw_file_folder_rel_path
 from shared.path_views import Locations
@@ -73,12 +74,12 @@ def get_current_output_display_base_path() -> str:
     return DISPLAY_PATHS[Locations.OUTPUT]
 
 
-def get_display_output_path(
-    relative_output_path: str, output_display_base_path: str | None = None
-) -> str:
-    """Get the output folder for `relative_output_path` below `output_display_base_path` (default: current one), as users see it."""
+def get_display_output_path(metrics: Metrics) -> str | None:
+    """Get the output folder of `metrics`, as users see it. None if no output path was recorded."""
+    if metrics.relative_output_path is None:
+        return None
     return _display_path(
-        Locations.OUTPUT, relative_output_path, output_display_base_path
+        Locations.OUTPUT, metrics.relative_output_path, metrics.output_display_base_path
     )
 
 

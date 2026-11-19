@@ -4,7 +4,27 @@ import logging
 
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
-from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.keys import DEFAULT_SCOPE, KNOWN_INSTRUMENT_TYPES
+from shared.yamlsettings import get_instruments
+
+
+def known_scopes() -> list[str]:
+    """Return the scopes an assignment can have: the default scope, the instrument types and the instruments of alphakraken.yaml."""
+    return [DEFAULT_SCOPE, *KNOWN_INSTRUMENT_TYPES, *get_instruments()]
+
+
+def fully_excluded_scopes(scopes: list[str], excluded_scopes: list[str]) -> list[str]:
+    """Return the scopes whose instruments in alphakraken.yaml are all excluded."""
+    instruments = list(get_instruments().items())
+    result = []
+    for scope in scopes:
+        matching = [i for i in instruments if _scopes_match([scope], *i)]
+        # tolerated: a scope without instruments in the yaml (e.g. an instrument type the site
+        # does not have) is never reported, even if it is excluded itself or by '*'; such an
+        # assignment is stored and never applies
+        if matching and all(_scopes_match(excluded_scopes, *i) for i in matching):
+            result.append(scope)
+    return result
 
 
 def resolve_scoped_settings(
@@ -64,11 +84,11 @@ def resolve_scoped_settings(
 
 
 def _scopes_match(scopes: list[str], instrument_id: str, instrument_type: str) -> bool:
-    """Return True if any scope matches: '*' matches all, a vendor name its instruments, else the instrument ID."""
-    for scope in scopes or []:
+    """Return True if any scope matches: '*' matches all, an instrument type its instruments, else the instrument ID."""
+    for scope in scopes:
         if scope == DEFAULT_SCOPE:
             return True
-        if scope in KNOWN_VENDOR_NAMES:
+        if scope in KNOWN_INSTRUMENT_TYPES:
             if scope == instrument_type:
                 return True
         elif scope == instrument_id:
@@ -83,7 +103,7 @@ def _name_included(filters: list[str], raw_file_id: str) -> bool:
 
 def _name_excluded(filters: list[str], raw_file_id: str) -> bool:
     """Return True if the raw file ID contains any of the filters, case-insensitive."""
-    return any(f.lower() in raw_file_id.lower() for f in filters or [])
+    return any(f.lower() in raw_file_id.lower() for f in filters)
 
 
 def _unique_by_id(settings_list: list[Settings]) -> list[Settings]:

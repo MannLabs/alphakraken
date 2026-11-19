@@ -2,9 +2,17 @@
 
 import logging
 
+from shared.db._checks import inactive_errors
 from shared.db._mongo import users as _backend
-from shared.domain.errors import ValidationError
-from shared.domain.users import User
+from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.inputs import parse
+from shared.domain.users import (
+    NewUser,
+    User,
+    UserStatus,
+    UserUpdate,
+    normalize_email,
+)
 
 
 def find(*, include_inactive: bool = False) -> list[User]:
@@ -17,44 +25,63 @@ def project_owner(raw_file_id: str) -> User | None:
     return _backend.project_owner(raw_file_id)
 
 
+def owner_errors(email: str | None) -> list[str]:
+    """Return an error if the owner with the email does not exist or is not active, nothing if no email is given.
+
+    :param email: as it is stored, cf. `normalize_email`
+    """
+    if email is None:
+        return []
+    try:
+        owner = _backend.get(email)
+    except NotFoundError:
+        return [f"User '{email}' does not exist."]
+    return inactive_errors(f"User '{email}'", owner.status, UserStatus.ACTIVE)
+
+
 def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:
-    """Add a new active user, the email is normalized to lower case.
+    """Add a new active user, cf. `NewUser`.
 
     Raises:
-        ValidationError: if the email or the initials are taken.
+        InvalidInputError: if a field is invalid, or the email or the initials are taken.
 
     """
-    email = email.strip().lower()
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    existing = find(include_inactive=True)
-    if any(user.email == email for user in existing):
-        raise ValidationError([f"A user with email '{email}' already exists."])
-    _check_initials_unique(initials, existing)
+    new = parse(NewUser, email=email, initials=initials, messenger_id=messenger_id)
+    errors = []
+    if _backend.email_taken(new.email):
+        errors.append(f"A user with email '{new.email}' already exists.")
+    if _backend.initials_taken(new.initials):
+        errors.append(_initials_taken_message(new.initials))
+    if errors:
+        raise InvalidInputError(errors)
 
-    user = _backend.add(email=email, initials=initials, messenger_id=messenger_id)
-    logging.info(f"Added user: {email=} {initials=} {messenger_id=}")
+    user = _backend.add(new)
+    logging.info(f"Added user: {new!r}")
     return user
 
 
 def update(email: str, *, initials: str, messenger_id: str | None) -> None:
-    """Update the initials and messenger id of a user, the email is immutable.
+    """Update a user, cf. `UserUpdate`; the email is immutable.
+
+    :param messenger_id: None clears it
 
     Raises:
-        ValidationError: if another user has the initials.
+        NotFoundError: if there is no such user.
+        InvalidInputError: if a field is invalid, or another user has the initials.
 
     """
-    # moves to shared/services, cf. VALIDATION_DESIGN.md
-    others = [user for user in find(include_inactive=True) if user.email != email]
-    _check_initials_unique(initials, others)
+    email = normalize_email(email)
+    changes = parse(UserUpdate, initials=initials, messenger_id=messenger_id)
+    if _backend.initials_taken(changes.initials, except_email=email):
+        raise InvalidInputError([_initials_taken_message(changes.initials)])
 
-    _backend.update(email, initials=initials, messenger_id=messenger_id)
-    logging.info(f"Updated user: {email=} {initials=} {messenger_id=}")
+    _backend.update(email, changes)
+    logging.info(f"Updated user: {email=} {changes!r}")
 
 
-def _check_initials_unique(initials: str, users: list[User]) -> None:
-    """Raise if one of the users has the initials."""
-    if any(user.initials == initials for user in users):
-        raise ValidationError([f"A user with initials '{initials}' already exists."])
+def _initials_taken_message(initials: str) -> str:
+    """Return the error message for initials that another user has."""
+    return f"A user with initials '{initials}' already exists."
 
 
 def set_status(email: str, status: str) -> None:
@@ -62,7 +89,14 @@ def set_status(email: str, status: str) -> None:
 
     Raises:
         NotFoundError: if there is no such user.
+        InvalidInputError: if the status is unknown or the one the user has.
 
     """
+    email = normalize_email(email)
+    current = _backend.get(email).status
+    if status == current or status not in (UserStatus.ACTIVE, UserStatus.INACTIVE):
+        raise InvalidInputError(
+            [f"Cannot set user '{email}' from '{current}' to '{status}'."]
+        )
     _backend.set_status(email, status)
     logging.info(f"Set user status: {email=} {status=}")

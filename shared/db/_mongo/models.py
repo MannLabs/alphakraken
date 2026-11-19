@@ -30,7 +30,12 @@ from shared.domain.settings import (
 )
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
-from shared.domain.users import USER_EMAIL_REGEX, USER_INITIALS_REGEX, UserStatus
+from shared.domain.users import (
+    USER_EMAIL_REGEX,
+    USER_INITIALS_MAX_LENGTH,
+    USER_INITIALS_REGEX,
+    UserStatus,
+)
 from shared.keys import (
     ALERT_SUPPRESSION_WILDCARD,
     DEFAULT_SCOPE,
@@ -62,7 +67,8 @@ class RawFile(Document):
     project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
-    status_details = StringField(max_length=512)
+    # longer ones are truncated, cf. `RawFileUpdate`
+    status_details = StringField(max_length=1024)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
@@ -85,11 +91,6 @@ class RawFile(Document):
     # audit fields
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
     updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-    @property
-    def has_project(self) -> bool:
-        """Return whether the raw file has a project assigned or belongs to the fallback project."""
-        return self.project_id != FALLBACK_PROJECT_ID
 
 
 class Metrics(DynamicDocument):
@@ -133,7 +134,9 @@ class User(Document):
     email = StringField(
         required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
     )
-    initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+    initials = StringField(
+        required=True, max_length=USER_INITIALS_MAX_LENGTH, regex=USER_INITIALS_REGEX
+    )
     # user id in the messenger (e.g. Slack member ID), to notify the user directly
     messenger_id = StringField(max_length=512)
 
@@ -283,7 +286,7 @@ class ProjectSettings(Document):
 
     project = ReferenceField(Project, required=True)
     settings = ReferenceField(Settings, required=True)
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes = ListField(StringField(max_length=64), default=lambda: [DEFAULT_SCOPE])
     excluded_scopes = ListField(StringField(max_length=64), default=list)
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
@@ -301,6 +304,7 @@ class KrakenStatus(Document):
     id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
+    # longer ones are truncated, cf. `KrakenStatusUpdate`
     status_details = StringField(max_length=1024)
 
     free_space_gb = IntField(min_value=-1, default=-1)

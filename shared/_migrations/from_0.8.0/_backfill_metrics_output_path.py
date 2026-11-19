@@ -18,6 +18,7 @@ from mongoengine import DoesNotExist
 from shared.db._mongo.connection import connect_db
 from shared.db._mongo.models import Metrics, RawFile
 from shared.domain.raw_files import get_created_at_year_month
+from shared.keys import FALLBACK_PROJECT_ID
 
 OUTPUT_FOLDER_PREFIX = "out_"
 LOG_FILE_NAME = "backfill_metrics_output_path.csv"
@@ -35,7 +36,7 @@ def _get_output_path(
     optional_sub_folder = (
         # the helper only reads `created_at`, which the document has too
         get_created_at_year_month(raw_file)  # type: ignore[invalid-argument-type]
-        if not raw_file.has_project
+        if raw_file.project_id == FALLBACK_PROJECT_ID
         else ""
     )
     project_id = (

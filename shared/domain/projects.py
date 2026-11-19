@@ -1,16 +1,21 @@
 """Project domain types and constants."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated, Self
 
+from pydantic import Field, field_validator, model_validator
+
+from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
 from shared.domain.settings import Settings
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.domain.users import OptionalLowerCasedEmail
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
-FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX = r"[^A-Z0-9]"
-# exempt from the project id rules
-SPECIAL_PROJECT_IDS = [FALLBACK_PROJECT_ID]
+# upper-case letters and digits, not only digits
+PROJECT_ID_REGEX = r"^(?!\d+$)[A-Z0-9]+$"
 
 
 class ProjectStatus:
@@ -41,10 +46,77 @@ class ProjectSettings:
     id: str
     project_id: str
     settings: Settings
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes: list[str]
     excluded_scopes: list[str]
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
     raw_file_id_filter: list[str]
     raw_file_id_exclude_filter: list[str]
     created_at_: datetime
+
+
+class NewProject(InputModel):
+    """A project to add, cf. `Project`."""
+
+    project_id: RequiredStr = Field(
+        min_length=PROJECT_ID_MIN_LENGTH, max_length=PROJECT_ID_MAX_LENGTH
+    )
+    name: RequiredStr = Field(max_length=64)
+    description: OptionalStr = Field(default=None, max_length=512)
+    owner_email: OptionalLowerCasedEmail = None
+
+    @field_validator("project_id")
+    @classmethod
+    def _valid_project_id(cls, value: str) -> str:
+        """Reject a project id that violates `PROJECT_ID_REGEX`."""
+        # the fallback project is exempt from the rule
+        if value != FALLBACK_PROJECT_ID and not re.match(PROJECT_ID_REGEX, value):
+            raise ValueError(
+                f"Invalid project id '{value}'. Please choose a different one."
+            )
+        return value
+
+
+_Scope = Annotated[str, Field(min_length=1, max_length=64)]
+_FileIdFilter = Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class NewAssignment(InputModel):
+    """An assignment of settings to a project to add, cf. `ProjectSettings`."""
+
+    project_id: RequiredStr
+    # the unique name of the settings, e.g. `fallback_v7`
+    settings_id: RequiredStr
+    scopes: list[_Scope] = Field(default_factory=lambda: [DEFAULT_SCOPE])
+    excluded_scopes: list[_Scope] = Field(default_factory=list)
+    raw_file_id_filter: list[_FileIdFilter] = Field(default_factory=list)
+    raw_file_id_exclude_filter: list[_FileIdFilter] = Field(default_factory=list)
+
+    @field_validator("scopes")
+    @classmethod
+    def _default_scope_absorbs_others(cls, value: list[str]) -> list[str]:
+        """Reject an empty list of scopes, reduce a list with the default scope to it."""
+        if not value:
+            raise ValueError(
+                f"At least one scope is required, use '{DEFAULT_SCOPE}' for all instruments."
+            )
+        # the default scope matches everything, so any other entry next to it is redundant
+        return [DEFAULT_SCOPE] if DEFAULT_SCOPE in value else value
+
+    @model_validator(mode="after")
+    def _every_file_filter_can_apply(self) -> Self:
+        """Reject file name filters that would never apply."""
+        # scopes that would never apply need alphakraken.yaml, cf. `fully_excluded_scopes`
+        # the exclude filter is case-insensitive, cf. `resolve_scoped_settings`
+        if never_matching := [
+            included
+            for included in self.raw_file_id_filter
+            if any(
+                excluded.lower() in included.lower()
+                for excluded in self.raw_file_id_exclude_filter
+            )
+        ]:
+            raise ValueError(
+                f"File name filters {never_matching} always match an exclude filter, these entries would never apply."
+            )
+        return self

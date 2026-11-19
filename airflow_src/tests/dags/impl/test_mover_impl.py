@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from common.keys import DagContext, DagParams, XComKeys
 from common.settings import _INSTRUMENTS
 from dags.impl.mover_impl import (
@@ -16,6 +16,8 @@ from dags.impl.mover_impl import (
 )
 from raw_file_wrapper_factory import MovePathProvider
 
+from shared.db.models import InstrumentFileStatus
+
 
 @pytest.fixture
 def mock_raw_file() -> MagicMock:
@@ -23,6 +25,7 @@ def mock_raw_file() -> MagicMock:
     mock = MagicMock()
     mock.instrument_id = "instrument1"
     mock.original_name = "test_file.raw"
+    mock.instrument_file_status = InstrumentFileStatus.INITIAL
     return mock
 
 
@@ -67,28 +70,41 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     )
 
 
+@pytest.mark.parametrize(
+    ("instrument_file_status", "expected_exception"),
+    [
+        (InstrumentFileStatus.INITIAL, AirflowFailException),
+        (InstrumentFileStatus.NA, AirflowFailException),
+        (InstrumentFileStatus.MOVED, AirflowSkipException),
+        (InstrumentFileStatus.PURGED, AirflowSkipException),
+    ],
+)
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
 @patch("dags.impl.mover_impl.RawFileWrapperFactory.create_write_wrapper")
-def test_get_files_to_move_no_files_to_move(
+@patch("dags.impl.mover_impl.put_xcom")
+def test_get_files_to_move_no_files_to_move(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
     mock_create_write_wrapper: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_raw_file: MagicMock,
+    instrument_file_status: str,
+    expected_exception: type[Exception],
 ) -> None:
-    """Test get_files_to_move correctly raises if no files to move."""
+    """Test get_files_to_move fails if no files to move, or skips if the status allows for missing sources."""
     ti = MagicMock()
 
     kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 123}}
 
+    mock_raw_file.instrument_file_status = instrument_file_status
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    files_to_move = {}
+    mock_create_write_wrapper.return_value.get_files_to_move.return_value = {}
 
-    mock_create_write_wrapper.return_value.get_files_to_move.return_value = (
-        files_to_move
-    )
-
-    with pytest.raises(AirflowFailException):
+    # when
+    with pytest.raises(expected_exception):
         get_files_to_move(ti, **kwargs)
+
+    mock_put_xcom.assert_not_called()
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})

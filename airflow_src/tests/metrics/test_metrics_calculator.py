@@ -51,6 +51,18 @@ def test_calc_metrics_diann(mock_diann: MagicMock) -> None:
     assert result == {"proteins": 500, "peptides": 3000}
 
 
+@patch("plugins.metrics.metrics_calculator.calc_peaks_metrics")
+def test_calc_metrics_peaks(mock_peaks: MagicMock) -> None:
+    """Test calc_metrics with peaks metrics type."""
+    output_dir = Path("/test/output")
+    mock_peaks.return_value = {"n_precursors": 3000, "fwhm_median_s": np.nan}
+
+    result = calc_metrics(output_dir, metrics_type=MetricsTypes.PEAKS)
+
+    mock_peaks.assert_called_once_with(output_dir)
+    assert result == {"n_precursors": 3000, "fwhm_median_s": None}
+
+
 def test_calc_metrics_invalid_type() -> None:
     """Test calc_metrics with invalid metrics type raises KeyError."""
     output_dir = Path("/test/output")

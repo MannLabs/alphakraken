@@ -4,7 +4,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_xcom, put_xcom
@@ -20,6 +20,12 @@ from shared.db.models import InstrumentFileStatus, RawFile
 
 # Note: the parent DAG does not have callbacks configured yet
 
+# statuses in which the source files are expected to be absent, e.g. on task re-runs
+_SOURCE_MAY_BE_MISSING_STATUSES = (
+    InstrumentFileStatus.MOVED,
+    InstrumentFileStatus.PURGED,
+)
+
 
 def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     """Get single files to move for a raw_file_id to the instrument backup folder."""
@@ -34,9 +40,12 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     files_to_move = move_wrapper.get_files_to_move()
 
     if not files_to_move:
-        # this could happen on task re-runs but for now prevents false positives
-        # a more thorough solution would be to do a health check on the target and destination paths
-        raise AirflowFailException(f"No files to move for raw_file_id {raw_file_id}.")
+        msg = (
+            f"No files to move for {raw_file_id=}, {raw_file.instrument_file_status=}."
+        )
+        if raw_file.instrument_file_status not in _SOURCE_MAY_BE_MISSING_STATUSES:
+            raise AirflowFailException(msg)
+        raise AirflowSkipException(msg)
 
     main_file_to_move = move_wrapper.main_file_path()
 

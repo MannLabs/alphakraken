@@ -191,6 +191,100 @@ columns:
     plot: true
     overlay: true
 
+  # peaks: identifications
+  - name: "n_protein_groups"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "n_protein_groups_2pep"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "n_peptides"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "n_sequences"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "n_precursors"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "median_score"
+    color_gradient: "green_is_high"
+    plot: true
+  # peaks: chromatography
+  - name: "rt_median_min"
+    plot: true
+  - name: "elution_window_min"
+    plot: true
+  - name: "fwhm_median_s"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "asymmetry_geomean"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "frac_tailing"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "cycle_time_s"
+    plot: true
+  - name: "points_per_fwhm"
+    color_gradient: "green_is_high"
+    plot: true
+  # peaks: signal
+  - name: "total_ms2_area"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "total_ms1_area"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "frac_with_ms1"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "median_ms2_area"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms2_dynamic_range_log10"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms1_dynamic_range_log10"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "top10_protein_ms2_share"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "protein_coverage_median"
+    color_gradient: "green_is_high"
+    plot: true
+  # peaks: mass accuracy (medians are signed: no gradient)
+  - name: "ms1_ppm_median"
+    plot: true
+  - name: "ms1_ppm_mad"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "ms2_ppm_median"
+    plot: true
+  - name: "ms2_ppm_mad"
+    color_gradient: "red_is_high"
+    plot: true
+  # peaks: sample prep / chemistry
+  - name: "missed_cleavage_rate"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "met_oxidation_rate"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "peptide_length_median"
+    plot: true
+  - name: "frac_z1"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "frac_z2"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "frac_z3"
+    plot: true
+  - name: "frac_z4"
+    plot: true
+
   # Technical plots
   - name: "lag_time_minutes"
     color_gradient: "red_is_high"

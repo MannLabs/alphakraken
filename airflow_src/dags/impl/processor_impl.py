@@ -593,7 +593,8 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
 def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
     """Return the state of every processing-branch task, keyed by map index and task id.
 
-    Non-mapped tasks (map_index=-1) are excluded.
+    Non-mapped tasks (map_index=-1) and removed tasks (stale map indexes from a
+    previous attempt with more settings) are excluded.
     """
     # undocumented return shape (cf. execution_api/routes/task_instances.py):
     # {run_id: {"<task_id>": state, "<task_id>_<map_index>": state}}, no escaping,
@@ -606,6 +607,9 @@ def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
 
     branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
     for key, state in states.items():
+        if state == TaskInstanceState.REMOVED:
+            # removal can happen if the DAG is re-run after a setting was removed
+            continue
         task_id, _, map_index = key.rpartition("_")
         if map_index.isdigit():
             branch_states[int(map_index)][task_id] = state

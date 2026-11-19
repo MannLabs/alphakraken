@@ -82,8 +82,7 @@ class UserUpdate(InputModel):
         max_length=USER_INITIALS_MAX_LENGTH,
         json_schema_extra={"pattern": USER_INITIALS_REGEX},
     )
-    # required, so that leaving it out cannot clear it
-    messenger_id: OptionalStr = Field(max_length=512)
+    messenger_id: OptionalStr = Field(default=None, max_length=512)
 
 
 class NewUser(UserUpdate):
@@ -99,4 +98,3 @@ class NewUser(UserUpdate):
             )
         ),
     ] = Field(max_length=128, json_schema_extra={"pattern": USER_EMAIL_REGEX})
-    messenger_id: OptionalStr = Field(default=None, max_length=512)

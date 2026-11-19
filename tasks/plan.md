@@ -75,7 +75,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [x] T1: e2e stack (Mongo + hot-reloading REST API)
 - [x] T2: seed through `shared.db` (synthetic default, production sample locally)
 - [x] T3: e2e harness and baseline tests of the existing reads
-- [ ] T4: `restApiRole` and REST API Mongo user
+- [x] T4: `restApiRole` and REST API Mongo user
 
 ### Checkpoint 0
 - [ ] `up --wait` from scratch is healthy; an edit to `rest_api/main.py` shows without restart

@@ -52,7 +52,7 @@ from the host.
   - Files: `e2e/rest_api/conftest.py`, `e2e/rest_api/test_e2e_reads.py`
   - Size: S
 
-- [ ] **T4: `restApiRole` and REST API Mongo user (D5)**
+- [x] **T4: `restApiRole` and REST API Mongo user (D5)**
   - Acceptance:
     - `init-mongo.sh` creates `restApiRole` (find/insert/update/remove on `project`, `settings`, `project_settings`; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
     - The e2e REST service runs as that user; the baseline e2e stays green.

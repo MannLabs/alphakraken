@@ -38,7 +38,7 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
         parse(NewProject, project_id=project_id, name="n")
 
     assert e.value.errors == [
-        f"project_id: Invalid project id '{project_id}'. Please choose a different one."
+        f"project_id: Invalid project id '{project_id}': only upper-case letters and digits, not only digits."
     ]
 
 

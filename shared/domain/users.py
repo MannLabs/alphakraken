@@ -4,17 +4,28 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BeforeValidator, Field, StringConstraints, TypeAdapter
+import pydantic
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+)
 
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import (
     InputModel,
     OptionalStr,
     RequiredStr,
     empty_to_none,
+    matching,
     required,
 )
 
-USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+# visible ASCII characters only (`!` to `~` without `@`), so that no invisible character or
+# lookalike letter makes a second user with the same-looking email
+USER_EMAIL_REGEX = r"^[!-?A-~]+@[!-?A-~]+\.[!-?A-~]+$"
 USER_INITIALS_MAX_LENGTH = 8
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
 USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"
@@ -32,8 +43,16 @@ OptionalLowerCasedEmail = Annotated[
 
 
 def normalize_email(email: str) -> str:
-    """Return the email as it is stored: stripped and lower-cased."""
-    return _EMAIL_ADAPTER.validate_python(email)
+    """Return the email as it is stored: stripped and lower-cased.
+
+    Raises:
+        InvalidInputError: if it is not a string.
+
+    """
+    try:
+        return _EMAIL_ADAPTER.validate_python(email)
+    except pydantic.ValidationError as e:
+        raise InvalidInputError(["email: must be a string."]) from e
 
 
 class UserStatus:
@@ -58,17 +77,26 @@ class User:
 class UserUpdate(InputModel):
     """The changeable fields of a user, cf. `User`."""
 
-    initials: RequiredStr = Field(
-        max_length=USER_INITIALS_MAX_LENGTH, pattern=USER_INITIALS_REGEX
+    initials: Annotated[
+        RequiredStr,
+        AfterValidator(matching(USER_INITIALS_REGEX, "must be 2 to 8 letters.")),
+    ] = Field(
+        max_length=USER_INITIALS_MAX_LENGTH,
+        json_schema_extra={"pattern": USER_INITIALS_REGEX},
     )
-    # required, so that leaving it out cannot clear it
-    messenger_id: OptionalStr = Field(max_length=512)
+    messenger_id: OptionalStr = Field(default=None, max_length=512)
 
 
 class NewUser(UserUpdate):
     """A user to add, cf. `User`. The email is lower-cased."""
 
-    email: Annotated[LowerCasedEmail, BeforeValidator(required())] = Field(
-        max_length=128, pattern=USER_EMAIL_REGEX
-    )
-    messenger_id: OptionalStr = Field(default=None, max_length=512)
+    email: Annotated[
+        LowerCasedEmail,
+        BeforeValidator(required()),
+        AfterValidator(
+            matching(
+                USER_EMAIL_REGEX,
+                "must be an email address, e.g. 'jane.doe@example.org'.",
+            )
+        ),
+    ] = Field(max_length=128, json_schema_extra={"pattern": USER_EMAIL_REGEX})

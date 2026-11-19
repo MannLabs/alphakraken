@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from shared.domain.alerts import NewSuppression
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
 
 VALID: dict[str, Any] = {
@@ -59,7 +59,7 @@ def test_new_suppression_rejects_invalid_suppression(
     overrides: dict[str, str], error: str
 ) -> None:
     """Suppressions with an empty or too long field or matching everything are rejected."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewSuppression, **{**VALID, **overrides})
 
     assert e.value.errors == [error]

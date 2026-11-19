@@ -387,6 +387,7 @@ if form_submit:
             name=project_name,
             description=project_description,
             owner_email=owner_email,
+            allow_fallback=is_admin(),
         )
 
 

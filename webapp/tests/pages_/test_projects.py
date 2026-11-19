@@ -150,7 +150,11 @@ def test_add_project_passes_selected_owner(
 
     assert not at.exception
     mock_add_project.assert_called_once_with(
-        project_id="ABCD1", name="name", description="", owner_email="a@b.de"
+        project_id="ABCD1",
+        name="name",
+        description="",
+        owner_email="a@b.de",
+        allow_fallback=False,
     )
 
 

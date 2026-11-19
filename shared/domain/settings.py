@@ -3,9 +3,10 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Any, Self
 
 from pydantic import (
+    AfterValidator,
     Field,
     ValidationInfo,
     field_validator,
@@ -13,9 +14,21 @@ from pydantic import (
 )
 
 from shared.config_params import check_config_params
-from shared.domain.inputs import InputModel, OptionalStr, RequiredStr
+from shared.domain.inputs import (
+    InputModel,
+    OptionalStr,
+    RequiredStr,
+    empty_to_none,
+    matching,
+)
 from shared.domain.users import OptionalLowerCasedEmail
-from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, MetricsTypes, SoftwareTypes
+from shared.keys import (
+    DEFAULT_RESOURCE_PARAMS,
+    SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    SOFTWARE_TYPE_TO_METRICS_TYPES,
+    MetricsTypes,
+    SoftwareTypes,
+)
 from shared.validation import check_for_malicious_content
 
 
@@ -45,7 +58,7 @@ def split_unique_settings_name(unique_name: str) -> tuple[str, int]:
         ValueError: if `unique_name` does not have the expected format.
 
     """
-    if (match := _UNIQUE_SETTINGS_NAME_REGEX.match(unique_name)) is None:
+    if (match := _UNIQUE_SETTINGS_NAME_REGEX.fullmatch(unique_name)) is None:
         raise ValueError(
             f"'{unique_name}' is not of the form <name>{SETTINGS_VERSION_SEPARATOR}<version>"
         )
@@ -80,11 +93,6 @@ class Settings:
     owner_email: str | None
     created_at_: datetime
 
-    @property
-    def unique_name(self) -> str:
-        """Human-readable unique identifier, e.g. `fallback_v7`."""
-        return self.id
-
 
 def selectable_metrics_types(software_type: str) -> list[str]:
     """Return the metrics types settings of the software type can have, the default one first."""
@@ -96,10 +104,23 @@ def selectable_metrics_types(software_type: str) -> list[str]:
     )
 
 
-class NewSettings(InputModel):
-    """Settings to create, cf. `Settings`. Empty optional strings are None."""
+_RESOURCE_FIELDS = ("slurm_cpus_per_task", "slurm_mem", "slurm_time", "num_threads")
 
-    name: RequiredStr = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
+
+class NewSettings(InputModel):
+    """Settings to create, cf. `Settings`.
+
+    Empty optional strings are None; missing resource parameters are the defaults of the software type.
+    """
+
+    name: Annotated[
+        RequiredStr,
+        AfterValidator(
+            matching(
+                SETTINGS_NAME_REGEX, "may only contain letters, digits and underscores."
+            )
+        ),
+    ] = Field(max_length=64, json_schema_extra={"pattern": SETTINGS_NAME_REGEX})
     software_type: RequiredStr
     software: RequiredStr = Field(max_length=128)
     runner_name: RequiredStr = Field(max_length=64)
@@ -110,10 +131,48 @@ class NewSettings(InputModel):
     config_file_name: OptionalStr = Field(default=None, max_length=128)
     config_params: OptionalStr = Field(default=None, max_length=2048)
     slurm_cpus_per_task: int | None = Field(default=None, ge=1)
-    slurm_mem: OptionalStr = Field(default=None, max_length=16)
-    slurm_time: OptionalStr = Field(default=None, max_length=16)
+    slurm_mem: Annotated[
+        OptionalStr,
+        AfterValidator(
+            matching(
+                SLURM_MEM_REGEX,
+                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'.",
+            )
+        ),
+    ] = Field(
+        default=None, max_length=16, json_schema_extra={"pattern": SLURM_MEM_REGEX}
+    )
+    slurm_time: Annotated[
+        OptionalStr,
+        AfterValidator(
+            matching(SLURM_TIME_REGEX, "SLURM time must be in HH:MM:SS format.")
+        ),
+    ] = Field(
+        default=None, max_length=16, json_schema_extra={"pattern": SLURM_TIME_REGEX}
+    )
     num_threads: int | None = Field(default=None, ge=1)
     owner_email: OptionalLowerCasedEmail = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_resources(cls, data: Any) -> Any:
+        """Fill missing or empty resource parameters with the defaults of the software type."""
+        if not isinstance(data, dict):
+            return data
+        software_type = data.get("software_type")
+        # `get`, as an unknown or invalid software type is reported by its own rule
+        defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS.get(
+            software_type.strip() if isinstance(software_type, str) else "",
+            DEFAULT_RESOURCE_PARAMS,
+        )
+        return {
+            **data,
+            **{
+                field: getattr(defaults, field)
+                for field in _RESOURCE_FIELDS
+                if empty_to_none(data.get(field)) is None
+            },
+        }
 
     @field_validator("software_type")
     @classmethod
@@ -156,24 +215,6 @@ class NewSettings(InputModel):
         """Reject unknown placeholders and content that could be used for command injection."""
         if value and (errors := check_config_params(value)):
             raise ValueError("; ".join(errors))
-        return value
-
-    @field_validator("slurm_mem")
-    @classmethod
-    def _slurm_mem_format(cls, value: str | None) -> str | None:
-        """Reject a memory value that is not a number followed by a unit."""
-        if value and not re.match(SLURM_MEM_REGEX, value):
-            raise ValueError(
-                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
-            )
-        return value
-
-    @field_validator("slurm_time")
-    @classmethod
-    def _slurm_time_format(cls, value: str | None) -> str | None:
-        """Reject a time limit that is not of the form HH:MM:SS."""
-        if value and not re.match(SLURM_TIME_REGEX, value):
-            raise ValueError("SLURM time must be in HH:MM:SS format.")
         return value
 
     @model_validator(mode="after")

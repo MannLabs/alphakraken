@@ -4,9 +4,15 @@ from typing import Any
 
 import pytest
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
-from shared.domain.settings import NewSettings, selectable_metrics_types
+from shared.domain.settings import (
+    SETTINGS_NAME_REGEX,
+    SLURM_MEM_REGEX,
+    SLURM_TIME_REGEX,
+    NewSettings,
+    selectable_metrics_types,
+)
 
 ALPHADIA: dict[str, Any] = {
     "name": "plasma_fast",
@@ -27,7 +33,7 @@ CUSTOM: dict[str, Any] = {
 
 
 def test_new_settings_cleans_fields() -> None:
-    """Strings are stripped, empty optional fields become None, resources are optional."""
+    """Strings are stripped, empty optional fields become None, missing resources are the defaults."""
     new = parse(
         NewSettings,
         **{**ALPHADIA, "name": " plasma_fast ", "description": " ", "slurm_mem": ""},
@@ -39,12 +45,38 @@ def test_new_settings_cleans_fields() -> None:
         "speclib_file_name": None,
         "config_file_name": None,
         "config_params": None,
-        "slurm_cpus_per_task": None,
-        "slurm_mem": None,
-        "slurm_time": None,
-        "num_threads": None,
+        "slurm_cpus_per_task": 8,
+        "slurm_mem": "62G",
+        "slurm_time": "02:00:00",
+        "num_threads": 8,
         "owner_email": None,
     }
+
+
+def test_new_settings_fills_resource_defaults_of_the_software_type() -> None:
+    """Missing resources are the defaults of the software type, given ones are kept."""
+    new = parse(
+        NewSettings,
+        **{**CUSTOM, "software_type": "msqc", "metrics_type": "msqc"},
+        slurm_time="01:00:00",
+    )
+
+    assert (
+        new.slurm_cpus_per_task,
+        new.slurm_mem,
+        new.slurm_time,
+        new.num_threads,
+    ) == (2, "31G", "01:00:00", 2)
+
+
+def test_new_settings_with_unknown_software_type_reports_only_that() -> None:
+    """Filling the defaults does not fail on an unknown software type."""
+    with pytest.raises(InvalidInputError) as e:
+        parse(NewSettings, **{**ALPHADIA, "software_type": "other"})
+
+    assert [error.split(",")[0] for error in e.value.errors] == [
+        "software_type: Unknown software type 'other'"
+    ]
 
 
 def test_new_settings_lower_cases_owner_email() -> None:
@@ -71,7 +103,7 @@ def test_new_settings_accepts_custom_software_with_resources() -> None:
 @pytest.mark.parametrize(
     ("overrides", "error"),
     [
-        ({"name": "plasma fast"}, "name: String should match pattern"),
+        ({"name": "plasma fast"}, "name: may only contain letters, digits and"),
         ({"name": ""}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
         ({"software_type": "other"}, "software_type: Unknown software type 'other'"),
@@ -111,7 +143,7 @@ def test_new_settings_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
     """Each rule is reported once, with today's messages for the hand-written ones."""
-    with pytest.raises(ValidationError, match=error) as e:
+    with pytest.raises(InvalidInputError, match=error) as e:
         parse(NewSettings, **{**ALPHADIA, **overrides})
 
     assert len(e.value.errors) == 1
@@ -130,7 +162,7 @@ def test_new_settings_rejects_unsafe_config_params(
     config_params: str, error: str
 ) -> None:
     """Unknown placeholders are reported first, then content that is unsafe after substitution."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewSettings, **{**CUSTOM, "config_params": config_params})
 
     assert len(e.value.errors) == 1
@@ -161,7 +193,7 @@ def test_selectable_metrics_types(software_type: str, expected: list[str]) -> No
 
 def test_new_settings_reports_all_invalid_fields() -> None:
     """Several invalid fields are reported together."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(NewSettings, **{**ALPHADIA, "software": "/x", "slurm_time": "soon"})
 
     assert e.value.errors == [
@@ -175,3 +207,16 @@ def test_new_settings_alphadia_accepts_speclib_only() -> None:
     fields = {**ALPHADIA, "fasta_file_name": None, "speclib_file_name": "lib.speclib"}
 
     assert parse(NewSettings, **fields).speclib_file_name == "lib.speclib"
+
+
+@pytest.mark.parametrize(
+    ("field", "pattern"),
+    [
+        ("name", SETTINGS_NAME_REGEX),
+        ("slurm_mem", SLURM_MEM_REGEX),
+        ("slurm_time", SLURM_TIME_REGEX),
+    ],
+)
+def test_new_settings_schema_shows_pattern(field: str, pattern: str) -> None:
+    """The JSON schema shows the pattern that the field is checked against."""
+    assert NewSettings.model_json_schema()["properties"][field]["pattern"] == pattern

@@ -24,7 +24,6 @@ from shared.yamlsettings import get_instruments
 
 _INSTRUMENT_IDS = list(get_instruments())
 
-_MESSENGER_ID_MAX_CHARS = max_length(NewUser, "messenger_id")
 _MESSENGER_ID_HELP = (
     "Id of the user in the messenger (e.g. Slack member ID), inserted into the user alerts URL to notify the user directly "
     "about alerts concerning raw files with their initials."
@@ -77,7 +76,9 @@ with c1.form("add_user_form"):
     new_email = st.text_input("Email*", max_chars=max_length(NewUser, "email"))
     new_initials = st.text_input("Initials*", max_chars=max_length(NewUser, "initials"))
     new_messenger_id = st.text_input(
-        "Messenger id", max_chars=_MESSENGER_ID_MAX_CHARS, help=_MESSENGER_ID_HELP
+        "Messenger id",
+        max_chars=max_length(NewUser, "messenger_id"),
+        help=_MESSENGER_ID_HELP,
     )
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
@@ -145,7 +146,7 @@ if all_users:
     messenger_id = c1.text_input(
         "Messenger id",
         value=user.messenger_id or "",
-        max_chars=_MESSENGER_ID_MAX_CHARS,
+        max_chars=max_length(NewUser, "messenger_id"),
         key=f"messenger_id_{selected_email}",
         help=_MESSENGER_ID_HELP,
     )

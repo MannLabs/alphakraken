@@ -79,6 +79,11 @@ def _text(value: object) -> str:
     return "" if pd.isna(value) else str(value)
 
 
+def _integer_text(value: object) -> str:
+    """Return the integer as text, an empty one if the value is missing; pandas may hold it as float."""
+    return "" if pd.isna(value) else str(int(value))  # type: ignore[arg-type]
+
+
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
@@ -200,17 +205,15 @@ if selected_name_option != CREATE_NEW_OPTION:
         "config_file_name": _text(latest_settings.get("config_file_name")),
         "config_params": _text(latest_settings.get("config_params")),
         "metrics_type": _text(latest_settings.get("metrics_type")),
-        "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
+        "slurm_cpus_per_task": _integer_text(
+            latest_settings.get("slurm_cpus_per_task")
+        ),
         "slurm_mem": _text(latest_settings.get("slurm_mem")),
         "slurm_time": _text(latest_settings.get("slurm_time")),
-        "num_threads": latest_settings.get("num_threads", ""),
+        "num_threads": _integer_text(latest_settings.get("num_threads")),
     }
     owner = latest_settings.get("owner")
     prefill_owner_email = None if pd.isna(owner) else str(owner)
-    # Conversion for legacy data. Remove once all is transferred.
-    for k, v in prefill_data.items():
-        if pd.isna(v):
-            prefill_data[k] = ""
 
 
 disable_software_type_selection = "software_type" in prefill_data
@@ -521,15 +524,13 @@ else:
         st.warning(
             "Archived settings can no longer be assigned to projects or updated. "
             "Deleted settings are no longer shown. "
-            "Settings can only be deleted if they are not assigned to any project, including archived and deleted ones."
+            "Settings can only be deleted if they are not assigned to any active project."
         )
 
         # Map settings ID -> list of active project IDs
         active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
-        assigned_settings_ids: set[str] = set()
         for ps in project_settings_store.find():
-            assigned_settings_ids.add(ps.settings.id)
             if ps.project_id in active_project_ids:
                 assigned_projects[ps.settings.id].append(ps.project_id)
 
@@ -552,12 +553,12 @@ else:
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     settings_store.archive(row["id"])
                     get_settings_df.clear()
-            is_assigned = row["id"] in assigned_settings_ids
+            is_assigned = bool(projects)
             if col_delete.button(
                 "Delete",
                 key=f"delete_{row['id']}",
                 disabled=DISABLE_WRITE or is_assigned,
-                help="Unassign from all projects first." if is_assigned else "",
+                help="Unassign from all active projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
                 with toast_result(

@@ -107,6 +107,9 @@ DEFAULT_SCOPE = "*"
 FALLBACK_PROJECT_ID = "_FALLBACK"
 
 # matches any value in an alert suppression field
+# of raw files and status records; longer ones are truncated
+STATUS_DETAILS_MAX_LENGTH = 1024
+
 ALERT_SUPPRESSION_WILDCARD = "*"
 
 
@@ -126,6 +129,7 @@ DEFAULT_RESOURCE_PARAMS = ResourceParams(
     slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
 )
 
+# TODO: these should become configurable per yaml
 SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdict(
     lambda: DEFAULT_RESOURCE_PARAMS,
     {

@@ -10,10 +10,11 @@ from pydantic import (
     model_validator,
 )
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import (
     InputModel,
     empty_to_none,
+    matching,
     max_length,
     parse,
     required,
@@ -45,7 +46,7 @@ def test_parse_returns_input_type() -> None:
 
 def test_parse_reports_every_invalid_field() -> None:
     """Each invalid field gets one entry, prefixed with its name."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="reserved", size="big")
 
     assert e.value.errors == [
@@ -56,13 +57,13 @@ def test_parse_reports_every_invalid_field() -> None:
 
 def test_parse_reports_missing_field() -> None:
     """A missing required field is an error like an invalid one."""
-    with pytest.raises(ValidationError, match="name: Field required"):
+    with pytest.raises(InvalidInputError, match="name: Field required"):
         parse(_Input)
 
 
 def test_parse_reports_cross_field_rule_without_prefix() -> None:
     """A rule spanning several fields is reported with its bare message."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="abc", size=4)
 
     assert e.value.errors == ["Size exceeds the name."]
@@ -80,6 +81,7 @@ def test_empty_to_none(value: Any, expected: Any) -> None:
 class _Limited(InputModel):
     plain: str | None = Field(default=None, max_length=8)
     constrained: Annotated[str, StringConstraints(to_lower=True, max_length=16)]
+    unlimited: str
 
 
 @pytest.mark.parametrize(("field", "expected"), [("plain", 8), ("constrained", 16)])
@@ -88,9 +90,17 @@ def test_max_length(field: str, expected: int) -> None:
     assert max_length(_Limited, field) == expected
 
 
+def test_max_length_of_unlimited_field_raises() -> None:
+    """A field without a maximum length is named, not a bare StopIteration."""
+    with pytest.raises(
+        ValueError, match=r"_Limited.unlimited declares no maximum length"
+    ):
+        max_length(_Limited, "unlimited")
+
+
 def test_parse_rejects_unknown_field() -> None:
     """A misspelled field is an error, not silently dropped."""
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(InvalidInputError) as e:
         parse(_Input, name="abc", sise=2)
 
     assert e.value.errors == ["sise: Extra inputs are not permitted"]
@@ -120,3 +130,23 @@ def test_required_rejects_missing_value(
 def test_required_passes_given_value(value: Any) -> None:
     """Any other value is returned as it is."""
     assert required()(value) == value
+
+
+def test_matching_rejects_mismatch_with_the_given_message() -> None:
+    """A string that does not match the pattern is rejected with the message, not the regex."""
+    with pytest.raises(ValueError) as e:
+        matching(r"^[a-z]+$", "must be lower-case letters.")("A1")
+
+    assert str(e.value) == "must be lower-case letters."
+
+
+def test_matching_rejects_trailing_newline() -> None:
+    """A trailing newline is not ignored, although `$` matches before it."""
+    with pytest.raises(ValueError):
+        matching(r"^[a-z]+$", "must be lower-case letters.")("abc\n")
+
+
+@pytest.mark.parametrize("value", ["abc", None])
+def test_matching_passes_match_and_none(value: str | None) -> None:
+    """A matching string and None, the value of an empty optional field, pass."""
+    assert matching(r"^[a-z]+$", "must be lower-case letters.")(value) == value

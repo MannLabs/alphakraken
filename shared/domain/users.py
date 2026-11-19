@@ -23,7 +23,9 @@ from shared.domain.inputs import (
     required,
 )
 
-USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+# visible ASCII characters only (`!` to `~` without `@`), so that no invisible character or
+# lookalike letter makes a second user with the same-looking email
+USER_EMAIL_REGEX = r"^[!-?A-~]+@[!-?A-~]+\.[!-?A-~]+$"
 USER_INITIALS_MAX_LENGTH = 8
 # letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
 USER_INITIALS_REGEX = rf"^[a-zA-Z]{{2,{USER_INITIALS_MAX_LENGTH}}}$"

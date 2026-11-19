@@ -192,7 +192,7 @@ and BOYSCOUT item 6; fallback protection is stated by every client (A1).
   excluded scopes disjoint, filter entries stripped and non-empty, max lengths. Resolves
   the TODO at `project_settings.py:69`.
 - `project_settings.assign(*, allow_fallback: bool, **fields)` parses; additionally: scopes
-  are `*`, a known vendor or a configured instrument (yaml); settings neither archived nor
+  are `*`, a known instrument type or a configured instrument (yaml); settings neither archived nor
   deleted; `_FALLBACK` only with `allow_fallback`.
 - `unassign` and `update_to_latest` get `allow_fallback` as well.
 - Projects page: `_check_assignment_allowed` is replaced by `allow_fallback=is_admin()`;

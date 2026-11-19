@@ -155,12 +155,13 @@ def test_list_projects(mock_get_projects: MagicMock) -> None:
     mock_get_projects.assert_called_once_with(project_id="P1", limit=5, offset=0)
 
 
+@pytest.mark.parametrize("path", ["/raw_files/", "/projects/", "/settings/"])
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 1001}, {"offset": -1}])
-def test_list_projects_rejects_invalid_pagination(params: dict[str, int]) -> None:
+def test_lists_reject_invalid_pagination(path: str, params: dict[str, int]) -> None:
     """Pagination bounds are validated."""
-    response = client.get("/projects/", params=params)
+    response = client.get(path, params=params)
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @patch("rest_api.routes.get_project")

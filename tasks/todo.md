@@ -89,7 +89,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/schemas.py`, `rest_api/service.py`, `rest_api/routes.py`, `rest_api/tests/*`, `e2e/rest_api/test_e2e_reads.py`
   - Size: M
 
-- [ ] **R3: `Page[T]` and `Pagination`**
+- [x] **R3: `Page[T]` and `Pagination`**
   - Acceptance: one generic page model and one pagination dependency replace the three list models and the three `limit`/`offset` declarations; parameter constraints unchanged.
   - Verify: e2e limit-range and pagination tests green; `/openapi.json` shows the same query parameters.
   - Depends on: R2

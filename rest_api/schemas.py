@@ -1,12 +1,24 @@
 """Pydantic response models for the REST API."""
 
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Generic, Self, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
 from rest_api.service import ProjectWithAssignments, RawFileWithMetrics
 from shared.domain.projects import ProjectSettings
+
+T = TypeVar("T")
+
+
+class Page(BaseModel, Generic[T]):
+    """One page of a list."""
+
+    # number of entries matching the filters, on all pages
+    total: int
+    offset: int
+    limit: int
+    data: list[T]
 
 
 class RawFileResponse(BaseModel):
@@ -39,15 +51,6 @@ class RawFileResponse(BaseModel):
         return cls.model_validate(item.raw_file).model_copy(
             update={"metrics": item.metrics, "backup_path": item.backup_path}
         )
-
-
-class RawFilesListResponse(BaseModel):
-    """Paginated list of raw files."""
-
-    total: int
-    offset: int
-    limit: int
-    data: list[RawFileResponse]
 
 
 class SettingsAssignmentResponse(BaseModel):
@@ -101,15 +104,6 @@ class ProjectResponse(BaseModel):
         )
 
 
-class ProjectsListResponse(BaseModel):
-    """Paginated list of projects."""
-
-    total: int
-    offset: int
-    limit: int
-    data: list[ProjectResponse]
-
-
 class SettingsResponse(BaseModel):
     """A settings entry."""
 
@@ -136,12 +130,3 @@ class SettingsResponse(BaseModel):
     status: str
     owner_email: str | None = None
     created_at_: datetime | None = None
-
-
-class SettingsListResponse(BaseModel):
-    """Paginated list of settings."""
-
-    total: int
-    offset: int
-    limit: int
-    data: list[SettingsResponse]

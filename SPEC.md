@@ -5,6 +5,9 @@
 The REST API can do everything the webapp does, except admin operations, so scripts and
 other services do not need the webapp.
 
+Prerequisite: the refactoring of `REFACTORING_SPEC.md` (R1–R4) is done first; the endpoints
+below build on its error handlers, response models, page model and routers.
+
 Scope is parity, not general CRUD. The webapp has no edit for projects, and settings are
 immutable versions, so there is no PATCH or PUT.
 
@@ -22,8 +25,10 @@ immutable versions, so there is no PATCH or PUT.
 | Status | read | `status.find` | `GET /status/` |
 | Users | read active (owner choice) | `users.find` | `GET /users/` (email, initials only; needs key) |
 
-Existing reads (`/raw_files/`, `/projects/`, `/settings/`) stay unchanged, except that
-`SettingsAssignmentResponse` gains `id`, which unassign and update-to-latest need.
+Existing reads (`/raw_files/`, `/projects/`, `/settings/`) keep their shape. Additions:
+`SettingsAssignmentResponse` gains `id`, which unassign and update-to-latest need, and R2 adds
+`owner_email` to projects and settings and declares the raw file fields returned undocumented
+today (always present, `null` when unset).
 
 Out of scope (admin): user writes, alert suppressions, creating `_FALLBACK` or changing its
 assignments. The REST API always passes `allow_fallback=False` (`projects.add` and the three
@@ -51,8 +56,10 @@ requires `allow_fallback` to come from authentication, never from the request.
   `assign` requires only `scopes` (`0c3381e3`) and defaults the other three to empty.
   Not in the schema: the project id rule (custom validator, `_FALLBACK` exempt), the email
   format of `owner_email`, and the allowed values of `software_type` and `metrics_type`.
-- D3. The business rules stay in `shared.db`. Routes only call it and map its errors:
-  `InvalidInputError` → 422, `NotFoundError` → 404, `AlreadyExistsError` → 409.
+- D3. The business rules stay in `shared.db`. A write route calls the `shared.db` write
+  function directly; `rest_api/service.py` holds only composed reads (R4). Errors are mapped by
+  app-level handlers: `NotFoundError` → 404 (from R1, also for reads), and with the writes
+  `InvalidInputError` → 422 and `AlreadyExistsError` → 409.
   Since `5d6d5c84`, `NotFoundError` only means that the record addressed in the path does not
   exist (project, settings, assignment). An unknown reference in a body (owner email, the
   project or settings of an assignment) is one entry of the `InvalidInputError`, so 422.
@@ -63,8 +70,8 @@ requires `allow_fallback` to come from authentication, never from the request.
   `shared.domain.inputs.parse`. For that, `_message` (`shared/domain/inputs.py:40`) becomes
   public, and the `RequestValidationError` handler drops the leading `"body"` from each
   error's `loc`, so a body error reads `name: ...`, not `body.name: ...`.
-- D4. Responses: create returns 201 with the created resource in the existing response
-  model. Archive, delete and unassign return 204. Update-to-latest returns 200 with the
+- D4. Responses: create returns 201 with the created resource in its response model of R2,
+  so a created project or settings shows its `owner_email`. Archive, delete and unassign return 204. Update-to-latest returns 200 with the
   assignment.
 - D5. Mongo access: a new role `restApiRole` in `misc/init-mongo.sh` with find/insert/
   update/remove on `project`, `settings` and `project_settings` only, plus `read`. Unlike
@@ -75,7 +82,8 @@ requires `allow_fallback` to come from authentication, never from the request.
   `docs/deployment.md` gets the `mongosh` commands to create `restApiRole` and the user on a
   running instance, and the step to set `REST_API_KEY`. The section "Changes visible to REST
   API and MCP clients" of `docs/upgrade_guides/upgrade_from_v0.12.0.md` lists the new
-  endpoints, the `X-API-Key` header and the new `id` of the assignments.
+  endpoints, the `X-API-Key` header, the new `id` of the assignments, and the changes of R2/R3
+  (`owner_email`, the declared raw file fields, the generic page schema in OpenAPI).
 - D7. The known issue below stays out of scope and is recorded here only.
 
 ### Known issue exposed by this change (not fixed here)
@@ -97,21 +105,26 @@ needs that file also for reads. The image copies it; the other `shared.db` modul
 ## Commands
 
 ```
-Test (REST only): /Users/mschwoerer/miniconda3/envs/alphakraken/bin/python -m pytest rest_api
-Test (CI set):    /Users/mschwoerer/miniconda3/envs/alphakraken/bin/python -m pytest shared webapp airflow_src rest_api
+PY=/Users/mschwoerer/miniconda3/envs/alphakraken/bin/python
+Test (REST only): $PY -m pytest rest_api
+Test (CI set):    $PY -m pytest shared webapp airflow_src rest_api
+e2e stack:        e2e/restart.sh [../ignore/e2e_seed]
+e2e tests:        $PY -m pytest e2e/rest_api -p no:cacheprovider
 Lint/format:      pre-commit run --files <changed files>
-Run locally:      REST_API_KEY=<key> python -m rest_api.main
 ```
 
 ## Project Structure
 
 ```
-rest_api/main.py      → app, exception handlers (D3)
-rest_api/routes.py    → endpoints; write routes depend on the API-key check
+rest_api/main.py      → app, routers, exception handlers (R1, D3)
+rest_api/routers/     → one APIRouter per resource (R4): raw_files, projects, settings,
+                        assignments, status, users; write routes depend on the API-key check
 rest_api/auth.py      → API-key dependency (new)
-rest_api/schemas.py   → response models (+ assignment id, status, user)
-rest_api/service.py   → shared.db calls and dict building (`_to_dict`, one helper since `acf9cdc0`)
+rest_api/schemas.py   → response models from the domain objects (R2), `Page[T]` (R3),
+                        + assignment id, status, user
+rest_api/service.py   → composed reads only (raw files with metrics, projects with assignments)
 rest_api/tests/       → TestClient tests, shared.db patched
+e2e/                  → e2e stack, seed and tests (local only, cf. tasks/plan.md)
 shared/domain/inputs.py → error message formatter, made public for D3
 docker-compose.yaml   → REST_API_KEY env, REST API Mongo user (D5)
 envs/*.env            → MONGO_USER_REST_API, MONGO_PASSWORD_REST_API
@@ -122,16 +135,17 @@ docs/upgrade_guides/upgrade_from_v0.12.0.md → client-visible changes (D6)
 
 ## Code Style
 
-Follow the existing routes. Example of a write route:
+Follow the routers of R4. Example of a write route in `rest_api/routers/projects.py`
+(`router = APIRouter(prefix="/projects")`):
 
 ```python
 @router.post(
-    "/projects/",
+    "/",
     response_model=ProjectResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_api_key)],
 )
-def create_project(new: NewProject) -> dict[str, Any]:
+def create_project(new: NewProject) -> ProjectResponse:
     """Add an active project."""
     project_store.add(
         project_id=new.project_id,
@@ -140,6 +154,7 @@ def create_project(new: NewProject) -> dict[str, Any]:
         owner_email=new.owner_email,
         allow_fallback=False,
     )
+    # raises NotFoundError instead of returning None (R1)
     return get_project(new.project_id)
 ```
 
@@ -148,8 +163,15 @@ try/except in each route.
 
 ## Testing Strategy
 
-pytest with FastAPI `TestClient`. `shared.db` is patched at the `rest_api.service`
-boundary, as the existing tests do. Per write endpoint:
+Two levels:
+
+- Unit: pytest with FastAPI `TestClient`, `shared.db` patched where the router or the service
+  calls it. Covers the HTTP mapping and the arguments passed to `shared.db`.
+- e2e: `e2e/rest_api/` against the stack of `e2e/compose.yaml` (real Mongo, real
+  `init-mongo.sh`, seeded through `shared.db`). Each write is checked over REST and through
+  `shared.db` from the host; cf. `tasks/plan.md` A1–A9.
+
+Per write endpoint, on both levels where it applies:
 
 - happy path: status code, response body, `shared.db` called with the right arguments
   (incl. `allow_fallback=False`)
@@ -175,10 +197,11 @@ The `shared.db` rules are already tested in `shared/tests` and are not retested 
 - SC3. With a valid key, each write has the same effect as the matching webapp action.
 - SC4. Domain and body validation errors return the D3 shape and status codes.
 - SC5. `/projects/` and `/projects/{id}` return the assignment `id`.
-- SC8. The upgrade guide lists every client-visible change (D6).
 - SC6. The REST container runs as the `restApiRole` user. A project write works against
   the local compose stack; a write to `user` with that user is refused by Mongo.
-- SC7. The CI test command passes.
+- SC7. The CI test command passes, and the e2e suite passes against a fresh stack, also with
+  the production sample on top.
+- SC8. The upgrade guide lists every client-visible change (D6).
 
 ## Open Questions
 

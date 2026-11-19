@@ -33,8 +33,8 @@ and e2e tests (HTTP against the stack, DB effects checked through `shared.db`).
   `raw_files`, `users`, `status` and `metrics` import fine). Raw
   `pymongo` is never used, as the ruff ban requires.
 - A8. **Seed (decided 2026-11-19).** A one-shot `seed` service writes REST-format JSON through
-  the `shared.db` write functions. The production sample (`ignore/e2e_seed/`) stays local; the
-  committed `e2e/seed_synthetic/` has the same format and is the default and the CI seed.
+  the `shared.db` write functions. The committed `e2e/seed_synthetic/` is always written; the production sample
+  (`ignore/e2e_seed/`, local only) can be added on top, in the same format. CI uses only the synthetic one.
   Tests rely only on cases the synthetic seed guarantees.
   Limitation: legacy settings values (`number` -1, null `runner_name`/`metrics_type`, empty
   `slurm_*`) are normalised by the write path, so reads are not tested on legacy documents
@@ -51,7 +51,10 @@ and e2e tests (HTTP against the stack, DB effects checked through `shared.db`).
 
 ```
 T1 e2e stack ──> T2 seed ──> T3 harness + baseline reads ──> T4 restApiRole user
-                                                   │
+                                                                   │
+R1 error mapping ──> R2 response models ──> R3 page model ──> R4 filter + routers (REFACTORING_SPEC.md)
+                                                                   │
+                                                   ┌───────────────┘
                                                    └─> T5 auth + error mapping + POST /projects/
                                                            ├─> T6 project archive/delete
                                                            ├─> T7 settings create ─> T8 settings archive/delete
@@ -60,23 +63,34 @@ T1 e2e stack ──> T2 seed ──> T3 harness + baseline reads ──> T4 rest
 T6..T11 ──> T12 version, compose/env, deployment docs ──> T13 CI e2e job
 ```
 
-After T5, T6, T7 and T11 are independent. They run in order anyway, because they all
-edit `routes.py`, `schemas.py` and `service.py`.
+R1–R4 need only T3 (the e2e reads are their safety net); they run after T4 so that Checkpoint 0
+closes the e2e foundation first. After T5, T6, T7 and T11 are independent: since R4 each
+touches its own router, but they share `schemas.py`, so they still run in order.
 
 ## Task List
 
 See `tasks/todo.md` for acceptance criteria and verification.
 
 ### Phase 0: e2e foundation
-- [ ] T1: e2e stack (Mongo + hot-reloading REST API)
-- [ ] T2: seed through `shared.db` (synthetic default, production sample locally)
-- [ ] T3: e2e harness and baseline tests of the existing reads
+- [x] T1: e2e stack (Mongo + hot-reloading REST API)
+- [x] T2: seed through `shared.db` (synthetic default, production sample locally)
+- [x] T3: e2e harness and baseline tests of the existing reads
 - [ ] T4: `restApiRole` and REST API Mongo user
 
 ### Checkpoint 0
 - [ ] `up --wait` from scratch is healthy; an edit to `rest_api/main.py` shows without restart
 - [ ] baseline e2e green; the REST user cannot write `user`
 - [ ] review with human
+
+### Phase R: Refactoring (`REFACTORING_SPEC.md`)
+- [ ] R1: domain errors → HTTP (404 handler, no `None` returns)
+- [ ] R2: response models from the domain objects (all fields declared, `owner_email`)
+- [ ] R3: `Page[T]` and a `Pagination` dependency
+- [ ] R4: `RawFileQuery` dependency, routers per resource, writes call `shared.db` directly
+
+### Checkpoint R
+- [ ] unit + e2e green after each step, also with the production sample on top
+- [ ] review with human (esp. R2: the client-visible additions)
 
 ### Phase 1: Projects
 - [ ] T5: API key, error mapping, `POST /projects/`

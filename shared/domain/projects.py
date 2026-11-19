@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from shared.domain.settings import Settings
+from shared.keys import FALLBACK_PROJECT_ID
+
+PROJECT_ID_MIN_LENGTH = 4
+PROJECT_ID_MAX_LENGTH = 16
+FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX = r"[^A-Z0-9]"
+# exempt from the project id rules
+SPECIAL_PROJECT_IDS = [FALLBACK_PROJECT_ID]
 
 
 class ProjectStatus:

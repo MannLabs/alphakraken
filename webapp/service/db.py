@@ -1,6 +1,5 @@
 """Database service for the web application."""
 
-import re
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
@@ -14,10 +13,6 @@ from shared.db import raw_files as raw_file_store
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import TERMINAL_STATUSES, RawFile
-from shared.validation import (
-    ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
-    FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
-)
 
 
 def get_raw_files_for_status_df(
@@ -61,19 +56,6 @@ def get_raw_files_for_status_df(
     return df
 
 
-def _validate_input(values: list[str] | None, param_name: str) -> None:
-    """Validate that all values in the list contain only letters and numbers."""
-    if not values:
-        return
-
-    for value in values:
-        # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
-        if re.match(FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN, value):
-            raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY}`"
-            )
-
-
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,
@@ -83,11 +65,6 @@ def get_raw_file_and_metrics_data(
 
     The metrics may cover more raw files than the returned ones.
     """
-    # need to validate inputs as these values can be set by users
-    _validate_input(raw_file_ids, "raw_file_ids")
-    _validate_input(instruments, "instruments")  # TODO: use query params accessor
-    # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
-
     _log(
         f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
     )

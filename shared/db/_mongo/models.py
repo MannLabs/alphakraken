@@ -17,12 +17,20 @@ from mongoengine import (
     StringField,
 )
 
-from shared.domain.projects import ProjectStatus
+from shared.domain.projects import (
+    PROJECT_ID_MAX_LENGTH,
+    PROJECT_ID_MIN_LENGTH,
+    ProjectStatus,
+)
 from shared.domain.raw_files import InstrumentFileStatus
-from shared.domain.settings import SETTINGS_VERSION_SEPARATOR, SettingsStatus
+from shared.domain.settings import (
+    SETTINGS_NAME_REGEX,
+    SETTINGS_VERSION_SEPARATOR,
+    SettingsStatus,
+)
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
-from shared.domain.users import UserStatus
+from shared.domain.users import USER_EMAIL_REGEX, USER_INITIALS_REGEX, UserStatus
 from shared.keys import (
     ALERT_SUPPRESSION_WILDCARD,
     DEFAULT_SCOPE,
@@ -112,11 +120,6 @@ class Metrics(DynamicDocument):
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
-USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
-USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
-
-
 class User(Document):
     """Schema for a user, used as owner of projects and settings.
 
@@ -200,7 +203,12 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(required=True, primary_key=True, min_length=4, max_length=16)
+    id = StringField(
+        required=True,
+        primary_key=True,
+        min_length=PROJECT_ID_MIN_LENGTH,
+        max_length=PROJECT_ID_MAX_LENGTH,
+    )
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 
@@ -209,9 +217,6 @@ class Project(Document):
     owner = ReferenceField(User, default=None)
 
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-
-SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
 
 
 class Settings(Document):

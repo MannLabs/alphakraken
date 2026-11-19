@@ -13,8 +13,8 @@ from common.exceptions import (
 from common.keys import DAG_DELIMITER, DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_xcom
 
-from shared.db.interface import update_raw_file
-from shared.db.models import BackupStatus, RawFileStatus
+from shared.db import raw_files as raw_file_store
+from shared.domain.raw_files import BackupStatus, RawFileStatus
 
 
 def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
@@ -45,12 +45,8 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
 
     else:
         cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
+        # `raw_files.update` truncates it if too long
         status_details = f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}"
-
-        # Truncate to fit database field max_length of 1024
-        max_status_length = 1024
-        if len(status_details) > max_status_length:
-            status_details = status_details[: max_status_length - 3] + "..."
 
         update_args = {
             "status_details": status_details,
@@ -62,7 +58,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         ):
             update_args["new_status"] = RawFileStatus.ERROR
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         **update_args,  # type: ignore[invalid-argument-type]
     )

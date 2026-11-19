@@ -21,7 +21,8 @@ from service.session_state import SessionStateKeys, copy_session_state
 from service.timezone import DISPLAY_TIMEZONE, DISPLAY_TIMEZONE_NAME, display_now
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
-from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileStatus
+from shared.domain.raw_files import TERMINAL_STATUSES, RawFileStatus
+from shared.domain.status import KrakenStatusEntities
 from shared.keys import EnvVars, InstrumentTypes
 
 
@@ -415,7 +416,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     # Add instrument entries (with raw files)
     for instrument_id in sorted(combined_df["instrument_id"].unique()):
         tmp_df = combined_df[combined_df["instrument_id"] == instrument_id]
-        status_df = status_data_df[status_data_df["_id"] == instrument_id]
+        status_df = status_data_df[status_data_df["id"] == instrument_id]
         if len(status_df) > 0:
             all_entries.append(("instrument", instrument_id, tmp_df, status_df.iloc[0]))
 
@@ -424,13 +425,13 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         status_data_df["entity_type"] == KrakenStatusEntities.FILE_SYSTEM
     ]
     for _, filesystem_row in filesystem_entries.iterrows():
-        all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))
+        all_entries.append(("filesystem", filesystem_row["id"], None, filesystem_row))
 
     job_entries = status_data_df[
         status_data_df["entity_type"] == KrakenStatusEntities.JOB
     ]
     for _, job_row in job_entries.iterrows():
-        all_entries.append(("job", job_row["_id"], None, job_row))
+        all_entries.append(("job", job_row["id"], None, job_row))
 
     # Process all entries uniformly
     for entry_type, entry_id, raw_files_df, status_row in all_entries:
@@ -672,7 +673,7 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: 
         file_info = raw_file_row.get("file_info", {})
 
         if not file_info:
-            error = f"{raw_file_row['_id']}: missing {file_info=}."
+            error = f"{raw_file_row['id']}: missing {file_info=}."
             return [], None, error
 
         backup_path = Path(raw_file_row["backup_path"])

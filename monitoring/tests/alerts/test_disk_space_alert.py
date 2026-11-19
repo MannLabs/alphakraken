@@ -8,7 +8,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.disk_space_alert import DiskSpaceAlert
-from shared.db.models import KrakenStatusEntities
+from shared.domain.status import KrakenStatusEntities
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 

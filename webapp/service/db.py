@@ -1,30 +1,18 @@
 """Database service for the web application."""
 
-import re
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import pytz
-from mongoengine import Q, QuerySet
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
-from shared.db.engine import connect_db
-from shared.db.models import (
-    KrakenStatus,
-    Metrics,
-    Project,
-    ProjectStatus,
-    RawFile,
-    Settings,
-    SettingsStatus,
-)
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
 from shared.display_paths import get_display_backup_path, get_display_output_path
-from shared.validation import (
-    ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
-    FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
-)
+from shared.domain.metrics import Metrics
+from shared.domain.raw_files import TERMINAL_STATUSES, RawFile
 
 
 def get_raw_files_for_status_df(
@@ -35,26 +23,12 @@ def get_raw_files_for_status_df(
     :param max_age_in_days: Only consider files younger than this
     :return: DataFrame with all non-terminal entries, sorted by creation date
     """
-    connect_db()
-    min_created_at = pd.Timestamp(
-        datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+    min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+
+    raw_files_db = raw_file_store.find(
+        raw_file_store.RawFileFilter(created_after=min_created_at)
     )
 
-    raw_files_db = (
-        RawFile.objects(
-            created_at__gte=min_created_at,
-        )
-        .only(
-            "created_at",
-            "updated_at_",
-            "instrument_id",
-            "status",
-            "status_details",
-        )
-        .order_by("-created_at")
-    )
-
-    # Convert to DataFrame with proper column order
     df = pd.DataFrame(
         [
             {
@@ -82,69 +56,38 @@ def get_raw_files_for_status_df(
     return df
 
 
-def _validate_input(values: list[str] | None, param_name: str) -> None:
-    """Validate that all values in the list contain only letters and numbers."""
-    if not values:
-        return
-
-    for value in values:
-        # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
-        if re.match(FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN, value):
-            raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY}`"
-            )
-
-
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,
     instruments: list[str] | None = None,
-) -> tuple[QuerySet, QuerySet, datetime]:
-    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
-    # need to validate inputs as these values can be set by users
-    _validate_input(raw_file_ids, "raw_file_ids")
-    _validate_input(instruments, "instruments")  # TODO: use query params accessor
-    # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
+) -> tuple[list[RawFile], dict[str, dict[str, Metrics]], datetime]:
+    """Return the raw files younger than max_age_in_days or with the given ids, and the latest metrics per raw file id and type.
 
-    if max_age_in_days is None and raw_file_ids is None:
-        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
-
-    _log("Connecting to the database")
-    connect_db()
+    The metrics may cover more raw files than the returned ones.
+    """
     _log(
         f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
     )
 
     if raw_file_ids is not None:
         # selection by raw file ids takes precedence over max_age_in_days and instruments
-        q = Q(id__in=raw_file_ids)
-        metrics_q = Q(raw_file__in=raw_file_ids)
+        found = raw_file_store.find(raw_file_store.RawFileFilter(ids=raw_file_ids))
+        latest_metrics = metrics_store.latest_by_raw_file(raw_file_ids)
+    elif max_age_in_days is None:
+        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
     else:
-        q = Q()
-        metrics_q = Q()
-        if max_age_in_days is not None:
-            min_created_at = pd.Timestamp(
-                datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+        min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+        found = raw_file_store.find(
+            raw_file_store.RawFileFilter(
+                created_after=min_created_at, instrument_ids=instruments
             )
-            q &= Q(
-                created_at__gt=min_created_at
-            )  # query on file creation date ('created_at')
-            # Metrics can only be written after their raw file was registered, so restricting
-            # them by their own insertion date yields a superset of the metrics of the selected
-            # raw files. Selecting them by raw file id instead would mean sending one id per
-            # selected raw file to the database. The superset is discarded when joining, cf.
-            # get_combined_raw_files_and_metrics_df().
-            metrics_q &= Q(created_at___gte=min_created_at)  # field is 'created_at_'
-        if instruments is not None:
-            q &= Q(instrument_id__in=instruments)
-
-    raw_files_db = (
-        RawFile.objects(q)
-        # exclude some not-needed fields
-        .exclude("file_info")
-    )
-
-    metrics_db = Metrics.objects(metrics_q)
+        )
+        # Metrics can only be written after their raw file was registered, so restricting
+        # them by their own insertion date yields a superset of the metrics of the selected
+        # raw files. Selecting them by raw file id instead would mean sending one id per
+        # selected raw file to the database. The superset is discarded when joining, cf.
+        # get_combined_raw_files_and_metrics_df().
+        latest_metrics = metrics_store.latest_by_raw_file(created_after=min_created_at)
 
     now = display_now().replace(microsecond=0)
 
@@ -152,24 +95,30 @@ def get_raw_file_and_metrics_data(
         f"Done retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
     )
 
-    return raw_files_db, metrics_db, now
+    return found, latest_metrics, now
 
 
 def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
-    """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`.
+    """Return a dataframe of the raw files with the given ids, including their file info.
 
     The column `backup_path` holds the folder each raw file is backed up to, as users see it.
     """
-    _log("Connecting to the database")
-    connect_db()
     _log(f"Retrieving all raw file data for {raw_file_ids}")
 
-    raw_files_db = RawFile.objects.filter(id__in=raw_file_ids)
+    found = raw_file_store.find(
+        raw_file_store.RawFileFilter(ids=raw_file_ids), include_file_info=True
+    )
 
     _log(f"Done retrieving all raw file data for {raw_file_ids}")
 
-    df = df_from_db_data(raw_files_db)
-    df["backup_path"] = [get_display_backup_path(raw_file) for raw_file in raw_files_db]
+    df = df_from_db_data(found)
+    if len(df) == 0:
+        return df
+    # by id: the dataframe is sorted differently than the query result
+    backup_paths = {
+        raw_file.id: get_display_backup_path(raw_file) for raw_file in found
+    }
+    df["backup_path"] = df["id"].map(backup_paths)
     return df
 
 
@@ -179,36 +128,21 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
     Because of the N:1 relation between metrics and raw files (multiple settings and/or
     types can be run for one raw file), a single raw file may map to several output folders.
     """
-    _log("Connecting to the database")
-    connect_db()
     _log(f"Retrieving output folders for {raw_file_ids}")
 
-    metrics_db = Metrics.objects.filter(raw_file__in=raw_file_ids).only(
-        "raw_file",
-        "settings_name",
-        "settings_version",
-        "type",
-        "relative_output_path",
-        "output_display_base_path",
-    )
+    # no values needed, only the metadata
+    all_metrics = metrics_store.find(raw_file_ids, fields=[])
 
-    rows = []
-    for metrics_ in metrics_db:
-        doc = metrics_.to_mongo()
-        relative_output_path = doc.get("relative_output_path")
-        rows.append(
-            {
-                "raw_file_id": doc.get("raw_file"),
-                "settings_name": doc.get("settings_name"),
-                "settings_version": doc.get("settings_version"),
-                "type": doc.get("type"),
-                "output_path": None
-                if relative_output_path is None
-                else get_display_output_path(
-                    relative_output_path, doc.get("output_display_base_path")
-                ),
-            }
-        )
+    rows = [
+        {
+            "raw_file_id": m.raw_file_id,
+            "settings_name": m.settings_name,
+            "settings_version": m.settings_version,
+            "type": m.type,
+            "output_path": get_display_output_path(m),
+        }
+        for m in all_metrics
+    ]
 
     _log(f"Done retrieving output folders for {raw_file_ids}")
 
@@ -230,18 +164,12 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     :param days: Number of days to look back (default: 14)
     :return: DataFrame with columns: date, instrument_id, count, size_gb
     """
-    from shared.db.models import TERMINAL_STATUSES
+    min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=days)
 
-    connect_db()
-    min_created_at = pd.Timestamp(datetime.now(tz=pytz.UTC) - timedelta(days=days))
-
-    raw_files_db = (
-        RawFile.objects(
-            created_at__gte=min_created_at,
-            status__in=TERMINAL_STATUSES,
+    raw_files_db = raw_file_store.find(
+        raw_file_store.RawFileFilter(
+            created_after=min_created_at, statuses=TERMINAL_STATUSES
         )
-        .only("created_at", "instrument_id", "size")
-        .order_by("created_at")
     )
 
     if not raw_files_db:
@@ -273,78 +201,24 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     return result[["date", "instrument_id", "count", "size_gb"]]
 
 
-def get_status_data() -> QuerySet:
-    """Connect to the database and return the QuerySets for KrakenStatus."""
-    _log("Connecting to the database")
-    connect_db()
-    _log("Retrieving all status data")
-    objects = KrakenStatus.objects
-    _log("Done retrieving all status data")
-
-    return objects
-
-
-def get_project_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for all non-deleted Projects."""
-    _log("Connecting to the database")
-    connect_db()
-    _log("Retrieving all project data")
-    return Project.objects(status__ne=ProjectStatus.DELETED)
-
-
-def get_settings_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for all non-deleted Settings."""
-    _log("Connecting to the database")
-    connect_db()
-    _log("Retrieving all settings data")
-    return Settings.objects(status__ne=SettingsStatus.DELETED)
-
-
 def df_from_db_data(
-    query_set: QuerySet,
+    rows: list,
     *,
-    filter_dict: dict | None = None,
-    drop_duplicates: list[str] | None = None,
-    drop_columns: list[str] | None = None,
     drop_none_columns: bool = False,
 ) -> pd.DataFrame:
-    """Create a DataFrame from a database QuerySet.
+    """Create a DataFrame from database results.
 
-    :param query_set: the MongoDB QuerySet to convert to a DataFrame
-    :param filter_dict: optional dictionary to filter the DataFrame, e.g {"status": "done"}
-    :param drop_duplicates: optional list of columns to drop duplicates on after applying the filter
-        (youngest created_at_ will be kept)
-    :param drop_columns: optional list of columns to drop
+    :param rows: the domain objects to convert to a DataFrame, one row each
     :param drop_none_columns: if True, drop columns that contain only None values
-    :return: dataframe containing the data from the QuerySet
+    :return: dataframe with one column per field of the domain objects
     """
-    query_set_as_dicts = [r.to_mongo() for r in query_set]
-    query_set_df = pd.DataFrame(query_set_as_dicts)
-
-    if filter_dict:
-        for key, value in filter_dict.items():
-            if key not in query_set_df.columns:
-                _log(
-                    f"Warning: Key '{key}' not found in DataFrame columns '{query_set_df.columns}'."
-                )
-                continue
-            query_set_df = query_set_df[query_set_df[key] == value]
+    query_set_df = pd.DataFrame([vars(row) for row in rows])
 
     if "created_at_" in query_set_df.columns:
         query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
 
-    if drop_duplicates:
-        query_set_df.drop_duplicates(subset=drop_duplicates, keep="first", inplace=True)
-
-    if drop_columns:
-        query_set_df.drop(
-            columns=drop_columns,
-            inplace=True,
-            errors="ignore",
-        )
-
     if drop_none_columns:
-        # this is required for the Metrics, as e.g. custom metrics may not have all columns
+        # e.g. fields that no raw file of the selection has, such as `s3_upload_path`
         none_columns = [
             col for col in query_set_df.columns if query_set_df[col].isna().all()
         ]

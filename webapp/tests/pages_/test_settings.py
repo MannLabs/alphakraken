@@ -5,10 +5,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
+from shared.domain.errors import InvalidInputError
 from shared.runners import RUNNERS
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
@@ -23,7 +25,7 @@ def _settings_df() -> pd.DataFrame:
     """Get two active settings entries as the page reads them from the DB."""
     return pd.DataFrame(
         {
-            "_id": [1, 2],
+            "id": ["new settings_v1", "another settings_v1"],
             "created_at_": ["2021-01-01", "2021-01-02"],
             "created_at": [
                 datetime.fromtimestamp(0, tz=pytz.utc),
@@ -41,22 +43,17 @@ def _settings_df() -> pd.DataFrame:
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings(
     mock_df: MagicMock,
-    mock_get: MagicMock,
-    mock_project_get: MagicMock,
-    mock_ps_objects: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """A test for the settings page."""
-    mock_settings_db = MagicMock()
-    mock_get.return_value = mock_settings_db
-    mock_projects_db = MagicMock()
-    mock_project_get.return_value = mock_projects_db
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -81,18 +78,40 @@ def test_settings(
     assert expected_data == at.table[0].value.to_dict()
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@pytest.mark.parametrize("software_type", ["msqc", "skyline", "custom"])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_renders_for_software_types_without_file_inputs(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    software_type: str,
+) -> None:
+    """A software type that lacks some of the file name inputs does not break the page."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    next(s for s in at.selectbox if s.label == "Type").set_value(software_type).run(
+        timeout=10
+    )
+
+    assert not at.exception
+
+
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_runner_selectbox_offers_the_declared_runners(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the runner selectbox lists the runners of alphakraken.yaml in declaration order."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -105,18 +124,17 @@ def test_settings_runner_selectbox_offers_the_declared_runners(
 
 
 @patch.dict(RUNNERS, {}, clear=True)
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_without_runners_shows_notice_instead_of_form(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that a deployment without runners still lists settings but cannot create any."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -131,7 +149,13 @@ def _settings_df_with_software() -> pd.DataFrame:
     """Get settings entries of mixed software type and runner, youngest first, as df_from_db_data sorts them."""
     return pd.DataFrame(
         {
-            "_id": [1, 2, 3, 4, 5],
+            "id": [
+                "young_v2",
+                "old_v1",
+                "other_type_v1",
+                "other_runner_v1",
+                "retired_runner_v1",
+            ],
             "created_at_": [
                 "2021-01-05",
                 "2021-01-04",
@@ -155,18 +179,17 @@ def _settings_df_with_software() -> pd.DataFrame:
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_offers_the_used_software(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the software of the selected type and runner is offered, youngest first, archived included."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df_with_software()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -185,18 +208,17 @@ def test_settings_software_selectbox_offers_the_used_software(
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_without_used_software_offers_adding_one(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that a deployment without matching settings falls back to entering the software by hand."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()  # has no software_type and runner_name
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -210,18 +232,17 @@ def test_settings_software_selectbox_without_used_software_offers_adding_one(
     )
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that updating settings whose software is not in the list selects it rather than 'add new'."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df_with_software()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -241,20 +262,48 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
 OWNER_SELECT_LABEL = "Owner"
 
 
-@patch("service.owner.get_all_users")
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_archive_checkbox_names_the_latest_active_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """The checkbox names the version `settings.create` archives: the latest active one, not a newer archived one."""
+    mock_df.return_value = _settings_df().assign(
+        id=["new settings_v1", "new settings_v2"],
+        name=["new settings", "new settings"],
+        version=[1, 2],
+        status=["active", "inactive"],
+    )
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    assert [c.label for c in at.checkbox if c.label.startswith("Archive")] == [
+        "Archive previous version (1) after creating the new version"
+    ]
+    # version 3 will be created, the page only knows the active versions
+    assert any("new version of the existing settings" in i.value for i in at.info)
+
+
+@patch("shared.db.users.find")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_owner_is_shown_and_prefilled_for_new_version(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
     mock_get_users: MagicMock,
 ) -> None:
     """Test that the owner initials are shown and a new version is prefilled with the previous owner."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df().assign(owner=["a@b.de", None])
     user = MagicMock(initials="AB", email="a@b.de")
     mock_get_users.return_value = [user]
@@ -274,18 +323,43 @@ def test_settings_owner_is_shown_and_prefilled_for_new_version(
     assert owner_select.value == "a@b.de"
 
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_settings_unset_fields_are_prefilled_empty_for_new_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that fields the previous version left unset are prefilled empty, not with "None"."""
+    mock_df.return_value = _settings_df().assign(
+        description=[None, None],
+        speclib_file_name=[None, "speclib_file2"],
+        config_params=[None, None],
+    )
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    prefilled = [w.value for w in [*at.text_input, *at.text_area]]
+    assert "fasta_file1" in prefilled
+    assert not {"None", "nan"} & set(prefilled)
+
+
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_settings_without_users_shows_no_owner_select(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that there is no owner selectbox without users."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
@@ -294,22 +368,21 @@ def test_settings_without_users_shows_no_owner_select(
     assert OWNER_SELECT_LABEL not in [s.label for s in at.selectbox]
 
 
-@patch("shared.db.interface.create_settings")
-@patch("service.owner.get_all_users")
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
+@patch("shared.db.settings.create")
+@patch("shared.db.users.find")
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
 def test_create_settings_passes_selected_owner(  # noqa: PLR0913
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001
     mock_project_get: MagicMock,  # noqa: ARG001
-    mock_ps_objects: MagicMock,
+    mock_ps_objects: MagicMock,  # noqa: ARG001
     mock_get_users: MagicMock,
     mock_create_settings: MagicMock,
 ) -> None:
     """Test that the owner selected in the form is passed on when creating settings."""
-    mock_ps_objects.all.return_value = []
     mock_df.return_value = _settings_df()
     mock_get_users.return_value = [MagicMock(initials="AB", email="a@b.de")]
     at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)
@@ -323,3 +396,33 @@ def test_create_settings_passes_selected_owner(  # noqa: PLR0913
 
     assert not at.exception
     assert mock_create_settings.call_args.kwargs["owner_email"] == "a@b.de"
+
+
+@patch("shared.db.settings.create", side_effect=InvalidInputError(["archiving failed"]))
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
+def test_create_settings_reloads_settings_after_error(  # noqa: PLR0913
+    mock_df: MagicMock,
+    mock_find_settings: MagicMock,
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+    mock_get_users: MagicMock,  # noqa: ARG001
+    mock_create_settings: MagicMock,
+) -> None:
+    """Test that the settings are read anew after a failed create: they exist if only archiving the previous version failed."""
+    mock_df.return_value = _settings_df()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+    next(c for c in at.checkbox if c.label.startswith("I have uploaded")).check()
+    reads_before = mock_find_settings.call_count
+
+    next(b for b in at.button if b.label.startswith("Update settings")).click().run(
+        timeout=10
+    )
+
+    assert not at.exception
+    mock_create_settings.assert_called_once()
+    assert mock_find_settings.call_count == reads_before + 1

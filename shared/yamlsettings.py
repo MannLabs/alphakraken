@@ -161,6 +161,14 @@ def get_notification_setting(setting_key: str, default: Any = _REQUIRED) -> Any:
     return setting_value
 
 
+def get_instruments() -> dict[str, str]:
+    """Return the type of each instrument of the yaml settings, keyed by instrument id."""
+    return {
+        instrument_id: config.get(YamlKeys.TYPE, "")
+        for instrument_id, config in YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).items()
+    }
+
+
 DEFAULT_TIMEZONE = "UTC"
 
 

@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,8 +30,11 @@ from plugins.raw_file_wrapper_factory import (
     get_main_file_size_from_db,
 )
 
-from shared.db.models import RawFile
 from shared.keys import InstrumentTypes
+from shared.tests import factories
+
+if TYPE_CHECKING:
+    from shared.domain.raw_files import RawFile
 
 
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -164,7 +167,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
 @pytest.fixture
 def mock_raw_file() -> RawFile:
     """Fixture for a mock RawFile."""
-    return RawFile(
+    return factories.raw_file(
         id="123-original_file.raw",
         original_name="original_file.raw",
         created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
@@ -261,13 +264,13 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
         yield mock_data_path, mock_backup_path
 
 
-def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
-    """Test that creating a wrapper for an unsupported vendor raises ValueError."""
+def test_raw_file_wrapper_factory_unsupported_instrument_type() -> None:
+    """Test that creating a wrapper for an unsupported instrument type raises ValueError."""
     with (
         patch.dict(_INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
         pytest.raises(
             ValueError,
-            match="Unsupported vendor or handler type for instrument1: UNSUPPORTED, monitor",
+            match="Unsupported instrument type or handler type for instrument1: UNSUPPORTED, monitor",
         ),
     ):
         RawFileWrapperFactory.create_monitor_wrapper(
@@ -371,17 +374,17 @@ def test_main_file_path_pass_raw_file_original_name(
     [
         (
             ThermoRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.raw"),
+            factories.raw_file(original_name="sample.raw"),
             Path("/path/to/instrument/sample.raw"),
         ),
         (
             SciexRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.wiff"),
+            factories.raw_file(original_name="sample.wiff"),
             Path("/path/to/instrument/sample.wiff.scan"),
         ),
         (
             BrukerRawFileMonitorWrapper,
-            MagicMock(wraps=RawFile, original_name="sample.d"),
+            factories.raw_file(original_name="sample.d"),
             Path("/path/to/instrument/sample.d/analysis.tdf_bin"),
         ),
     ],
@@ -399,7 +402,7 @@ def test_main_file_path_pass_raw_file(
 
 def test_main_file_path_pass_both_raises() -> None:
     """Test that main_file_path raises if it get both raw_file arguments."""
-    raw_file = MagicMock(wraps=RawFile, original_name="sample.raw")
+    raw_file = factories.raw_file(original_name="sample.raw")
 
     with pytest.raises(
         ValueError,
@@ -431,8 +434,7 @@ def test_thermo_get_files_to_copy(
     expected_mapping: dict[Path, Path],
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -462,8 +464,7 @@ def test_sciex_get_files_to_copy(
         else []
     )
 
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -497,8 +498,7 @@ def test_sciex_get_files_to_copy_stem_recurring_in_suffix(
         [Path("/path/to/instrument/a.wiff.scan")] if pattern == "a.*" else []
     )
 
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="1-a.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -566,8 +566,7 @@ def test_get_associated_files(tmp_path: Path) -> None:
 
 def test_bruker_get_files_to_copy() -> None:
     """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -626,8 +625,7 @@ def test_bruker_get_files_to_copy() -> None:
 @pytest.mark.parametrize("folder_exists", [True, False])
 def test_bruker_get_files_to_move(tmp_path: Path, *, folder_exists: bool) -> None:
     """Test that get_files_to_move maps the raw file folder only if it exists."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         instrument_id="instrument1",
         id="123-sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -681,7 +679,7 @@ def test_get_main_file_size_from_db(
     file_info_key: str,
 ) -> None:
     """Test that get_main_file_size_from_db returns the correct file size."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id=raw_file_id,
         original_name=raw_file_original_name,
         instrument_id="instrument1",
@@ -706,7 +704,7 @@ def test_get_main_file_size_from_db_file_missing(
     mock_create_monitor_wrapper: MagicMock,
 ) -> None:
     """Test that get_main_file_size_from_db raises if file is not in file_info."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id="123-sample.raw",
         original_name="sample.raw",
         instrument_id="instrument1",

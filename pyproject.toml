@@ -37,7 +37,22 @@ ignore = [
     "LOG015", # root-logger-call
 ]
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"mongoengine".msg = "use shared.db"
+"pymongo".msg = "use shared.db"
+"shared.db._mongo".msg = "use shared.db"
+
 [tool.ruff.lint.per-file-ignores]
+# the Mongo backend, its tests and the migration scripts
+"shared/db/_mongo/**" = ["TID251"]
+"shared/tests/db/**" = ["TID251"]
+"shared/_migrations/**" = ["TID251"]
+"airflow_src/plugins/_db_migrations/**" = ["TID251"]
+"airflow_src/plugins/celery_config.py" = ["TID251"]
+# manual DB interventions work on the documents, like the migration scripts
+"nbs/access_db.ipynb" = ["TID251", "T201"]
+# the API modules are the only importers of the backend
+"shared/db/*.py" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected
 ]

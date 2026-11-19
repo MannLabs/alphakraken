@@ -1,17 +1,23 @@
-"""Module to handle the database connection.
+"""Connection handling of the Mongo backend."""
 
-Note: this module must not have any dependencies on the rest of the codebase.
-"""
-
+import functools
 import logging
 import os
+from collections.abc import Callable
+from functools import cache
+from typing import ParamSpec, TypeVar
 
 from mongoengine import (
     ConnectionFailure,
     connect,
 )
+from mongoengine.connection import get_db
 
+from shared.db._mongo.errors import translate_errors
 from shared.keys import EnvVars
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 DB_NAME: str = "krakendb"
 
@@ -53,3 +59,34 @@ def connect_db(
         logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
         logging.warning(f"Failed to connect to db: {e}")
         # A different connection with alias `default` was already registered.
+
+
+@cache
+def ensure_connected() -> None:
+    """Register the connection once per process.
+
+    The call is cached only when it succeeds, so a failed registration is retried on the
+    next call. Reconnecting after a dropped connection is the pymongo client's job.
+    """
+    connect_db(raise_on_error=True)
+
+
+def db_backend_function(func: Callable[P, R]) -> Callable[P, R]:
+    """Make `func` connect on first use and raise domain errors instead of mongoengine and pymongo ones.
+
+    For every function of the backend that accesses the database.
+    """
+
+    @functools.wraps(func)
+    @translate_errors
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        ensure_connected()
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@db_backend_function
+def ping() -> None:
+    """Check that the database is reachable, cf. `shared.db.ping`."""
+    get_db().command("ping")

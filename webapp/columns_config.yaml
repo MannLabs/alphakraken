@@ -16,9 +16,6 @@ columns:
   - name: "file_created"
   - name: "gradient_length"
     color_gradient: "red_is_high"
-    alternative_names:
-      - "raw:gradient_length_m" # TODO: if this is msqc, move to the back of the table
-      - "gradient_length" # alphadia >= 2
   - name: "precursors"
     color_gradient: "green_is_high"
     plot: true
@@ -311,7 +308,7 @@ columns:
     hide: true
   - name: "file_info"
     hide: true
-  - name: "_id"
+  - name: "id"
     hide: true
   - name: "original_name"
     hide: true

@@ -267,7 +267,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
     status_data_df = pd.DataFrame(
         {
-            "_id": ["inst1", "inst2", "backup"],
+            "id": ["inst1", "inst2", "backup"],
             "updated_at_": [
                 ts1,
                 ts2,
@@ -395,7 +395,7 @@ def test_get_full_backup_path_returns_errors_on_missing_data() -> None:
     """Test that the function handles errors correctly."""
     df = pd.DataFrame(
         {
-            "_id": ["file1.raw", "file3.raw", "file4.raw"],
+            "id": ["file1.raw", "file3.raw", "file4.raw"],
             "backup_path": ["/backup/path", "/backup/path", "/backup/path"],
             "file_info": [
                 {"file1.raw": [1, "hash1"]},

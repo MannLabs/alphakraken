@@ -1,7 +1,7 @@
 """Unit tests for the queue-stop alert."""
 
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import pytz
@@ -18,6 +18,7 @@ from monitoring.alerts.queue_stop_alert import (
     _load_recent_files,
     _render_issue,
 )
+from shared.tests.factories import raw_file
 
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
 MAX_GRADIENT = timedelta(hours=2)
@@ -25,8 +26,10 @@ MULTIPLIER = 3
 GRADIENT = timedelta(minutes=30)
 
 
-def _file(name: str, created_at: datetime, initials: str | None) -> RecentFile:
-    return RecentFile(name, created_at, initials)
+def _file(
+    name: str, created_at: datetime, initials: str | None, size: int | None = None
+) -> RecentFile:
+    return RecentFile(name, created_at, initials, size)
 
 
 def _detect_on_inst1(
@@ -186,23 +189,23 @@ def test_rules_are_mutually_exclusive() -> None:
 class TestLoadRecentFiles:
     """Loading of the newest files per instrument with the operator's initials."""
 
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    @patch("shared.db.raw_files.latest_per_instrument")
     def test_loads_three_newest_files_with_known_initials(
-        self, mock_rawfile: Mock
+        self, mock_latest: Mock
     ) -> None:
         """Files are loaded newest first; a token behind another one is still found."""
         # given
-        mock_rawfile.objects.distinct.return_value = ["inst1"]
-        raw_files = [
-            MagicMock(
-                id="20260819_OA5_SA_AnSc_01.raw", created_at=NOW.replace(tzinfo=None)
-            ),
-            MagicMock(
-                id="20260819_OA5_AnSc_02.raw", created_at=NOW - timedelta(minutes=4)
-            ),
-            MagicMock(id="QC_03.raw", created_at=NOW - timedelta(minutes=8)),
-        ]
-        mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value.limit.return_value = raw_files
+        mock_latest.return_value = {
+            "inst1": [
+                raw_file(id="20260819_OA5_SA_AnSc_01.raw", created_at=NOW, size=7),
+                raw_file(
+                    id="20260819_OA5_AnSc_02.raw", created_at=NOW - timedelta(minutes=4)
+                ),
+                raw_file(
+                    id="QC_03.raw", created_at=NOW - timedelta(minutes=8), size=None
+                ),
+            ]
+        }
 
         # when
         result = _load_recent_files({"AnSc"}, NOW - timedelta(hours=24))
@@ -210,19 +213,17 @@ class TestLoadRecentFiles:
         # then
         assert result == {
             "inst1": [
-                RecentFile("20260819_OA5_SA_AnSc_01.raw", NOW, "AnSc"),
+                RecentFile("20260819_OA5_SA_AnSc_01.raw", NOW, "AnSc", 7),
                 RecentFile(
-                    "20260819_OA5_AnSc_02.raw", NOW - timedelta(minutes=4), "AnSc"
+                    "20260819_OA5_AnSc_02.raw",
+                    NOW - timedelta(minutes=4),
+                    "AnSc",
+                    1024,
                 ),
-                RecentFile("QC_03.raw", NOW - timedelta(minutes=8), None),
+                RecentFile("QC_03.raw", NOW - timedelta(minutes=8), None, None),
             ]
         }
-        mock_rawfile.objects.filter.assert_called_once_with(
-            instrument_id="inst1", created_at__gte=NOW - timedelta(hours=24)
-        )
-        mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value.limit.assert_called_once_with(
-            3
-        )
+        mock_latest.assert_called_once_with(3, created_after=NOW - timedelta(hours=24))
 
 
 class TestQueueStopAlert:
@@ -291,7 +292,7 @@ def _build_stop_issue() -> QueueStopIssue:
         timedelta(minutes=30),
         timedelta(minutes=120),
         (
-            _file("x_MaSc_a.raw", NOW, "MaSc"),
+            _file("x_MaSc_a.raw", NOW, "MaSc", 1024**3),
             _file("x_MaSc_b.raw", NOW - timedelta(minutes=30), "MaSc"),
         ),
     )
@@ -317,8 +318,8 @@ class TestRendering:
     def test_render_issue_distinguishes_stop_and_handoff(self) -> None:
         """Stop and handoff messages have different headers."""
         # when
-        stop_msg = _render_issue(_build_stop_issue(), {})
-        handoff_msg = _render_issue(_build_handoff_issue(), {})
+        stop_msg = _render_issue(_build_stop_issue())
+        handoff_msg = _render_issue(_build_handoff_issue())
 
         # then
         assert stop_msg.startswith(
@@ -329,7 +330,7 @@ class TestRendering:
     def test_render_issue_lists_files_with_size_and_timestamp(self) -> None:
         """Each `Recent files:` row carries the file id, size and creation timestamp."""
         # when
-        msg = _render_issue(_build_stop_issue(), {"x_MaSc_a.raw": 1024**3})
+        msg = _render_issue(_build_stop_issue())
 
         # then
         assert msg.endswith(
@@ -338,16 +339,13 @@ class TestRendering:
             "- `x_MaSc_b.raw` (n/a) [2026-01-01 11:30 UTC]"
         )
 
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_format_message_renders_each_issue_with_current_sizes(
-        self, mock_rawfile: Mock
+    @patch("shared.db.raw_files.find")
+    def test_format_message_renders_each_issue_without_reading_the_db(
+        self, mock_find: Mock
     ) -> None:
-        """Sizes are read once for all listed files, right before rendering."""
+        """The sizes come with the detected files, so rendering needs no query."""
         # given
         stop, handoff = _build_stop_issue(), _build_handoff_issue()
-        mock_rawfile.objects.filter.return_value.only.return_value = [
-            MagicMock(id="x_MaSc_a.raw", size=42 * 1024**3)
-        ]
 
         # when
         result = QueueStopAlert().format_message(
@@ -355,11 +353,6 @@ class TestRendering:
         )
 
         # then
-        mock_rawfile.objects.filter.assert_called_once_with(
-            id__in=["x_JoeB_n.raw", "x_MaSc_a.raw", "x_MaSc_b.raw"]
-        )
-        sizes = {"x_MaSc_a.raw": 42 * 1024**3}
-        assert result == _render_issue(stop, sizes) + "\n\n" + _render_issue(
-            handoff, sizes
-        )
-        assert "(42.00 GB)" in result
+        mock_find.assert_not_called()
+        assert result == _render_issue(stop) + "\n\n" + _render_issue(handoff)
+        assert "(1.00 GB)" in result

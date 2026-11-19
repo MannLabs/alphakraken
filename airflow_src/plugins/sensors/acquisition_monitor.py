@@ -19,7 +19,7 @@ import os
 import stat
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytz
 from airflow.sdk import BaseSensorOperator
@@ -39,8 +39,11 @@ from raw_file_wrapper_factory import (
     SciexRawFileMonitorWrapper,
 )
 
-from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFile, RawFileStatus
+from shared.db import raw_files as raw_file_store
+from shared.domain.raw_files import RawFileStatus
+
+if TYPE_CHECKING:
+    from shared.domain.raw_files import RawFile
 
 SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 
@@ -94,7 +97,7 @@ class AcquisitionMonitor(BaseSensorOperator):
     def pre_execute(self, context: dict[str, Any]) -> None:
         """Initialize the monitoring state from the raw file and the instrument directory."""
         raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-        self._raw_file = get_raw_file_by_id(raw_file_id)
+        self._raw_file = raw_file_store.get(raw_file_id)
 
         self._raw_file_monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=self._instrument_id, raw_file=self._raw_file
@@ -115,7 +118,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._first_poke_timestamp = get_timestamp()
 
-        update_raw_file(
+        raw_file_store.update(
             self._raw_file.id, new_status=RawFileStatus.MONITORING_ACQUISITION
         )
 
@@ -159,7 +162,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             acquisition_monitor_errors,
         )
 
-        update_raw_file(self._raw_file.id, new_status=RawFileStatus.MONITORING_DONE)
+        raw_file_store.update(
+            self._raw_file.id, new_status=RawFileStatus.MONITORING_DONE
+        )
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Return True if acquisition is done."""
@@ -171,9 +176,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         now = get_timestamp()
 
         if self._file_is_old:
-            logging.info(
-                "File is old compared to the youngest file in the directory."
-            )
+            logging.info("File is old compared to the youngest file in the directory.")
             return self._acquisition_finalized()
 
         if not self._main_file_exists:
@@ -231,9 +234,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             return False
 
-        logging.info(
-            f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min."
-        )
+        logging.info(f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min.")
         return True
 
     def _next_file_appeared_and_files_settled(
@@ -379,7 +380,9 @@ class AcquisitionMonitor(BaseSensorOperator):
                 f"Files size changed: total size {sum(size for size, _ in files_stat.values())} ({len(files_stat)} file(s))"
             )
             for path, (size, mtime) in files_stat.items():
-                logging.info(f"  {path.name}: size {size}, mtime {datetime.fromtimestamp(mtime, tz=pytz.utc)}")
+                logging.info(
+                    f"  {path.name}: size {size}, mtime {datetime.fromtimestamp(mtime, tz=pytz.utc)}"
+                )
             self._files_stat = files_stat
             self._files_unchanged_since = now
 

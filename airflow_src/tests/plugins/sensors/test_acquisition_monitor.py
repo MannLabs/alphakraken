@@ -59,8 +59,8 @@ def _mock_path(size: int = 1, mtime: float = 10.0) -> MagicMock:
 @pytest.mark.parametrize("acquisition_finalized", [True, False])
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_file_is_added(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -106,8 +106,8 @@ def test_poke_file_dir_contents_change_file_is_added(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_file_is_added_files_change_afterwards(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -153,8 +153,8 @@ def test_poke_file_dir_contents_change_file_is_added_files_change_afterwards(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 def test_poke_file_dir_contents_change_corrupt_file_is_added(
     mock_put_xcom: MagicMock,
@@ -196,8 +196,8 @@ def test_poke_file_dir_contents_change_corrupt_file_is_added(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 def test_poke_file_dir_contents_change_corrupt_file_and_next_file_are_added(
     mock_put_xcom: MagicMock,
@@ -243,8 +243,8 @@ def test_poke_file_dir_contents_change_corrupt_file_and_next_file_are_added(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_corrupt_file_of_other_raw_file_is_added(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -301,8 +301,8 @@ def test_poke_file_dir_contents_change_corrupt_file_of_other_raw_file_is_added(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_two_files_are_added(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -422,8 +422,8 @@ def test_update_files_stat_ignores_directories() -> None:
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_file_is_removed(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -452,8 +452,8 @@ def test_poke_file_dir_contents_change_file_is_removed(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_main_file_does_not_exist(
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -472,8 +472,8 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -506,8 +506,8 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
 )
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_dont_change_but_files_are_unchanged(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -553,8 +553,8 @@ def test_poke_file_dir_contents_dont_change_but_files_are_unchanged(  # noqa: PL
 )
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_dont_change_zero_size_main_file(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -590,8 +590,8 @@ def test_poke_file_dir_contents_dont_change_zero_size_main_file(  # noqa: PLR091
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -639,8 +639,8 @@ def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
 )
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_dont_change_not_finalized(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -675,8 +675,8 @@ def test_poke_file_dir_contents_dont_change_not_finalized(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_dir_contents_dont_change_all_files_missing(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -740,8 +740,8 @@ intermediate_age = youngest_age // 2
 @patch("plugins.sensors.acquisition_monitor.get_airflow_variable", return_value="True")
 @patch("plugins.sensors.acquisition_monitor.get_file_ctime")
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_poke_file_file_is_old(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -776,8 +776,8 @@ def test_poke_file_file_is_old(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_post_execute_ok(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -815,8 +815,8 @@ def test_post_execute_ok(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("shared.db.raw_files.update")
+@patch("shared.db.raw_files.get")
 def test_post_execute_acquisition_errors(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,

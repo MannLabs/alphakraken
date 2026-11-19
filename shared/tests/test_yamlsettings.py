@@ -203,6 +203,27 @@ class TestGetTimezone:
             get_timezone()
 
 
+class TestGetInstruments:
+    """Tests for the get_instruments function."""
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS",
+        {"instruments": {"test1": {"type": "thermo"}, "test2": {}}},
+    )
+    def test_returns_type_by_instrument_id(self) -> None:
+        """Test that each instrument is returned with its type, empty if none is configured."""
+        from shared.yamlsettings import get_instruments
+
+        assert get_instruments() == {"test1": "thermo", "test2": ""}
+
+    @patch("shared.yamlsettings.YAMLSETTINGS", {})
+    def test_returns_nothing_without_instruments(self) -> None:
+        """Test that a yaml without instruments yields no instrument."""
+        from shared.yamlsettings import get_instruments
+
+        assert get_instruments() == {}
+
+
 class TestGetNotificationSetting:
     """Tests for the get_notification_setting function."""
 

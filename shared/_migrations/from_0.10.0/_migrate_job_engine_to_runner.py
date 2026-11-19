@@ -21,8 +21,8 @@ import logging
 from collections import Counter
 from typing import Any
 
-from shared.db.engine import connect_db
-from shared.db.models import Settings
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Settings
 from shared.keys import JobEngines
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

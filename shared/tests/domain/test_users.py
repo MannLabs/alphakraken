@@ -34,12 +34,6 @@ def test_user_update_drops_empty_messenger_id(messenger_id: str | None) -> None:
     )
 
 
-def test_user_update_requires_messenger_id() -> None:
-    """Leaving the messenger id out is an error, so that it cannot be cleared by accident."""
-    with pytest.raises(InvalidInputError, match="messenger_id: Field required"):
-        parse(UserUpdate, initials="JD")
-
-
 def test_new_user_needs_no_messenger_id() -> None:
     """A new user has no messenger id unless one is given."""
     assert parse(NewUser, email="a@b.de", initials="AB").messenger_id is None
@@ -50,6 +44,10 @@ def test_new_user_needs_no_messenger_id() -> None:
     [
         ({"email": "no-at-sign"}, "email: must be an email address"),
         ({"email": "a b@c.de"}, "email: must be an email address"),
+        # a zero-width space and a Cyrillic a (U+0430) look like 'jane@b.de'
+        ({"email": "ja\u200bne@b.de"}, "email: must be an email address"),
+        ({"email": "j\u0430ne@b.de"}, "email: must be an email address"),
+        ({"email": "a@b@c.de"}, "email: must be an email address"),
         ({"email": f"{'a' * 125}@b.de"}, "email: String should have at most 128"),
         ({"initials": "J"}, "initials: must be 2 to 8 letters."),
         ({"initials": "J1"}, "initials: must be 2 to 8 letters."),

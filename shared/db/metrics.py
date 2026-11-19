@@ -65,8 +65,8 @@ def add(  # noqa: PLR0913
     :param values: the metrics by name
 
     Raises:
-        InvalidInputError: if a name of `values` is a field of a metrics entry (`type`,
-            `raw_file`, `created_at_`, ...) or its id, or contains `.` or `$`.
+        InvalidInputError: if a name of `values` starts with `_`, is a field or method of a
+            metrics entry (`type`, `created_at_`, `id`, `save`, ...), or contains `.` or `$`.
         NotFoundError: if the raw file does not exist.
 
     """

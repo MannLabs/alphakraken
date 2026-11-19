@@ -107,6 +107,9 @@ DEFAULT_SCOPE = "*"
 FALLBACK_PROJECT_ID = "_FALLBACK"
 
 # matches any value in an alert suppression field
+# of raw files and status records; longer ones are truncated
+STATUS_DETAILS_MAX_LENGTH = 1024
+
 ALERT_SUPPRESSION_WILDCARD = "*"
 
 

@@ -6,7 +6,8 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from shared.db._mongo import raw_files as _backend
-from shared.domain.raw_files import FileInfoItem, RawFile
+from shared.domain.inputs import parse
+from shared.domain.raw_files import FileInfoItem, RawFile, RawFileUpdate
 
 # "-" prefix for descending: widely understood ORM convention but strictly speaking a _backend detail
 DEFAULT_ORDER = "-created_at"
@@ -186,6 +187,8 @@ def update(  # noqa: PLR0913
         "finalized_at": finalized_at,
         "created_at": created_at,
     }
-    _backend.update(
-        raw_file_id, {k: v for k, v in fields_.items() if v is not NO_UPDATE}
+    changes = parse(
+        RawFileUpdate, **{k: v for k, v in fields_.items() if v is not NO_UPDATE}
     )
+    # only the given fields, None included: it clears a field
+    _backend.update(raw_file_id, changes.model_dump(exclude_unset=True))

@@ -1,5 +1,6 @@
 """Metrics queries on MongoDB."""
 
+import inspect
 from datetime import datetime
 from typing import Any
 
@@ -18,8 +19,7 @@ _METADATA_FIELDS = (
     "output_display_base_path",
     "created_at_",
 )
-# names a metric value must not have: the fields of a metrics document and its id
-_RESERVED_NAMES = {*_METADATA_FIELDS, "id", "pk", "_id"}
+_ABSENT = object()
 
 
 @db_backend_function
@@ -73,17 +73,18 @@ def add(  # noqa: PLR0913
 
 def _value_name_errors(values: dict[str, Any]) -> list[str]:
     """Return why names of the metric values cannot be stored."""
-    errors = [
-        f"values: '{name}' is a field of a metrics entry."
-        for name in values
-        if name in _RESERVED_NAMES
-    ]
-    # MongoDB reads them as a path or an operator
-    errors += [
-        f"values: '{name}' must not contain '.' or '$'."
-        for name in values
-        if "." in name or "$" in name
-    ]
+    errors = []
+    for name in values:
+        # mongoengine does not store them
+        if name.startswith("_"):
+            errors.append(f"values: '{name}' must not start with '_'.")
+        # a field, e.g. `type`, or a method, e.g. `save`, of the document would be replaced;
+        # `getattr_static`, as `objects` would connect to the database
+        elif inspect.getattr_static(models.Metrics, name, _ABSENT) is not _ABSENT:
+            errors.append(f"values: '{name}' is a field or method of a metrics entry.")
+        # MongoDB reads them as a path or an operator
+        elif "." in name or "$" in name:
+            errors.append(f"values: '{name}' must not contain '.' or '$'.")
     return errors
 
 

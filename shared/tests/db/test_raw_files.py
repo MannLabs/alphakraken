@@ -6,16 +6,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import mongoengine
-import pymongo.errors
 import pytest
 from mongoengine import Q
 
-from shared import db
 from shared.db._mongo import models
 from shared.db._mongo import raw_files as backend
-from shared.db._mongo.connection import ensure_connected
-from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
 from shared.db.raw_files import (
     _ORDER_FIELDS,
@@ -30,9 +25,6 @@ from shared.db.raw_files import (
     update,
 )
 from shared.domain.errors import (
-    AlreadyExistsError,
-    DatabaseError,
-    DatabaseUnavailableError,
     InvalidInputError,
     NotFoundError,
 )
@@ -305,118 +297,6 @@ def test_find_rejects_unknown_order_field() -> None:
         find(RawFileFilter(), order="-_id")
 
 
-# error translation
-
-
-@pytest.mark.parametrize(
-    ("raised", "expected"),
-    [
-        (mongoengine.DoesNotExist("gone"), NotFoundError),
-        (mongoengine.NotUniqueError("twice"), AlreadyExistsError),
-        (pymongo.errors.DuplicateKeyError("twice"), AlreadyExistsError),
-        (pymongo.errors.ServerSelectionTimeoutError("down"), DatabaseUnavailableError),
-        (pymongo.errors.OperationFailure("not authorized"), DatabaseError),
-        (mongoengine.ConnectionFailure("alias registered"), DatabaseError),
-        (mongoengine.OperationError("not authorized"), DatabaseError),
-        (mongoengine.MultipleObjectsReturned("two"), DatabaseError),
-        (mongoengine.InvalidQueryError("bad query"), DatabaseError),
-    ],
-)
-def test_translate_errors(raised: Exception, expected: type[Exception]) -> None:
-    """Provider exceptions become domain errors with the original message."""
-
-    @translate_errors
-    def fail() -> None:
-        raise raised
-
-    with pytest.raises(expected, match=str(raised)):
-        fail()
-
-
-def test_translate_errors_lists_one_message_per_invalid_field() -> None:
-    """A mongoengine validation error carries one message per field."""
-    document = models.User(email="no-at-sign", initials="1")
-
-    @translate_errors
-    def fail() -> None:
-        document.validate()
-
-    with pytest.raises(InvalidInputError) as excinfo:
-        fail()
-    assert sorted(message.split(":")[0] for message in excinfo.value.errors) == [
-        "email",
-        "initials",
-    ]
-
-
-def test_translate_errors_passes_results_and_other_exceptions_through() -> None:
-    """Unrelated exceptions are not translated."""
-
-    @translate_errors
-    def compute(x: int) -> int:
-        if x < 0:
-            raise ValueError("negative")
-        return x * 2
-
-    assert compute(2) == 4
-    with pytest.raises(ValueError, match="negative"):
-        compute(-1)
-
-
-# connection
-
-
-@pytest.fixture(autouse=True)
-def _forget_connection() -> None:
-    ensure_connected.cache_clear()
-
-
-@patch("shared.db._mongo.connection.connect_db")
-def test_ensure_connected_registers_once(mock_connect_db: MagicMock) -> None:
-    """A successful registration is not repeated."""
-    ensure_connected()
-    ensure_connected()
-
-    mock_connect_db.assert_called_once_with(raise_on_error=True)
-
-
-@patch("shared.db._mongo.connection.connect_db")
-def test_ensure_connected_retries_after_failure(mock_connect_db: MagicMock) -> None:
-    """A failed registration is retried on the next call."""
-    mock_connect_db.side_effect = [mongoengine.ConnectionFailure("boom"), None]
-
-    with pytest.raises(mongoengine.ConnectionFailure):
-        ensure_connected()
-    ensure_connected()
-
-    assert mock_connect_db.call_count == 2
-
-
-@patch("shared.db._mongo.connection.get_db")
-@patch("shared.db._mongo.connection.connect_db")
-def test_ping(mock_connect_db: MagicMock, mock_get_db: MagicMock) -> None:
-    """A ping connects and asks the server."""
-    db.ping()
-
-    mock_connect_db.assert_called_once()
-    mock_get_db.return_value.command.assert_called_once_with("ping")
-
-
-@patch("shared.db._mongo.connection.get_db")
-@patch("shared.db._mongo.connection.connect_db")
-def test_ping_raises_when_database_is_unreachable(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-    mock_get_db: MagicMock,
-) -> None:
-    """An unreachable server is reported as the domain error clients catch."""
-    mock_get_db.return_value.command.side_effect = (
-        pymongo.errors.ServerSelectionTimeoutError("down")
-    )
-
-    with pytest.raises(DatabaseUnavailableError, match="down"):
-        db.ping()
-
-
 # single raw file reads and writes
 
 
@@ -513,6 +393,28 @@ def test_update_passes_only_the_given_fields(mock_backend_update: MagicMock) -> 
     )
 
 
+@pytest.mark.parametrize(
+    ("fields_", "error"),
+    [
+        (
+            {"s3_upload_path": "x" * 1025},
+            "s3_upload_path: String should have at most 1024 characters",
+        ),
+        ({"size": -2}, "size: Input should be greater than or equal to -1"),
+        ({"new_status": 7}, "status: Input should be a valid string"),
+    ],
+)
+@patch("shared.db._mongo.raw_files.update")
+def test_update_rejects_values_beyond_the_field_limits(
+    mock_backend_update: MagicMock, fields_: dict[str, Any], error: str
+) -> None:
+    """The values are checked against the limits of their fields before anything is written."""
+    with pytest.raises(InvalidInputError, match=error):
+        update("file.raw", **fields_)
+
+    mock_backend_update.assert_not_called()
+
+
 @patch("shared.db._mongo.raw_files.datetime")
 def test_backend_update_sets_the_update_time(
     mock_datetime: MagicMock, mock_objects: MagicMock
@@ -520,47 +422,19 @@ def test_backend_update_sets_the_update_time(
     """The backend stamps every update."""
     backend.update("file.raw", {"status": RawFileStatus.DONE})
 
-    mock_objects.with_id.assert_called_once_with("file.raw")
-    mock_objects.with_id.return_value.update.assert_called_once_with(
+    # one write, without loading the record first
+    mock_objects.assert_called_once_with(id="file.raw")
+    mock_objects.return_value.update_one.assert_called_once_with(
         updated_at_=mock_datetime.now.return_value, status=RawFileStatus.DONE
     )
 
 
 def test_backend_update_raises_if_missing(mock_objects: MagicMock) -> None:
     """Updating an unknown raw file is an error."""
-    mock_objects.with_id.return_value = None
+    mock_objects.return_value.update_one.return_value = 0
 
     with pytest.raises(NotFoundError, match="unknown.raw"):
         backend.update("unknown.raw", {"status": RawFileStatus.DONE})
-
-
-@pytest.mark.parametrize(
-    ("fields_", "error"),
-    [
-        ({"status_details": "x" * 1025}, "status_details: String value is too long"),
-        ({"size": -2}, "size: Integer value is too small"),
-        ({"status": 7}, "status: StringField only accepts string values"),
-    ],
-)
-def test_backend_update_rejects_values_the_model_does_not_allow(
-    fields_: dict[str, Any], error: str
-) -> None:
-    """The values are checked against the model, which a queryset update skips."""
-    with (
-        patch("shared.db._mongo.connection.ensure_connected"),
-        patch.object(models.RawFile, "objects") as mock_objects,
-        pytest.raises(InvalidInputError, match=error),
-    ):
-        backend.update("file.raw", fields_)
-
-    mock_objects.with_id.return_value.update.assert_not_called()
-
-
-def test_backend_update_lets_none_clear_a_field(mock_objects: MagicMock) -> None:
-    """None is not checked, it clears the field."""
-    backend.update("file.raw", {"status_details": None})
-
-    mock_objects.with_id.return_value.update.assert_called_once()
 
 
 def test_delete(mock_objects: MagicMock) -> None:

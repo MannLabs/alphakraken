@@ -93,11 +93,6 @@ class Settings:
     owner_email: str | None
     created_at_: datetime
 
-    @property
-    def unique_name(self) -> str:
-        """Human-readable unique identifier, e.g. `fallback_v7`."""
-        return self.id
-
 
 def selectable_metrics_types(software_type: str) -> list[str]:
     """Return the metrics types settings of the software type can have, the default one first."""

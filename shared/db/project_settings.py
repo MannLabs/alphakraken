@@ -63,8 +63,8 @@ def assign(  # noqa: PLR0913
         raw_file_id_filter=raw_file_id_filter or [],
         raw_file_id_exclude_filter=raw_file_id_exclude_filter or [],
     )
-    errors = _scope_errors(new)
-    errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
+    errors = _project_errors(new.project_id, allow_fallback=allow_fallback)
+    errors += _scope_errors(new)
     # check and write are separate steps; a race between concurrent writes is accepted, cf. `settings.delete`
     errors += _settings_errors(new.settings_id)
     errors += _duplicate_errors(
@@ -186,26 +186,24 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
     if current is None:
         # `find` leaves out an assignment whose settings no longer exist
         raise NotFoundError(f"Settings of assignment {assignment_id} do not exist")
+    errors = _project_errors(project_id, allow_fallback=allow_fallback)
     latest = settings.latest_active(current.settings.name)
     if latest is None or latest.version <= current.settings.version:
-        raise InvalidInputError(
-            [
-                f"No newer active version of settings '{current.settings.name}' "
-                f"than version {current.settings.version}"
-            ]
+        errors.append(
+            f"No newer active version of settings '{current.settings.name}' "
+            f"than version {current.settings.version}"
         )
-
-    errors = _project_errors(project_id, allow_fallback=allow_fallback)
-    errors += _duplicate_errors(
-        project_id,
-        latest.id,
-        current.raw_file_id_filter,
-        current.raw_file_id_exclude_filter,
-    )
+    else:
+        errors += _duplicate_errors(
+            project_id,
+            latest.id,
+            current.raw_file_id_filter,
+            current.raw_file_id_exclude_filter,
+        )
     if errors:
         raise InvalidInputError(errors)
 
-    updated = _backend.set_settings(assignment_id, latest.id)
+    updated = _backend.set_settings(assignment_id, latest.id)  # type: ignore[union-attr]
     logging.info(
         f"Updated project-settings assignment: {assignment_id=} to {latest.id}"
     )

@@ -324,6 +324,25 @@ def test_update_assignment_without_newer_version_raises(
     updatable["backend_set_settings"].assert_not_called()
 
 
+def test_update_assignment_reports_project_and_version_errors_together(
+    updatable: dict[str, MagicMock],
+) -> None:
+    """The project errors come first and are reported with a missing newer version."""
+    updatable["find_projects"].return_value = [
+        factories.project(status=ProjectStatus.INACTIVE)
+    ]
+    updatable["latest_active"].return_value = None
+
+    with pytest.raises(InvalidInputError) as e:
+        project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    assert [error.split(" '")[0] for error in e.value.errors] == [
+        "Project",
+        "No newer active version of settings",
+    ]
+    updatable["backend_set_settings"].assert_not_called()
+
+
 def test_update_assignment_whose_settings_are_gone_raises(
     updatable: dict[str, MagicMock],
 ) -> None:
@@ -1093,8 +1112,8 @@ def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> Non
         )
 
     assert [error.split(",")[0].split(" '")[0] for error in e.value.errors] == [
-        "Unknown scopes ['test9']",
         "Project",
+        "Unknown scopes ['test9']",
         "Settings",
     ]
 

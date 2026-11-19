@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from rest_api.routes import router
+from rest_api.routers import projects, raw_files, settings
 from shared.domain.errors import NotFoundError
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
@@ -17,7 +17,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-app.include_router(router)
+app.include_router(raw_files.router)
+app.include_router(projects.router)
+app.include_router(settings.router)
 
 
 @app.exception_handler(NotFoundError)

@@ -1,13 +1,16 @@
 """Tests for the routes of the REST API."""
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rest_api.dependencies import Pagination
 from rest_api.main import app
 from rest_api.service import ProjectWithAssignments, RawFileWithMetrics
+from shared.db.raw_files import RawFileFilter
 from shared.domain.errors import NotFoundError
 from shared.tests.factories import project, project_settings, raw_file, settings
 
@@ -82,37 +85,50 @@ RAW_FILE_JSON = {
 }
 
 
-@patch("rest_api.routes.get_raw_files_with_metrics")
+@patch("rest_api.routers.raw_files.get_raw_files_with_metrics")
 def test_list_raw_files_without_joined_data(mock_get_raw_files: MagicMock) -> None:
-    """Every declared field is present, null when unset or not requested."""
+    """The query parameters become filter and page; every declared field is present, null when unset or not requested."""
     mock_get_raw_files.return_value = (
         [RawFileWithMetrics(raw_file(), metrics=None, backup_path=None)],
         1,
     )
 
-    response = client.get("/raw_files/", params={"include_metrics": False})
+    response = client.get(
+        "/raw_files/",
+        params={
+            "instrument_id": "inst1",
+            "name_contains": "F",
+            "project_id": "P1",
+            "date_from": "2025-01-02T03:04:05Z",
+            "date_to": "2025-01-03T03:04:05Z",
+            "limit": 10,
+            "offset": 20,
+            "include_metrics": False,
+        },
+    )
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {
         "total": 1,
-        "offset": 0,
-        "limit": 100,
+        "offset": 20,
+        "limit": 10,
         "data": [RAW_FILE_JSON],
     }
     mock_get_raw_files.assert_called_once_with(
-        instrument_id=None,
-        name_contains=None,
-        project_id=None,
-        date_from=None,
-        date_to=None,
-        limit=100,
-        offset=0,
+        RawFileFilter(
+            instrument_id="inst1",
+            name_contains="F",
+            project_id="P1",
+            created_after=datetime(2025, 1, 2, 3, 4, 5, tzinfo=UTC),
+            created_before=datetime(2025, 1, 3, 3, 4, 5, tzinfo=UTC),
+        ),
+        Pagination(limit=10, offset=20),
         include_metrics=False,
         include_file_info=False,
     )
 
 
-@patch("rest_api.routes.get_raw_files_with_metrics")
+@patch("rest_api.routers.raw_files.get_raw_files_with_metrics")
 def test_list_raw_files_with_joined_data(mock_get_raw_files: MagicMock) -> None:
     """Metrics, file info and backup path are returned with the raw file."""
     mock_get_raw_files.return_value = (
@@ -138,7 +154,7 @@ def test_list_raw_files_with_joined_data(mock_get_raw_files: MagicMock) -> None:
     ]
 
 
-@patch("rest_api.routes.get_projects")
+@patch("rest_api.routers.projects.get_projects")
 def test_list_projects(mock_get_projects: MagicMock) -> None:
     """The list is wrapped in the pagination envelope and filters are passed on."""
     mock_get_projects.return_value = ([PROJECT], 1)
@@ -164,7 +180,7 @@ def test_lists_reject_invalid_pagination(path: str, params: dict[str, int]) -> N
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
-@patch("rest_api.routes.get_project")
+@patch("rest_api.routers.projects.get_project")
 def test_read_project(mock_get_project: MagicMock) -> None:
     """A single project is returned by ID."""
     mock_get_project.return_value = PROJECT
@@ -176,7 +192,10 @@ def test_read_project(mock_get_project: MagicMock) -> None:
     mock_get_project.assert_called_once_with("P1")
 
 
-@patch("rest_api.routes.get_project", side_effect=NotFoundError("No project nope"))
+@patch(
+    "rest_api.routers.projects.get_project",
+    side_effect=NotFoundError("No project nope"),
+)
 def test_read_project_not_found(mock_get_project: MagicMock) -> None:
     """Unknown project IDs yield 404 with the message of the error."""
     response = client.get("/projects/nope")
@@ -186,7 +205,7 @@ def test_read_project_not_found(mock_get_project: MagicMock) -> None:
     mock_get_project.assert_called_once_with("nope")
 
 
-@patch("rest_api.routes.get_settings")
+@patch("rest_api.routers.settings.get_settings")
 def test_list_settings(mock_get_settings: MagicMock) -> None:
     """The list is wrapped in the pagination envelope and filters are passed on."""
     mock_get_settings.return_value = ([SETTINGS], 1)
@@ -203,7 +222,7 @@ def test_list_settings(mock_get_settings: MagicMock) -> None:
     mock_get_settings.assert_called_once_with(name="fallback", limit=100, offset=2)
 
 
-@patch("rest_api.routes.get_settings_by_unique_name")
+@patch("rest_api.routers.settings.get_settings_by_unique_name")
 def test_read_settings(mock_get_settings_by_unique_name: MagicMock) -> None:
     """A single settings entry is returned by ID."""
     mock_get_settings_by_unique_name.return_value = SETTINGS
@@ -215,7 +234,7 @@ def test_read_settings(mock_get_settings_by_unique_name: MagicMock) -> None:
 
 
 @patch(
-    "rest_api.routes.get_settings_by_unique_name",
+    "rest_api.routers.settings.get_settings_by_unique_name",
     side_effect=NotFoundError("No settings nope"),
 )
 def test_read_settings_not_found(mock_get_settings_by_unique_name: MagicMock) -> None:

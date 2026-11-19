@@ -96,7 +96,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/schemas.py`, `rest_api/routes.py`, `rest_api/tests/*`
   - Size: S
 
-- [ ] **R4: `RawFileQuery`, routers per resource**
+- [x] **R4: `RawFileQuery`, routers per resource**
   - Acceptance: one dependency builds `RawFileFilter`; `rest_api/routers/{raw_files,projects,settings}.py` replace `routes.py`; no `noqa: PLR0913` left in `rest_api/`.
   - Verify: e2e reads green; `grep -rn PLR0913 rest_api` empty.
   - Depends on: R3

@@ -1,9 +1,9 @@
 """Database query and metrics augmentation logic for the REST API."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
+from rest_api.dependencies import Pagination
 from shared.api_responses import to_metrics_dict
 from shared.db import metrics as metrics_store
 from shared.db import project_settings as project_settings_store
@@ -35,66 +35,29 @@ class ProjectWithAssignments:
     assignments: list[ProjectSettings]
 
 
-def _query_raw_files(  # noqa: PLR0913
+def get_raw_files_with_metrics(
+    where: raw_file_store.RawFileFilter,
+    page: Pagination,
     *,
-    instrument_id: str | None = None,
-    name_contains: str | None = None,
-    project_id: str | None = None,
-    date_from: datetime | None = None,
-    date_to: datetime | None = None,
-    limit: int = 100,
-    offset: int = 0,
-    include_file_info: bool = False,
-) -> tuple[list[RawFile], int]:
-    """Query raw files with filtering and pagination.
-
-    Returns:
-        Tuple of (paginated raw files, total count matching the filters).
-
-    """
-    where = raw_file_store.RawFileFilter(
-        instrument_id=instrument_id,
-        name_contains=name_contains,
-        project_id=project_id,
-        created_after=date_from,
-        created_before=date_to,
-    )
-    found = raw_file_store.find(
-        where, limit=limit, offset=offset, include_file_info=include_file_info
-    )
-    return found, raw_file_store.count(where)
-
-
-def get_raw_files_with_metrics(  # noqa: PLR0913
-    *,
-    instrument_id: str | None = None,
-    name_contains: str | None = None,
-    project_id: str | None = None,
-    date_from: datetime | None = None,
-    date_to: datetime | None = None,
-    limit: int = 100,
-    offset: int = 0,
     include_metrics: bool = True,
     include_file_info: bool = False,
 ) -> tuple[list[RawFileWithMetrics], int]:
     """Query raw files and return them, optionally with metrics.
 
     Returns:
-        Tuple of (raw files, total count). `metrics` is None unless include_metrics is
-        True. The `file_info` of the raw file and `backup_path`, the folder its paths
-        are relative to, are None unless include_file_info is True.
+        Tuple of (raw files of the page, total count matching the filter). `metrics` is
+        None unless include_metrics is True. The `file_info` of the raw file and
+        `backup_path`, the folder its paths are relative to, are None unless
+        include_file_info is True.
 
     """
-    found, total = _query_raw_files(
-        instrument_id=instrument_id,
-        name_contains=name_contains,
-        project_id=project_id,
-        date_from=date_from,
-        date_to=date_to,
-        limit=limit,
-        offset=offset,
+    found = raw_file_store.find(
+        where,
+        limit=page.limit,
+        offset=page.offset,
         include_file_info=include_file_info,
     )
+    total = raw_file_store.count(where)
 
     latest_metrics = (
         metrics_store.latest_by_raw_file([raw_file.id for raw_file in found])

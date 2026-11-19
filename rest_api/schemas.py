@@ -134,3 +134,25 @@ class SettingsResponse(BaseModel):
     status: str
     owner_email: str | None = None
     created_at_: datetime | None = None
+
+
+class StatusResponse(BaseModel):
+    """Health of an entity (instrument, file system, job) as last reported."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    status: str
+    status_details: str | None = None
+    free_space_gb: int
+    entity_type: str
+    updated_at_: datetime
+
+
+class UserResponse(BaseModel):
+    """A user who can own projects and settings."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    email: str
+    initials: str

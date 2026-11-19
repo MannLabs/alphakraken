@@ -111,7 +111,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [ ] review with human
 
 ### Phase 3: Reads and rollout
-- [ ] T11: `GET /status/`, `GET /users/` (keyed)
+- [x] T11: `GET /status/`, `GET /users/` (keyed)
 - [ ] T12: version 0.2.0, main compose/env, `docs/deployment.md`
 
 ### Checkpoint: Complete

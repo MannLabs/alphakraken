@@ -181,7 +181,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 ## Phase 3: Reads and rollout
 
-- [ ] **T11: `GET /status/` and `GET /users/`**
+- [x] **T11: `GET /status/` and `GET /users/`**
   - Acceptance:
     - `GET /status/` (open) returns all `KrakenStatus` entries.
     - `GET /users/` (keyed) returns active users, `email` and `initials` only; inactive users are left out.

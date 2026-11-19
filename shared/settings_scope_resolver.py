@@ -19,6 +19,9 @@ def fully_excluded_scopes(scopes: list[str], excluded_scopes: list[str]) -> list
     result = []
     for scope in scopes:
         matching = [i for i in instruments if _scopes_match([scope], *i)]
+        # tolerated: a scope without instruments in the yaml (e.g. an instrument type the site
+        # does not have) is never reported, even if it is excluded itself or by '*'; such an
+        # assignment is stored and never applies
         if matching and all(_scopes_match(excluded_scopes, *i) for i in matching):
             result.append(scope)
     return result

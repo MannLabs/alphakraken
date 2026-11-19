@@ -151,3 +151,32 @@ def test_add_project_passes_selected_owner(
     mock_add_project.assert_called_once_with(
         project_id="ABCD1", name="name", description="", owner_email="a@b.de"
     )
+
+
+@patch("pages_.impl.projects_utils.get_resolved_settings_df", side_effect=ValueError)
+@patch("shared.db.project_settings.update_to_latest")
+@patch("shared.db.settings.latest_active")
+@patch("shared.db.settings.find", return_value=[])
+@patch("shared.db.projects.find")
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
+def test_update_assignment_to_latest_version(  # noqa: PLR0913
+    mock_show_filter: MagicMock,  # noqa: ARG001
+    mock_find_projects: MagicMock,
+    mock_find_settings: MagicMock,  # noqa: ARG001
+    mock_latest_active: MagicMock,
+    mock_update_to_latest: MagicMock,
+    mock_resolved: MagicMock,  # noqa: ARG001
+    mock_find_assignments: MagicMock,
+) -> None:
+    """Test that the update button replaces the assignment in one call."""
+    mock_find_projects.return_value = [project()]
+    mock_find_assignments.return_value = [project_settings()]
+    mock_latest_active.return_value = settings(id="fallback_v8", version=8)
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py")
+    at.run(timeout=10)
+    at.selectbox(key="assign_project_select").set_value("P1").run(timeout=10)
+    at.button(key="update_ps_assignment1").click().run(timeout=10)
+
+    assert not at.exception
+    mock_update_to_latest.assert_called_once_with("assignment1")

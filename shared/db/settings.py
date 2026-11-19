@@ -75,8 +75,11 @@ def create(  # noqa: PLR0913
     slurm_time: str | None = None,
     num_threads: int | None = None,
     owner_email: str | None = None,
+    archive_previous: bool = False,
 ) -> Settings:
     """Create new settings, as the next version of the settings with the same name.
+
+    :param archive_previous: archive the latest non-deleted version of the name afterwards
 
     Raises:
         NotFoundError: if there is no user with `owner_email`.
@@ -84,8 +87,8 @@ def create(  # noqa: PLR0913
 
     """
     # moves to shared/services, cf. VALIDATION_DESIGN.md
-    versions = [s.version for s in find(name=name, include_deleted=True)]
-    version = max(versions, default=0) + 1
+    existing = find(name=name, include_deleted=True)
+    version = max((s.version for s in existing), default=0) + 1
     # deliberately ignoring potential race condition
     number = count(include_deleted=True) + 1
 
@@ -109,6 +112,11 @@ def create(  # noqa: PLR0913
         owner_email=owner_email,
     )
     logging.info(f"Created settings: {name=} {version=}")
+
+    if archive_previous:
+        non_deleted = [s for s in existing if s.status != SettingsStatus.DELETED]
+        if previous := max(non_deleted, key=lambda s: s.version, default=None):
+            archive(previous.id)
     return settings
 
 

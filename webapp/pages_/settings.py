@@ -2,8 +2,6 @@
 
 import re
 from collections import defaultdict
-
-# ruff: noqa: TRY301 # Abstract `raise` to an inner function
 from typing import Any
 
 import pandas as pd
@@ -29,8 +27,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.config_params import (
@@ -42,7 +39,11 @@ from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
 from shared.domain.projects import ProjectStatus
-from shared.domain.settings import SettingsStatus
+from shared.domain.settings import (
+    SLURM_MEM_REGEX,
+    SLURM_TIME_REGEX,
+    SettingsStatus,
+)
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     SOFTWARE_TYPE_TO_METRICS_TYPES,
@@ -508,11 +509,11 @@ if submit:
         )
     if slurm_mem:
         validation_errors.extend(check_for_malicious_content(slurm_mem))
-        if not re.match(r"^\d+[KMGT]$", slurm_mem):
+        if not re.match(SLURM_MEM_REGEX, slurm_mem):
             validation_errors.append(
                 "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
             )
-    if slurm_time and not re.match(r"^\d{2}:\d{2}:\d{2}$", slurm_time):
+    if slurm_time and not re.match(SLURM_TIME_REGEX, slurm_time):
         validation_errors.append("SLURM time must be in HH:MM:SS format.")
 
     if software_type == SoftwareTypes.ALPHADIA and (
@@ -523,7 +524,9 @@ if submit:
             "At least one of the fasta and speclib file names must be given."
         )
 
-    try:
+    with toast_result(
+        f"Created new settings '{name}'. Assign it to projects on the Projects page."
+    ):
         if validation_errors:
             errors_str = "\n- ".join(validation_errors)
             raise ValueError(
@@ -551,16 +554,9 @@ if submit:
             slurm_time=empty_to_none(slurm_time),
             num_threads=num_threads,
             owner_email=owner_email,
+            archive_previous=is_update and archive_previous,
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        if is_update and archive_previous:
-            settings_store.archive(latest_settings["id"])
         get_settings_df.clear()
-        show_success_toast(
-            f"Created new settings '{name}'. Assign it to projects on the Projects page."
-        )
 
 
 # ########################################### ARCHIVE/DELETE SETTINGS
@@ -606,15 +602,12 @@ else:
                 disabled=DISABLE_WRITE,
                 icon=":material/archive:",
             ):
-                try:
+                with toast_result(
+                    f"Archived settings '{row['name']}' version {int(row['version'])}."
+                ):
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     settings_store.archive(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Archived settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
             is_assigned = row["id"] in assigned_settings_ids
             if col_delete.button(
                 "Delete",
@@ -623,11 +616,8 @@ else:
                 help="Unassign from all projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result(
+                    f"Deleted settings '{row['name']}' version {int(row['version'])}."
+                ):
                     settings_store.delete(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Deleted settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))

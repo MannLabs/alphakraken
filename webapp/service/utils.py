@@ -3,6 +3,8 @@
 import io
 import logging
 import traceback
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,17 @@ def show_error_toast(msg: str) -> None:
     """Queue an error toast notification (displayed after next rerun)."""
     st.session_state[_PENDING_TOAST_KEY] = ("error", msg)
     st.rerun()
+
+
+@contextmanager
+def toast_result(success_msg: str) -> Iterator[None]:
+    """Show the success message as toast after the block, or the exception it raised as error toast."""
+    try:
+        yield
+    except Exception as e:  # noqa: BLE001
+        show_error_toast(str(e))
+    else:
+        show_success_toast(success_msg)
 
 
 def flush_pending_toasts() -> None:

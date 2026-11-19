@@ -3,6 +3,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
+USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
+
 
 class UserStatus:
     """Status of user."""

@@ -7,8 +7,7 @@ from typing import Annotated
 from pydantic import BeforeValidator, Field
 
 from shared.domain.inputs import InputModel, RequiredStr, truncated
-
-KRAKEN_STATUS_DETAILS_MAX_LENGTH = 1024
+from shared.keys import STATUS_DETAILS_MAX_LENGTH
 
 
 class KrakenStatusValues:
@@ -47,10 +46,8 @@ class KrakenStatusUpdate(InputModel):
     # truncated instead of rejected: an error message must not keep its status from being written
     status_details: Annotated[
         str,
-        BeforeValidator(
-            lambda value: truncated(value, KRAKEN_STATUS_DETAILS_MAX_LENGTH)
-        ),
-    ] = Field(max_length=KRAKEN_STATUS_DETAILS_MAX_LENGTH)
+        BeforeValidator(lambda value: truncated(value, STATUS_DETAILS_MAX_LENGTH)),
+    ] = Field(max_length=STATUS_DETAILS_MAX_LENGTH)
     free_space_gb: int = Field(ge=-1)
     # cf. `KrakenStatusEntities`
     entity_type: RequiredStr = Field(max_length=16)

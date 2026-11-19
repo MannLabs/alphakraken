@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from pydantic import BeforeValidator, Field
 
 from shared.domain.inputs import InputModel, truncated
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.keys import FALLBACK_PROJECT_ID, STATUS_DETAILS_MAX_LENGTH
 
 # (size, hash) or (size, hash, etag) of one file of a raw file folder
 FileInfoItem = (
@@ -165,9 +165,6 @@ def parse_file_info_item(
 def get_created_at_year_month(raw_file: RawFile) -> str:
     """Get the year and month of the raw file creation date."""
     return raw_file.created_at.strftime("%Y_%m")
-
-
-STATUS_DETAILS_MAX_LENGTH = 1024
 
 
 class RawFileUpdate(InputModel):

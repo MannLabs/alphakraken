@@ -1,7 +1,8 @@
 """Tests for the domain.raw_files module."""
 
 from shared.domain.inputs import parse
-from shared.domain.raw_files import STATUS_DETAILS_MAX_LENGTH, RawFileUpdate
+from shared.domain.raw_files import RawFileUpdate
+from shared.keys import STATUS_DETAILS_MAX_LENGTH
 
 
 def test_raw_file_update_truncates_too_long_status_details() -> None:

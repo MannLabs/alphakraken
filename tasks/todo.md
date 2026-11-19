@@ -72,7 +72,7 @@ Cf. `REFACTORING_SPEC.md` for the findings and acceptance; each step is one comm
 unit tests adapted and green, e2e green on a fresh stack, and once with
 `e2e/restart.sh ../ignore/e2e_seed`.
 
-- [ ] **R1: domain errors → HTTP**
+- [x] **R1: domain errors → HTTP**
   - Acceptance: `NotFoundError` handler in `main.py` (404, `{"detail": "<message>"}`); `get_project` and `get_settings_by_unique_name` raise it, also for deleted records; no 404 code in routes.
   - Verify: e2e 404 tests unchanged and green; unit tests for a deleted project and settings.
   - Depends on: T3

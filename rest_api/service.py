@@ -150,10 +150,17 @@ def get_projects(
     return [{**_to_dict(p), "settings": assignments[p.id]} for p in found], total
 
 
-def get_project(project_id: str) -> dict[str, Any] | None:
-    """Get a non-deleted project by ID, or None if it does not exist."""
+def get_project(project_id: str) -> dict[str, Any]:
+    """Get a non-deleted project by ID.
+
+    Raises:
+        NotFoundError: if there is none.
+
+    """
     found, _ = get_projects(project_id=project_id, limit=1)
-    return found[0] if found else None
+    if not found:
+        raise NotFoundError(f"No project {project_id}")
+    return found[0]
 
 
 def get_settings(
@@ -169,10 +176,14 @@ def get_settings(
     return [_to_dict(s) for s in found], settings_store.count(name=name)
 
 
-def get_settings_by_unique_name(unique_name: str) -> dict[str, Any] | None:
-    """Get non-deleted settings by unique name (e.g. `fallback_v7`), or None if it does not exist."""
-    try:
-        found = settings_store.get(unique_name)
-    except NotFoundError:
-        return None
-    return None if found.status == SettingsStatus.DELETED else _to_dict(found)
+def get_settings_by_unique_name(unique_name: str) -> dict[str, Any]:
+    """Get non-deleted settings by unique name (e.g. `fallback_v7`).
+
+    Raises:
+        NotFoundError: if there are none, also if `unique_name` is not of that form.
+
+    """
+    found = settings_store.get(unique_name)
+    if found.status == SettingsStatus.DELETED:
+        raise NotFoundError(f"No settings {unique_name}")
+    return _to_dict(found)

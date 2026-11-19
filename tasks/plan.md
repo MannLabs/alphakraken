@@ -83,7 +83,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [ ] review with human
 
 ### Phase R: Refactoring (`REFACTORING_SPEC.md`)
-- [ ] R1: domain errors → HTTP (404 handler, no `None` returns)
+- [x] R1: domain errors → HTTP (404 handler, no `None` returns)
 - [ ] R2: response models from the domain objects (all fields declared, `owner_email`)
 - [ ] R3: `Page[T]` and a `Pagination` dependency
 - [ ] R4: `RawFileQuery` dependency, routers per resource, writes call `shared.db` directly

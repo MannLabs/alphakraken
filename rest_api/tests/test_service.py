@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from rest_api.service import (
     get_project,
     get_projects,
@@ -96,11 +98,12 @@ def test_get_project_returns_first_match(mock_get_projects: MagicMock) -> None:
 
 
 @patch("rest_api.service.get_projects")
-def test_get_project_returns_none_if_missing(mock_get_projects: MagicMock) -> None:
-    """None is returned for unknown IDs."""
+def test_get_project_raises_if_missing(mock_get_projects: MagicMock) -> None:
+    """Unknown IDs, and deleted projects, which the query leaves out, are not found."""
     mock_get_projects.return_value = ([], 0)
 
-    assert get_project("P1") is None
+    with pytest.raises(NotFoundError, match="P1"):
+        get_project("P1")
 
 
 @patch("shared.db.settings.count", return_value=3)
@@ -149,18 +152,20 @@ def test_get_settings_by_unique_name(mock_get: MagicMock) -> None:
 
 
 @patch("shared.db.settings.get", side_effect=NotFoundError("none"))
-def test_get_settings_by_unique_name_returns_none_if_missing(
+def test_get_settings_by_unique_name_raises_if_missing(
     mock_get: MagicMock,  # noqa: ARG001
 ) -> None:
-    """None is returned for unknown or malformed names."""
-    assert get_settings_by_unique_name("fallback_v99") is None
+    """The error for unknown or malformed names is passed on."""
+    with pytest.raises(NotFoundError, match="none"):
+        get_settings_by_unique_name("fallback_v99")
 
 
 @patch("shared.db.settings.get")
-def test_get_settings_by_unique_name_returns_none_for_deleted_settings(
+def test_get_settings_by_unique_name_raises_for_deleted_settings(
     mock_get: MagicMock,
 ) -> None:
-    """Deleted settings are not served."""
+    """Deleted settings are not found."""
     mock_get.return_value = settings(status=SettingsStatus.DELETED)
 
-    assert get_settings_by_unique_name("fallback_v7") is None
+    with pytest.raises(NotFoundError, match="fallback_v7"):
+        get_settings_by_unique_name("fallback_v7")

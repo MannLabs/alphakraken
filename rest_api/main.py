@@ -3,9 +3,11 @@
 import os
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 
 from rest_api.routes import router
+from shared.domain.errors import NotFoundError
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
@@ -16,6 +18,11 @@ app = FastAPI(
 )
 
 app.include_router(router)
+
+
+@app.exception_handler(NotFoundError)
+def _not_found(_request: Request, error: NotFoundError) -> JSONResponse:
+    return JSONResponse({"detail": str(error)}, status.HTTP_404_NOT_FOUND)
 
 
 @app.get("/health")

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from rest_api.schemas import (
     ProjectResponse,
@@ -98,12 +98,7 @@ def list_projects(
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
 def read_project(project_id: str) -> dict[str, Any]:
     """Get a project by ID."""
-    project = get_project(project_id)
-    if project is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, f"Project '{project_id}' not found"
-        )
-    return project
+    return get_project(project_id)
 
 
 @router.get("/settings/", response_model=SettingsListResponse)
@@ -124,9 +119,4 @@ def list_settings(
 @router.get("/settings/{settings_id}", response_model=SettingsResponse)
 def read_settings(settings_id: str) -> dict[str, Any]:
     """Get settings by ID, i.e. `<name>_v<version>`."""
-    settings = get_settings_by_unique_name(settings_id)
-    if settings is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, f"Settings '{settings_id}' not found"
-        )
-    return settings
+    return get_settings_by_unique_name(settings_id)

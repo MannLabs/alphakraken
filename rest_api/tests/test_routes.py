@@ -7,6 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from rest_api.main import app
+from shared.domain.errors import NotFoundError
 
 client = TestClient(app)
 
@@ -84,12 +85,13 @@ def test_read_project(mock_get_project: MagicMock) -> None:
     mock_get_project.assert_called_once_with("P1")
 
 
-@patch("rest_api.routes.get_project", return_value=None)
+@patch("rest_api.routes.get_project", side_effect=NotFoundError("No project nope"))
 def test_read_project_not_found(mock_get_project: MagicMock) -> None:
-    """Unknown project IDs yield 404."""
+    """Unknown project IDs yield 404 with the message of the error."""
     response = client.get("/projects/nope")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "No project nope"}
     mock_get_project.assert_called_once_with("nope")
 
 
@@ -121,10 +123,14 @@ def test_read_settings(mock_get_settings_by_unique_name: MagicMock) -> None:
     assert response.json() == SETTINGS
 
 
-@patch("rest_api.routes.get_settings_by_unique_name", return_value=None)
+@patch(
+    "rest_api.routes.get_settings_by_unique_name",
+    side_effect=NotFoundError("No settings nope"),
+)
 def test_read_settings_not_found(mock_get_settings_by_unique_name: MagicMock) -> None:
-    """Unknown settings IDs yield 404."""
+    """Unknown settings IDs yield 404 with the message of the error."""
     response = client.get("/settings/nope")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "No settings nope"}
     mock_get_settings_by_unique_name.assert_called_once_with("nope")

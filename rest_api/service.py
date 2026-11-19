@@ -19,7 +19,7 @@ FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
 
-RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
+RAW_FILE_EXCLUDED_KEYS = {"created_at_", FILE_INFO_KEY}
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -55,12 +55,9 @@ def _query_raw_files(  # noqa: PLR0913
 def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
     """Build a raw file response dict, excluding internal keys and unset fields."""
     return {
-        "id": raw_file.id,
-        **{
-            k: v
-            for k, v in vars(raw_file).items()
-            if k not in excluded_keys and v is not None
-        },
+        k: v
+        for k, v in vars(raw_file).items()
+        if k not in excluded_keys and v is not None
     }
 
 

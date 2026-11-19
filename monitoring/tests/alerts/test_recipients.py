@@ -53,7 +53,7 @@ def test_extract_initials_returns_first_known_token(
     assert extract_initials(name, {"MaSc", "AnSc"}) == expected
 
 
-@patch("monitoring.alerts.recipients.get_project_owner", return_value=None)
+@patch("shared.db.users.project_owner", return_value=None)
 def test_get_recipients_returns_messenger_id_of_user(
     mock_get_project_owner: MagicMock,
 ) -> None:
@@ -63,7 +63,7 @@ def test_get_recipients_returns_messenger_id_of_user(
     mock_get_project_owner.assert_called_once_with("x_MaSc_a.raw")
 
 
-@patch("monitoring.alerts.recipients.get_project_owner")
+@patch("shared.db.users.project_owner")
 def test_get_recipients_prefers_the_project_owner(
     mock_get_project_owner: MagicMock,
 ) -> None:
@@ -75,7 +75,7 @@ def test_get_recipients_prefers_the_project_owner(
     assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_OWNER"]
 
 
-@patch("monitoring.alerts.recipients.get_project_owner")
+@patch("shared.db.users.project_owner")
 def test_get_recipients_falls_back_to_initials_when_owner_has_no_messenger_id(
     mock_get_project_owner: MagicMock,
 ) -> None:
@@ -88,7 +88,7 @@ def test_get_recipients_falls_back_to_initials_when_owner_has_no_messenger_id(
 
 
 @pytest.mark.parametrize("file_name", [None, "x_UNK_a.raw"])
-@patch("monitoring.alerts.recipients.get_project_owner", return_value=None)
+@patch("shared.db.users.project_owner", return_value=None)
 def test_get_recipients_returns_empty_when_no_user_found(
     mock_get_project_owner: MagicMock,  # noqa: ARG001
     file_name: str | None,
@@ -98,7 +98,7 @@ def test_get_recipients_returns_empty_when_no_user_found(
     assert get_recipients(file_name, MESSENGER_IDS) == []
 
 
-@patch("monitoring.alerts.recipients.get_all_users")
+@patch("shared.db.users.find")
 def test_get_messenger_ids_by_initials_from_active_users_with_an_id(
     mock_get_all_users: MagicMock,
 ) -> None:

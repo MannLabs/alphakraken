@@ -25,9 +25,9 @@ from alerts.config import (
     STALE_STATUS_THRESHOLD_MINUTES,
 )
 from messenger import AlertTypes, Message
-from pymongo.errors import ConnectionFailure
 
-from shared.db.engine import connect_db
+from shared import db
+from shared.domain.errors import DatabaseUnavailableError
 from shared.keys import EnvVars
 
 # TODO: report when error has resolved
@@ -65,13 +65,13 @@ def main() -> None:
             alert_manager.report_exception(e, now)
 
         try:
-            connect_db(raise_on_error=True)
+            db.ping()
             if election.try_become_active(now):
                 alert_manager.check_for_issues(now)
-        except ConnectionFailure as e:
+        except DatabaseUnavailableError as e:
             alert_manager.send_once(
                 "db_connection_error",
-                Message(f"Error connecting to MongoDB: {e}"),
+                Message(f"Error connecting to the database: {e}"),
                 SPECIAL_ALERT_COOLDOWN_MINUTES,
                 now,
             )

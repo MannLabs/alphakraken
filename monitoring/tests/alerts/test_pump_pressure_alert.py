@@ -16,9 +16,13 @@ from monitoring.alerts.pump_pressure_alert import (
     _group_by_instrument,
     _is_within_tolerance,
     _load_pressure_data,
+    _pressure_data,
 )
 from monitoring.utils import short_digest
+from shared.db.raw_files import RawFileFilter
 from shared.domain.status import KrakenStatusEntities
+from shared.keys import MetricsTypes
+from shared.tests.factories import metrics, raw_file
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
@@ -39,29 +43,41 @@ class TestGroupByInstrument:
     def test_groups_metrics_by_instrument(self) -> None:
         """Each raw file with a pressure becomes a data point of its instrument."""
         # given
-        raw_files_with_metrics = {
+        recent_files = [
+            raw_file(id="file1", instrument_id="instrument1", created_at=NOW),
+            raw_file(
+                id="file2",
+                instrument_id="instrument1",
+                created_at=NOW - timedelta(hours=1),
+            ),
+            raw_file(
+                id="file3",
+                instrument_id="instrument2",
+                created_at=NOW - timedelta(hours=2),
+            ),
+        ]
+        latest_metrics = {
             "file1": {
-                "instrument_id": "instrument1",
-                "created_at": NOW,
-                "metrics_alphadia": {"gradient_length": 0.5},
-                "metrics_msqc": {"evosep_pump_hp_pressure_max": 100.0},
+                MetricsTypes.ALPHADIA: metrics(values={"gradient_length": 0.5}),
+                MetricsTypes.MSQC: metrics(
+                    type=MetricsTypes.MSQC,
+                    values={"evosep_pump_hp_pressure_max": 100.0},
+                ),
             },
             "file2": {
-                "instrument_id": "instrument1",
-                "created_at": NOW - timedelta(hours=1),
-                "metrics_alphadia": {},
-                "metrics_msqc": {"evosep_pump_hp_pressure_max": 110.0},
+                MetricsTypes.MSQC: metrics(
+                    type=MetricsTypes.MSQC,
+                    values={"evosep_pump_hp_pressure_max": 110.0},
+                ),
             },
             "file3": {
-                "instrument_id": "instrument2",
-                "created_at": NOW - timedelta(hours=2),
-                "metrics_alphadia": {"gradient_length": 0.6},
-                "metrics_msqc": {},
+                MetricsTypes.ALPHADIA: metrics(values={"gradient_length": 0.6}),
+                MetricsTypes.MSQC: metrics(type=MetricsTypes.MSQC, values={}),
             },
         }
 
         # when
-        result = _group_by_instrument(raw_files_with_metrics)
+        result = _group_by_instrument(recent_files, latest_metrics)
 
         # then - missing gradient length is kept, missing pressure is skipped
         assert result == {
@@ -145,41 +161,45 @@ class TestDetectHigh:
 class TestLoadPressureData:
     """Loading of the recent raw files and their metrics."""
 
-    @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
-    @patch("monitoring.alerts.pump_pressure_alert.RawFile")
+    @patch("shared.db.metrics.latest_by_raw_file")
+    @patch("shared.db.raw_files.find")
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 7)
     def test_returns_empty_without_raw_files(
-        self, mock_rawfile: Mock, mock_augment: Mock
+        self, mock_find: Mock, mock_latest: Mock
     ) -> None:
         """Without raw files in the lookback window, no metrics are loaded."""
         # given
-        mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value = []
+        mock_find.return_value = []
 
         # when
         result = _load_pressure_data(["instrument1"], NOW)
 
         # then
         assert result == {}
-        mock_rawfile.objects.filter.assert_called_once_with(
-            instrument_id__in=["instrument1"], created_at__gte=NOW - timedelta(days=7)
+        mock_find.assert_called_once_with(
+            RawFileFilter(
+                instrument_ids=["instrument1"], created_after=NOW - timedelta(days=7)
+            )
         )
-        mock_augment.assert_not_called()
+        mock_latest.assert_not_called()
 
-    @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
-    @patch("monitoring.alerts.pump_pressure_alert.RawFile")
+    @patch("shared.db.metrics.latest_by_raw_file")
+    @patch("shared.db.raw_files.find")
     def test_groups_the_metrics_of_the_raw_files(
-        self, mock_rawfile: Mock, mock_augment: Mock
+        self, mock_find: Mock, mock_latest: Mock
     ) -> None:
-        """The metrics of the found raw files are grouped per instrument."""
+        """The metrics of the found raw files are loaded by field and grouped per instrument."""
         # given
-        raw_files = [Mock()]
-        mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value = raw_files
-        mock_augment.return_value = {
+        mock_find.return_value = [
+            raw_file(id="file1", instrument_id="instrument1", created_at=NOW)
+        ]
+        mock_latest.return_value = {
             "file1": {
-                "instrument_id": "instrument1",
-                "created_at": NOW,
-                "metrics_alphadia": {"gradient_length": 0.5},
-                "metrics_msqc": {"evosep_pump_hp_pressure_max": 100.0},
+                MetricsTypes.ALPHADIA: metrics(values={"gradient_length": 0.5}),
+                MetricsTypes.MSQC: metrics(
+                    type=MetricsTypes.MSQC,
+                    values={"evosep_pump_hp_pressure_max": 100.0},
+                ),
             }
         }
 
@@ -188,11 +208,32 @@ class TestLoadPressureData:
 
         # then
         assert result == {"instrument1": [PressureDataPoint(100.0, 0.5, NOW, "file1")]}
-        assert mock_augment.call_args.args[0] is raw_files
+        mock_latest.assert_called_once_with(
+            ["file1"], fields=["gradient_length", "evosep_pump_hp_pressure_max"]
+        )
 
 
 INSTRUMENT = Mock(id="instrument1", entity_type=KrakenStatusEntities.INSTRUMENT)
 JOB = Mock(id="file_remover", entity_type=KrakenStatusEntities.JOB)
+
+
+@pytest.fixture(autouse=True)
+def _no_pressure_data_from_other_tests() -> None:
+    """The alerts share the loaded pressure data per check; tests must not."""
+    _pressure_data.cache_clear()
+
+
+@patch("monitoring.alerts.pump_pressure_alert._load_pressure_data", return_value={})
+def test_both_alerts_load_the_pressure_data_once_per_check(mock_load: Mock) -> None:
+    """The second alert of a check reuses the data of the first, a later check loads anew."""
+    PumpPressureIncreaseAlert()._get_issues([INSTRUMENT], NOW)
+    PumpPressureHighAlert()._get_issues([INSTRUMENT], NOW)
+
+    mock_load.assert_called_once_with(["instrument1"], NOW)
+
+    PumpPressureIncreaseAlert()._get_issues([INSTRUMENT], NOW + timedelta(minutes=1))
+
+    assert mock_load.call_count == 2
 
 
 class TestPumpPressureIncreaseAlert:

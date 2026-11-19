@@ -3,6 +3,7 @@
 from shared.validation import (
     ABSOLUTE_PATH_ERROR,
     INVALID_CHARS_ERROR,
+    INVALID_CHARS_ERROR_WITH_SPACES,
     PARENT_DIR_ERROR,
     TRAILING_BACKSLASH_ERROR,
     check_for_malicious_content,
@@ -113,3 +114,10 @@ class TestValidateName:
         for allow_spaces in (False, True):
             errors = check_for_malicious_content("exe\\", allow_spaces=allow_spaces)
             assert errors == [TRAILING_BACKSLASH_ERROR]
+
+    def test_check_for_malicious_content_trailing_newline(self) -> None:
+        """Test that a trailing newline fails validation, although `$` matches before it."""
+        assert check_for_malicious_content("exe\n") == [INVALID_CHARS_ERROR]
+        assert check_for_malicious_content("a b\n", allow_spaces=True) == [
+            INVALID_CHARS_ERROR_WITH_SPACES
+        ]

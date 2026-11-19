@@ -1,6 +1,6 @@
 """Tests for the projects, settings and project settings APIs and their Mongo backends."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, call, patch
@@ -269,6 +269,29 @@ def test_update_assignment_to_latest(updatable: dict[str, MagicMock]) -> None:
     assert result == updatable["backend_set_settings"].return_value
     updatable["backend_assign"].assert_not_called()
     updatable["backend_unassign"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        # left alphakraken.yaml since
+        {"scopes": ["retired1"]},
+        # rejected for new assignments only
+        {"scopes": ["thermo"], "excluded_scopes": ["thermo"]},
+        {"raw_file_id_filter": ["HeLa_DDA"], "raw_file_id_exclude_filter": ["dda"]},
+    ],
+)
+def test_update_assignment_does_not_revalidate_stored_fields(
+    updatable: dict[str, MagicMock], stored: dict[str, list[str]]
+) -> None:
+    """Scopes and filters that were valid when assigned do not block the update."""
+    updatable["find_assignments"].return_value = [factories.project_settings(**stored)]
+
+    project_settings.update_to_latest("assignment1", allow_fallback=False)
+
+    updatable["backend_set_settings"].assert_called_once_with(
+        "assignment1", "fallback_v8"
+    )
 
 
 def test_update_assignment_to_already_assigned_latest_raises(
@@ -685,8 +708,8 @@ def test_add_project_with_invalid_field_raises(
     mock_find: MagicMock, mock_backend_add: MagicMock
 ) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p1'"):
-        projects.add(project_id="p1", name="n")
+    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p123'"):
+        projects.add(project_id="p123", name="n")
 
     mock_find.assert_not_called()
     mock_backend_add.assert_not_called()
@@ -745,6 +768,20 @@ def test_backend_add_project_resolves_owner(
         owner=mock_models.User.objects.get.return_value if owner_email else None,
     )
     mock_models.Project.return_value.save.assert_called_once_with(force_insert=True)
+
+
+@pytest.mark.parametrize("write", [projects.archive, projects.delete])
+@patch("shared.db._mongo.projects.set_status")
+def test_fallback_project_cannot_be_archived_or_deleted(
+    mock_set_status: MagicMock, write: Callable[[str], None]
+) -> None:
+    """The fallback project stays active, as raw files without an active project are assigned to it."""
+    with pytest.raises(
+        ValidationError, match="Project '_FALLBACK' cannot be archived or deleted"
+    ):
+        write(FALLBACK_PROJECT_ID)
+
+    mock_set_status.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -843,6 +880,10 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
         patch("shared.db.projects.find") as find_projects,
         patch("shared.db.settings.get") as get_settings,
         patch("shared.db.project_settings.find", return_value=[]) as find_assignments,
+        patch(
+            "shared.db.project_settings.known_scopes",
+            return_value=["*", "thermo", "bruker", "test1", "test2"],
+        ),
         patch("shared.db._mongo.project_settings.assign") as backend_assign,
         patch("shared.db._mongo.project_settings.unassign") as backend_unassign,
         patch("shared.db._mongo.project_settings.set_settings") as backend_set_settings,
@@ -943,8 +984,51 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
     assignable["backend_assign"].assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "scopes",
+    [
+        {"scopes": ["test9"]},
+        {"excluded_scopes": ["test9"]},
+        # reported once
+        {"scopes": ["test9"], "excluded_scopes": ["test9"]},
+    ],
+)
+def test_assign_with_unknown_scope_raises(
+    assignable: dict[str, MagicMock], scopes: dict[str, list[str]]
+) -> None:
+    """A scope that is neither an instrument type nor a configured instrument would never match."""
+    with pytest.raises(ValidationError, match=r"Unknown scopes \['test9'\]"):
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, **scopes)
+
+    assignable["backend_assign"].assert_not_called()
+
+
+def test_assign_with_fully_excluded_scope_raises(
+    assignable: dict[str, MagicMock],
+) -> None:
+    """An instrument whose type is excluded would never match."""
+    with (
+        patch(
+            "shared.db.project_settings.fully_excluded_scopes", return_value=["test1"]
+        ) as fully_excluded,
+        pytest.raises(
+            ValidationError, match=r"All instruments of scopes \['test1'\] are excluded"
+        ),
+    ):
+        project_settings.assign(
+            "P1",
+            "fallback_v7",
+            allow_fallback=False,
+            scopes=["test1"],
+            excluded_scopes=["thermo"],
+        )
+
+    fully_excluded.assert_called_once_with(["test1"], ["thermo"])
+    assignable["backend_assign"].assert_not_called()
+
+
 def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> None:
-    """The errors of the project and the settings are reported together."""
+    """The errors of the scopes, the project and the settings are reported together."""
     assignable["find_projects"].return_value = [
         factories.project(status=ProjectStatus.INACTIVE)
     ]
@@ -953,9 +1037,12 @@ def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> Non
     )
 
     with pytest.raises(ValidationError) as e:
-        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+        project_settings.assign(
+            "P1", "fallback_v7", allow_fallback=False, scopes=["test9"]
+        )
 
     assert [error.split(",")[0].split(" '")[0] for error in e.value.errors] == [
+        "Unknown scopes ['test9']",
         "Cannot change the settings assignments of archived or deleted project",
         "Cannot assign archived or deleted settings",
     ]

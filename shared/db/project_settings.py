@@ -10,6 +10,7 @@ from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
 from shared.keys import FALLBACK_PROJECT_ID
+from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
 
 def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
@@ -34,13 +35,15 @@ def assign(
 
     Raises:
         NotFoundError: if the project or the settings do not exist.
-        ValidationError: if a field is invalid, the fallback project is not
-            allowed, the project or the settings are archived or deleted, or the settings are
-            already assigned to the project with the same file name filters.
+        ValidationError: if a field is invalid, a scope is unknown, a scope or file name filter
+            entry would never apply, the fallback project is not allowed, the project or the
+            settings are archived or deleted, or the settings are already assigned to the project
+            with the same file name filters.
 
     """
     new = parse(NewAssignment, project_id=project_id, settings_id=settings_id, **fields)
-    errors = _project_errors(new.project_id, allow_fallback=allow_fallback)
+    errors = _scope_errors(new)
+    errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
     assigned = settings.get(new.settings_id)
     if assigned.status != SettingsStatus.ACTIVE:
         errors.append(
@@ -58,6 +61,20 @@ def assign(
     assignment = _backend.assign(new)
     logging.info(f"Created project-settings assignment: {new!r}")
     return assignment
+
+
+def _scope_errors(new: NewAssignment) -> list[str]:
+    """Return the errors of the scopes against alphakraken.yaml."""
+    errors = []
+    known = known_scopes()
+    scopes = dict.fromkeys((*new.scopes, *new.excluded_scopes))
+    if unknown := [s for s in scopes if s not in known]:
+        errors.append(f"Unknown scopes {unknown}, known are: {known}.")
+    if excluded := fully_excluded_scopes(new.scopes, new.excluded_scopes):
+        errors.append(
+            f"All instruments of scopes {excluded} are excluded, these entries would never apply."
+        )
+    return errors
 
 
 def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:

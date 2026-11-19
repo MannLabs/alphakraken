@@ -187,17 +187,18 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
             f"No newer active version of settings '{current.settings.name}' "
             f"than version {current.settings.version}"
         )
-    else:
-        errors += _duplicate_errors(
-            project_id,
-            latest.id,
-            current.raw_file_id_filter,
-            current.raw_file_id_exclude_filter,
-        )
+        # the duplicate check needs the newer version
+        raise InvalidInputError(errors)
+    errors += _duplicate_errors(
+        project_id,
+        latest.id,
+        current.raw_file_id_filter,
+        current.raw_file_id_exclude_filter,
+    )
     if errors:
         raise InvalidInputError(errors)
 
-    updated = _backend.set_settings(assignment_id, latest.id)  # type: ignore[union-attr]
+    updated = _backend.set_settings(assignment_id, latest.id)
     logging.info(
         f"Updated project-settings assignment: {assignment_id=} to {latest.id}"
     )

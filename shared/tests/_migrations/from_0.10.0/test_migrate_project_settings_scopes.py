@@ -134,7 +134,7 @@ _INSTRUMENTS = {"instr1": "thermo", "instr2": "bruker"}
 
 
 def test_cofiring_report_lists_previously_overridden_assignments() -> None:
-    """Test that the vendor assignment that used to override '*' is reported as newly firing."""
+    """Test that the instrument type assignment that used to override '*' is reported as newly firing."""
     docs = [
         {"_id": 1, "project": "P1", "settings": "a", "scope": "*"},
         {"_id": 2, "project": "P1", "settings": "b", "scope": "thermo"},
@@ -148,7 +148,7 @@ def test_cofiring_report_lists_previously_overridden_assignments() -> None:
 
 
 def test_cofiring_report_respects_exclusions_and_partitions() -> None:
-    """Test that mutually exclusive vendor scopes and excluded instruments report nothing."""
+    """Test that mutually exclusive instrument type scopes and excluded instruments report nothing."""
     docs = [
         {"_id": 1, "project": "P1", "settings": "a", "scope": "thermo"},
         {"_id": 2, "project": "P1", "settings": "b", "scope": "bruker"},

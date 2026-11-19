@@ -16,6 +16,7 @@ from monitoring.alerts.pump_pressure_alert import (
     _group_by_instrument,
     _is_within_tolerance,
     _load_pressure_data,
+    _pressure_data,
 )
 from monitoring.utils import short_digest
 from shared.db.raw_files import RawFileFilter
@@ -214,6 +215,25 @@ class TestLoadPressureData:
 
 INSTRUMENT = Mock(id="instrument1", entity_type=KrakenStatusEntities.INSTRUMENT)
 JOB = Mock(id="file_remover", entity_type=KrakenStatusEntities.JOB)
+
+
+@pytest.fixture(autouse=True)
+def _no_pressure_data_from_other_tests() -> None:
+    """The alerts share the loaded pressure data per check; tests must not."""
+    _pressure_data.cache_clear()
+
+
+@patch("monitoring.alerts.pump_pressure_alert._load_pressure_data", return_value={})
+def test_both_alerts_load_the_pressure_data_once_per_check(mock_load: Mock) -> None:
+    """The second alert of a check reuses the data of the first, a later check loads anew."""
+    PumpPressureIncreaseAlert()._get_issues([INSTRUMENT], NOW)
+    PumpPressureHighAlert()._get_issues([INSTRUMENT], NOW)
+
+    mock_load.assert_called_once_with(["instrument1"], NOW)
+
+    PumpPressureIncreaseAlert()._get_issues([INSTRUMENT], NOW + timedelta(minutes=1))
+
+    assert mock_load.call_count == 2
 
 
 class TestPumpPressureIncreaseAlert:

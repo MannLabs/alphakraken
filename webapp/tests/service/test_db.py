@@ -1,6 +1,7 @@
 """Tests for the db module."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -117,51 +118,30 @@ def test_get_raw_files_for_status_df_empty() -> None:
 
 
 def test_df_from_db_data() -> None:
-    """Test the df_from_db_data function."""
-    mock_query = MagicMock()
-    mock_query.to_mongo.side_effect = [
-        {"a": 1, "b": 2, "created_at_": 3},
-        {"a": 4, "b": 5, "created_at_": 6},
+    """Test that the rows become a DataFrame sorted by `created_at_`, youngest first."""
+    rows = [
+        SimpleNamespace(a=1, b=2, created_at_=3),
+        SimpleNamespace(a=4, b=5, created_at_=6),
     ]
 
-    mock_query_set = [mock_query, mock_query]
-
     # when
-    result = df_from_db_data(mock_query_set)
+    result = df_from_db_data(rows)
 
     expected_data = pd.DataFrame({"a": [4, 1], "b": [5, 2], "created_at_": [6, 3]})
-    pd.testing.assert_frame_equal(expected_data, result)
-
-
-def test_df_from_db_data_all_parameters() -> None:
-    """Test the df_from_db_data function with all parameters."""
-    mock_query = MagicMock()
-    mock_query.to_mongo.side_effect = [
-        {"a": 1, "b": 2, "created_at_": 3},
-        {"a": 1, "b": 5, "created_at_": 6},
-    ]
-
-    mock_query_set = [mock_query, mock_query]
-
-    # when
-    result = df_from_db_data(mock_query_set, drop_duplicates=["a"], drop_columns=["b"])
-
-    expected_data = pd.DataFrame({"a": [1], "created_at_": [6]})
     pd.testing.assert_frame_equal(expected_data, result)
 
 
 @patch("service.timezone.DISPLAY_TIMEZONE", pytz.timezone("Europe/Berlin"))
 def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
     """Test that the db timestamps are shifted to the configured timezone."""
-    mock_query = MagicMock()
-    mock_query.to_mongo.return_value = {
-        "created_at": datetime(2024, 7, 1, 12, 0, 0),  # noqa: DTZ001
-        "created_at_": datetime(2024, 7, 1, 12, 0, 1),  # noqa: DTZ001
-        "updated_at_": datetime(2024, 7, 1, 12, 0, 2),  # noqa: DTZ001
-    }
+    row = SimpleNamespace(
+        created_at=datetime(2024, 7, 1, 12, 0, 0, tzinfo=UTC),
+        created_at_=datetime(2024, 7, 1, 12, 0, 1, tzinfo=UTC),
+        updated_at_=datetime(2024, 7, 1, 12, 0, 2, tzinfo=UTC),
+    )
 
     # when
-    result = df_from_db_data([mock_query])
+    result = df_from_db_data([row])
 
     assert result["created_at"].tolist() == [
         pd.Timestamp("2024-07-01 14:00:00", tz="Europe/Berlin")
@@ -176,7 +156,8 @@ def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
 
 @patch(
     "service.db.get_display_output_path",
-    side_effect=lambda p, base: f"{base or '/out'}/{p}",
+    side_effect=lambda m: m.relative_output_path
+    and f"{m.output_display_base_path or '/out'}/{m.relative_output_path}",
 )
 @patch("shared.db.metrics.find")
 def test_get_output_folders(

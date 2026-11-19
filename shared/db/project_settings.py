@@ -9,7 +9,7 @@ from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
-from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
+from shared.keys import FALLBACK_PROJECT_ID
 from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
 
@@ -30,7 +30,7 @@ def assign(  # noqa: PLR0913
     settings_id: str,
     *,
     allow_fallback: bool,
-    scopes: list[str] | None = None,
+    scopes: list[str],
     excluded_scopes: list[str] | None = None,
     raw_file_id_filter: list[str] | None = None,
     raw_file_id_exclude_filter: list[str] | None = None,
@@ -39,7 +39,7 @@ def assign(  # noqa: PLR0913
 
     :param settings_id: the unique name of the settings, e.g. `fallback_v7`
     :param allow_fallback: whether the caller may change the assignments of the fallback project
-    :param scopes: None for all instruments
+    :param scopes: required, so that leaving it out cannot mean all instruments; `['*']` for those
     :param excluded_scopes: None for none
     :param raw_file_id_filter: None for all files
     :param raw_file_id_exclude_filter: None for none
@@ -55,8 +55,7 @@ def assign(  # noqa: PLR0913
         NewAssignment,
         project_id=project_id,
         settings_id=settings_id,
-        # not `or`: an empty list is an error, not all instruments
-        scopes=[DEFAULT_SCOPE] if scopes is None else scopes,
+        scopes=scopes,
         excluded_scopes=excluded_scopes or [],
         raw_file_id_filter=raw_file_id_filter or [],
         raw_file_id_exclude_filter=raw_file_id_exclude_filter or [],

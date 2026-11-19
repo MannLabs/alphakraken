@@ -971,8 +971,10 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
 
 
 def test_assign_settings_with_defaults(assignable: dict[str, MagicMock]) -> None:
-    """Without scopes and filters, the assignment applies to all instruments and files."""
-    result = project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+    """Without exclusions and filters, the assignment applies to all files of its scopes."""
+    result = project_settings.assign(
+        "P1", "fallback_v7", allow_fallback=False, scopes=["*"]
+    )
 
     assignable["backend_assign"].assert_called_once_with(
         NewAssignment(
@@ -1023,7 +1025,7 @@ def test_assign_settings_to_archived_or_deleted_project_raises(
     with pytest.raises(
         InvalidInputError, match=f"Project 'P1' is not active \\(status '{status}'\\)"
     ):
-        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
@@ -1039,7 +1041,7 @@ def test_assign_archived_or_deleted_settings_raises(
         InvalidInputError,
         match=f"Settings 'fallback' version 7 is not active \\(status '{status}'\\)",
     ):
-        project_settings.assign("P1", "fallback_v7", allow_fallback=False)
+        project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
@@ -1057,7 +1059,7 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
     "scopes",
     [
         {"scopes": ["test9"]},
-        {"excluded_scopes": ["test9"]},
+        {"scopes": ["*"], "excluded_scopes": ["test9"]},
         # reported once
         {"scopes": ["test9"], "excluded_scopes": ["test9"]},
     ],
@@ -1153,6 +1155,7 @@ def test_fallback_assignments_change_only_if_allowed(
             FALLBACK_PROJECT_ID,
             "fallback_v7",
             allow_fallback=allow_fallback,
+            scopes=["*"],
             raw_file_id_filter=["other"],
         ),
         lambda: project_settings.unassign("assignment1", allow_fallback=allow_fallback),
@@ -1192,6 +1195,7 @@ def test_assign_same_settings_with_same_filters_raises(
             "P1",
             "fallback_v7",
             allow_fallback=False,
+            scopes=["*"],
             raw_file_id_filter=["b", "a"],
             raw_file_id_exclude_filter=["blank"],
         )
@@ -1209,7 +1213,11 @@ def test_assign_same_settings_with_different_filters_succeeds(
     ]
 
     project_settings.assign(
-        "P1", "fallback_v7", allow_fallback=False, raw_file_id_filter=["b"]
+        "P1",
+        "fallback_v7",
+        allow_fallback=False,
+        scopes=["*"],
+        raw_file_id_filter=["b"],
     )
 
     assignable["backend_assign"].assert_called_once()

@@ -22,15 +22,12 @@ from common.keys import (
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
-from mongoengine import NotUniqueError
 from raw_file_wrapper_factory import RawFileWrapperFactory, get_main_file_size_from_db
 
-from shared.db.interface import (
-    add_raw_file,
-    delete_raw_file,
-    get_active_project_ids,
-    get_raw_files_by_names,
-)
+from shared.db import projects as project_store
+from shared.db import raw_files as raw_file_store
+from shared.domain.errors import AlreadyExistsError
+from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
 
 
@@ -57,7 +54,7 @@ def _add_raw_file_to_db(  # noqa: PLR0913
         raw_file_name, instrument_id
     )
 
-    return add_raw_file(
+    return raw_file_store.add(
         raw_file_name,
         collision_flag=_get_collision_flag() if is_collision else None,
         project_id=project_id,
@@ -108,7 +105,11 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
+    known_raw_files = raw_file_store.find(
+        raw_file_store.RawFileFilter(original_names=list(raw_file_names_on_instrument)),
+        include_file_info=True,
+    )
+    for raw_file in known_raw_files:
         if raw_file.instrument_file_status in (
             InstrumentFileStatus.RENAMED,
             InstrumentFileStatus.DISAPPEARED,
@@ -217,7 +218,9 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
     )
 
-    all_project_ids = get_active_project_ids()
+    all_project_ids = [
+        project.id for project in project_store.find(statuses=[ProjectStatus.ACTIVE])
+    ]
 
     raw_file_names_with_decisions: dict[str, tuple[str, bool, bool]] = {}
     for raw_file_name, is_collision in raw_file_names_to_process.items():
@@ -332,7 +335,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 status=status,
                 instrument_file_status=InstrumentFileStatus.INITIAL,
             )
-        except NotUniqueError:  # raised when the file is already in the DB.
+        except AlreadyExistsError:  # raised when the file is already in the DB.
             # In the next DAG run, the file that caused the problem is filtered out in get_unknown_raw_files().
             # There's a subtle exception: if a file on the instrument is named like a known file with a collision flag:
             # in this case, the original_name is unknown, which then becomes the id -> clash.
@@ -362,7 +365,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             logging.exception(
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )
-            delete_raw_file(raw_file_id)
+            raw_file_store.delete(raw_file_id)
 
             # raising here to make this error transparent
             raise AirflowFailException(

@@ -22,7 +22,10 @@ def mock_db() -> Iterator[dict[str, MagicMock]]:
         patch("shared.db.raw_files.count", return_value=7) as count,
         patch("shared.db.metrics.latest_by_raw_file") as latest,
         patch("rest_api.service.get_display_backup_path", return_value="/backup/f1"),
-        patch("rest_api.service.get_display_output_path", return_value="/output/f1"),
+        patch(
+            "shared.api_responses.get_display_output_path",
+            side_effect=lambda m: m.relative_output_path and "/output/f1",
+        ),
     ):
         find.return_value = [
             raw_file(

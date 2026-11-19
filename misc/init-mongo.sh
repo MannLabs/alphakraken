@@ -76,6 +76,13 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         roles: ["alertingRole"]
     });
 
+    // raw files without a project are assigned to it, cf. FALLBACK_PROJECT_ID; a no-op if it exists
+    db.project.updateOne(
+        {_id: "_FALLBACK"},
+        {\$setOnInsert: {name: "Fallback", status: "active", created_at_: new Date()}},
+        {upsert: true}
+    );
+
     db.settings.createIndex({name: 1, version: 1}, {unique: true});
     // alert issues expire 90 days after they were first seen, cf. ALERT_ISSUE_EXPIRY_S
     db.alert_issue.createIndex({first_seen: 1}, {expireAfterSeconds: 7776000});

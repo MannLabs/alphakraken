@@ -3,13 +3,13 @@
 import streamlit as st
 from service.db import df_from_db_data
 
-from shared.db import status
+from shared.db import status as status_store
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 
 
 def display_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
-    status_data_df = df_from_db_data(status.find())
+    status_data_df = df_from_db_data(status_store.find())
     if status_data_df.empty:
         return
 

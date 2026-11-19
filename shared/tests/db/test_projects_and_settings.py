@@ -629,21 +629,50 @@ def test_delete_archived_settings_raises(
 
 
 @patch("shared.db._mongo.settings.set_status")
-@patch("shared.db._mongo.settings.assigned_project_ids", return_value=["P1", "P2"])
+@patch("shared.db.projects.find")
+@patch(
+    "shared.db._mongo.settings.assigned_project_ids", return_value=["P1", "P2", "P3"]
+)
 @patch("shared.db.settings.get")
-def test_delete_assigned_settings_raises(
+def test_delete_settings_assigned_to_active_project_raises(
     mock_get: MagicMock,
     mock_assigned: MagicMock,
+    mock_find_projects: MagicMock,
     mock_set_status: MagicMock,
 ) -> None:
-    """Settings assigned to any project, also an archived or deleted one, cannot be deleted."""
+    """Settings assigned to an active project cannot be deleted; only active projects are named."""
     mock_get.return_value = factories.settings()
+    mock_find_projects.return_value = [
+        factories.project(id="P3"),
+        factories.project(id="P1"),
+    ]
 
-    with pytest.raises(InvalidInputError, match="still assigned to projects P1, P2"):
+    with pytest.raises(InvalidInputError, match="still assigned to projects P1, P3$"):
         settings.delete("fallback_v7")
 
     mock_assigned.assert_called_once_with("fallback_v7")
+    mock_find_projects.assert_called_once_with(
+        ids=["P1", "P2", "P3"], statuses=[ProjectStatus.ACTIVE]
+    )
     mock_set_status.assert_not_called()
+
+
+@patch("shared.db._mongo.settings.set_status")
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db._mongo.settings.assigned_project_ids", return_value=["P1"])
+@patch("shared.db.settings.get")
+def test_delete_settings_assigned_only_to_archived_or_deleted_projects(
+    mock_get: MagicMock,
+    mock_assigned: MagicMock,  # noqa: ARG001
+    mock_find_projects: MagicMock,  # noqa: ARG001
+    mock_set_status: MagicMock,
+) -> None:
+    """Assignments of archived or deleted projects never apply again, so they do not block."""
+    mock_get.return_value = factories.settings()
+
+    settings.delete("fallback_v7")
+
+    mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.DELETED)
 
 
 # project writes

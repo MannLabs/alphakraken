@@ -2,10 +2,11 @@
 
 import logging
 
-from shared.db import users
+from shared.db import projects, users
 from shared.db._mongo import settings as _backend
 from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
+from shared.domain.projects import ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.runner_checks import check_runner_supports_software_type
 
@@ -146,18 +147,27 @@ def delete(unique_name: str) -> None:
 
     Raises:
         NotFoundError: if there are no such settings.
-        InvalidInputError: if the settings are not active or still assigned to a project.
+        InvalidInputError: if the settings are not active or still assigned to an active project.
 
     """
     settings = get(unique_name)
     _check_active(settings, SettingsStatus.DELETED)
     # check and write are separate steps; a race between concurrent writes is accepted: an assignment made meanwhile points to deleted settings
     project_ids = _backend.assigned_project_ids(unique_name)
-    if project_ids:
+    # archiving and deleting a project are final, so its assignments never apply again
+    active_ids = (
+        sorted(
+            p.id
+            for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
+        )
+        if project_ids
+        else []
+    )
+    if active_ids:
         raise InvalidInputError(
             [
                 f"Cannot delete settings '{settings.name}' version {settings.version}: "
-                f"still assigned to projects {', '.join(project_ids)}"
+                f"still assigned to projects {', '.join(active_ids)}"
             ]
         )
 

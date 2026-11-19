@@ -521,15 +521,13 @@ else:
         st.warning(
             "Archived settings can no longer be assigned to projects or updated. "
             "Deleted settings are no longer shown. "
-            "Settings can only be deleted if they are not assigned to any project, including archived and deleted ones."
+            "Settings can only be deleted if they are not assigned to any active project."
         )
 
         # Map settings ID -> list of active project IDs
         active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
-        assigned_settings_ids: set[str] = set()
         for ps in project_settings_store.find():
-            assigned_settings_ids.add(ps.settings.id)
             if ps.project_id in active_project_ids:
                 assigned_projects[ps.settings.id].append(ps.project_id)
 
@@ -552,12 +550,12 @@ else:
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     settings_store.archive(row["id"])
                     get_settings_df.clear()
-            is_assigned = row["id"] in assigned_settings_ids
+            is_assigned = bool(projects)
             if col_delete.button(
                 "Delete",
                 key=f"delete_{row['id']}",
                 disabled=DISABLE_WRITE or is_assigned,
-                help="Unassign from all projects first." if is_assigned else "",
+                help="Unassign from all active projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
                 with toast_result(

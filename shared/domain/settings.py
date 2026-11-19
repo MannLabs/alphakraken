@@ -154,8 +154,6 @@ class NewSettings(InputModel):
     @classmethod
     def _safe_config_params(cls, value: str | None) -> str | None:
         """Reject unknown placeholders and content that could be used for command injection."""
-        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
-        # they currently pass validation and fail silently at runtime
         if value and (errors := check_config_params(value)):
             raise ValueError("; ".join(errors))
         return value

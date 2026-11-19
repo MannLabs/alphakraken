@@ -15,9 +15,7 @@ from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
 # upper-case letters and digits, not only digits
-PROJECT_ID_REGEX = (
-    rf"^(?!\d+$)[A-Z0-9]{{{PROJECT_ID_MIN_LENGTH},{PROJECT_ID_MAX_LENGTH}}}$"
-)
+PROJECT_ID_REGEX = r"^(?!\d+$)[A-Z0-9]+$"
 
 
 class ProjectStatus:
@@ -48,7 +46,7 @@ class ProjectSettings:
     id: str
     project_id: str
     settings: Settings
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes: list[str]
     excluded_scopes: list[str]
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
@@ -60,7 +58,9 @@ class ProjectSettings:
 class NewProject(InputModel):
     """A project to add, cf. `Project`."""
 
-    project_id: RequiredStr = Field(max_length=PROJECT_ID_MAX_LENGTH)
+    project_id: RequiredStr = Field(
+        min_length=PROJECT_ID_MIN_LENGTH, max_length=PROJECT_ID_MAX_LENGTH
+    )
     name: RequiredStr = Field(max_length=64)
     description: OptionalStr = Field(default=None, max_length=512)
     owner_email: OptionalLowerCasedEmail = None

@@ -31,11 +31,9 @@ def test_new_project_accepts_project_id(project_id: str) -> None:
     assert parse(NewProject, project_id=project_id, name="n").project_id == project_id
 
 
-@pytest.mark.parametrize(
-    "project_id", ["A12", "1234", "a123", "A-123", "A 123", "_OTHER"]
-)
+@pytest.mark.parametrize("project_id", ["1234", "a123", "A-123", "A 123", "_OTHER"])
 def test_new_project_rejects_project_id(project_id: str) -> None:
-    """Too short, too long, all digits or other characters are rejected."""
+    """All digits or other characters are rejected."""
     with pytest.raises(ValidationError) as e:
         parse(NewProject, project_id=project_id, name="n")
 
@@ -52,6 +50,10 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
         ({"name": None}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
         (
+            {"project_id": "A12"},
+            "project_id: String should have at least 4 characters",
+        ),
+        (
             {"project_id": "A" * 17},
             "project_id: String should have at most 16 characters",
         ),
@@ -61,7 +63,7 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
 def test_new_project_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
-    """The name is required, name and description are limited in length."""
+    """The name is required, project id, name and description are limited in length."""
     with pytest.raises(ValidationError, match=error):
         parse(NewProject, **{"project_id": "P123", "name": "n", **overrides})
 

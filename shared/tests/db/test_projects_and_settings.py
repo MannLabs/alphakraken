@@ -1,6 +1,6 @@
 """Tests for the projects, settings and project settings APIs and their Mongo backends."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, call, patch
@@ -708,8 +708,8 @@ def test_add_project_with_invalid_field_raises(
     mock_find: MagicMock, mock_backend_add: MagicMock
 ) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p1'"):
-        projects.add(project_id="p1", name="n")
+    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p123'"):
+        projects.add(project_id="p123", name="n")
 
     mock_find.assert_not_called()
     mock_backend_add.assert_not_called()
@@ -768,6 +768,20 @@ def test_backend_add_project_resolves_owner(
         owner=mock_models.User.objects.get.return_value if owner_email else None,
     )
     mock_models.Project.return_value.save.assert_called_once_with(force_insert=True)
+
+
+@pytest.mark.parametrize("write", [projects.archive, projects.delete])
+@patch("shared.db._mongo.projects.set_status")
+def test_fallback_project_cannot_be_archived_or_deleted(
+    mock_set_status: MagicMock, write: Callable[[str], None]
+) -> None:
+    """The fallback project stays active, as raw files without an active project are assigned to it."""
+    with pytest.raises(
+        ValidationError, match="Project '_FALLBACK' cannot be archived or deleted"
+    ):
+        write(FALLBACK_PROJECT_ID)
+
+    mock_set_status.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -982,7 +996,7 @@ def test_assign_with_invalid_field_raises(assignable: dict[str, MagicMock]) -> N
 def test_assign_with_unknown_scope_raises(
     assignable: dict[str, MagicMock], scopes: dict[str, list[str]]
 ) -> None:
-    """A scope that is neither a vendor nor a configured instrument would never match."""
+    """A scope that is neither an instrument type nor a configured instrument would never match."""
     with pytest.raises(ValidationError, match=r"Unknown scopes \['test9'\]"):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, **scopes)
 
@@ -992,7 +1006,7 @@ def test_assign_with_unknown_scope_raises(
 def test_assign_with_fully_excluded_scope_raises(
     assignable: dict[str, MagicMock],
 ) -> None:
-    """An instrument whose vendor is excluded would never match."""
+    """An instrument whose type is excluded would never match."""
     with (
         patch(
             "shared.db.project_settings.fully_excluded_scopes", return_value=["test1"]

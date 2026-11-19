@@ -4,25 +4,18 @@ import logging
 
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
-from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.keys import DEFAULT_SCOPE, KNOWN_INSTRUMENT_TYPES
+from shared.yamlsettings import get_instruments
 
 
 def known_scopes() -> list[str]:
-    """Return the scopes an assignment can have: the default scope, the vendors and the instruments of alphakraken.yaml."""
-    return [
-        DEFAULT_SCOPE,
-        *KNOWN_VENDOR_NAMES,
-        *YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}),
-    ]
+    """Return the scopes an assignment can have: the default scope, the instrument types and the instruments of alphakraken.yaml."""
+    return [DEFAULT_SCOPE, *KNOWN_INSTRUMENT_TYPES, *get_instruments()]
 
 
 def fully_excluded_scopes(scopes: list[str], excluded_scopes: list[str]) -> list[str]:
     """Return the scopes whose instruments in alphakraken.yaml are all excluded."""
-    instruments = [
-        (instrument_id, config.get(YamlKeys.TYPE))
-        for instrument_id, config in YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).items()
-    ]
+    instruments = list(get_instruments().items())
     result = []
     for scope in scopes:
         matching = [i for i in instruments if _scopes_match([scope], *i)]
@@ -88,11 +81,11 @@ def resolve_scoped_settings(
 
 
 def _scopes_match(scopes: list[str], instrument_id: str, instrument_type: str) -> bool:
-    """Return True if any scope matches: '*' matches all, a vendor name its instruments, else the instrument ID."""
+    """Return True if any scope matches: '*' matches all, an instrument type its instruments, else the instrument ID."""
     for scope in scopes or []:
         if scope == DEFAULT_SCOPE:
             return True
-        if scope in KNOWN_VENDOR_NAMES:
+        if scope in KNOWN_INSTRUMENT_TYPES:
             if scope == instrument_type:
                 return True
         elif scope == instrument_id:

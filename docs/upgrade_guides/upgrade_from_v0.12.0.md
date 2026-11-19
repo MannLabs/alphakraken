@@ -1,5 +1,12 @@
 # Upgrade from v0.12.0
 
+## Before deploying: drain the processor runs
+
+The `acquisition_processor` passes the settings between its tasks as the unique name (e.g. `fallback_v7`)
+instead of the database id. A run that resolved its settings before the deploy fails afterwards, and its
+raw file goes to `ERROR`. So, before deploying, pause the `instrument_watcher`s (or pick an acquisition gap)
+and wait until no `acquisition_handler` or `acquisition_processor` run is active. Unpause after the deploy.
+
 ## Backup location per raw file
 
 `RawFile.backup_display_base_path` records `display_paths.backup` at copy time, and is used to display the backup path.

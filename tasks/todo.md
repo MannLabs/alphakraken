@@ -109,7 +109,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 ## Phase 1: Projects
 
-- [ ] **T5: API key, error mapping, `POST /projects/` (D1–D4)**
+- [x] **T5: API key, error mapping, `POST /projects/` (D1–D4)**
   - Acceptance:
     - `rest_api/auth.py` `require_api_key`: 401 for a missing key, a wrong key, and an unset `REST_API_KEY`; uses `secrets.compare_digest`.
     - `main.py` handlers, next to R1's `NotFoundError`→404: `InvalidInputError`→422 and `RequestValidationError`→422, both as `{"detail": [str, ...]}` without the `body.` prefix; `AlreadyExistsError`→409 with its message. `_message` becomes public in `shared/domain/inputs.py`.

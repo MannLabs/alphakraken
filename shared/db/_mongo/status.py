@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_kraken_status
-from shared.domain.status import KrakenStatus, KrakenStatusEntities
+from shared.domain.status import KrakenStatus, KrakenStatusEntities, KrakenStatusUpdate
 
 
 @db_backend_function
@@ -24,20 +24,13 @@ def instrument_ids() -> list[str]:
 
 
 @db_backend_function
-def update(
-    id_: str,
-    *,
-    status: str,
-    status_details: str,
-    free_space_gb: int,
-    entity_type: str,
-) -> None:
+def update(new: KrakenStatusUpdate) -> None:
     """Set the status of an entity, cf. `shared.db.status`."""
     models.KrakenStatus(
-        id=id_,
-        status=status,
+        id=new.id,
+        status=new.status,
         updated_at_=datetime.now(tz=UTC),
-        free_space_gb=free_space_gb,
-        status_details=status_details,
-        entity_type=entity_type,
+        free_space_gb=new.free_space_gb,
+        status_details=new.status_details,
+        entity_type=new.entity_type,
     ).save()

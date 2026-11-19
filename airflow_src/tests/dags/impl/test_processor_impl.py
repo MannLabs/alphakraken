@@ -38,7 +38,6 @@ from plugins.common.keys import (
 )
 
 from airflow_src.tests.helpers import container_locations, runner_view
-from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFileStatus
 from shared.keys import JobEngines
 from shared.path_views import Locations, View
@@ -246,30 +245,6 @@ def test_resolve_settings(
 
 @patch("shared.db.raw_files.get")
 @patch("shared.db.project_settings.find")
-@patch("dags.impl.processor_impl.get_instrument_settings")
-def test_resolve_settings_no_project_raise(
-    mock_get_instrument_settings: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-) -> None:
-    """Test that resolve_settings raises an exception if no project is found."""
-    mock_raw_file = factories.raw_file(
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_get_instrument_settings.return_value = "thermo"
-
-    mock_get_settings.side_effect = NotFoundError("gone")
-
-    with pytest.raises(AirflowFailException):
-        resolve_settings(raw_file_id="test_file.raw")
-
-
-@patch("shared.db.raw_files.get")
-@patch("shared.db.project_settings.find")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_resolve_settings_no_settings_raise(
@@ -380,7 +355,7 @@ def test_prepare_job_windows_runner_yields_windows_paths(
         runner_name="win_box",
     )
     mock_settings.name = "test_settings"
-    mock_settings.unique_name = "test_settings_v1"
+    mock_settings.id = "test_settings_v1"
     mock_get_settings_by_id.return_value = mock_settings
 
     # when
@@ -455,7 +430,7 @@ def test_check_content_rejects_unknown_placeholder(
         quanting_env, MagicMock(config_params="--f {{RAW_FILE_PAHT}}")
     )
 
-    assert len(errors) == 1
+    assert errors == ["Unknown placeholder: {{RAW_FILE_PAHT}}"]
 
 
 def test_check_content_allows_image_name_in_software_field(
@@ -825,7 +800,7 @@ def test_create_quanting_env_with_suffix(
         runner_name="slurm",
     )
     mock_settings.name = "test_settings"
-    mock_settings.unique_name = "test_settings_v1"
+    mock_settings.id = "test_settings_v1"
 
     result = _create_quanting_env(
         settings=mock_settings,

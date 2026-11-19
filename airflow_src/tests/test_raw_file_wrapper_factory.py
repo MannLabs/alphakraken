@@ -260,13 +260,13 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
         yield mock_data_path, mock_backup_path
 
 
-def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
-    """Test that creating a wrapper for an unsupported vendor raises ValueError."""
+def test_raw_file_wrapper_factory_unsupported_instrument_type() -> None:
+    """Test that creating a wrapper for an unsupported instrument type raises ValueError."""
     with (
         patch.dict(_INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
         pytest.raises(
             ValueError,
-            match="Unsupported vendor or handler type for instrument1: UNSUPPORTED, monitor",
+            match="Unsupported instrument type or handler type for instrument1: UNSUPPORTED, monitor",
         ),
     ):
         RawFileWrapperFactory.create_monitor_wrapper(

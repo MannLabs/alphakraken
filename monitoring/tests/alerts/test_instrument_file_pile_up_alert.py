@@ -1,12 +1,13 @@
 """Unit tests for InstrumentFilePileUpAlert class."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
+from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.status import KrakenStatusEntities
 
@@ -34,9 +35,7 @@ class TestInstrumentFilePileUpAlert:
     @patch(
         "monitoring.alerts.instrument_file_pile_up_alert.INSTRUMENT_FILE_PILE_UP_THRESHOLDS"
     )
-    @patch(
-        "monitoring.alerts.instrument_file_pile_up_alert.get_raw_files_by_instrument_file_status"
-    )
+    @patch("shared.db.raw_files.count")
     def test_check_should_handle_comprehensive_file_pile_up_scenarios(
         self, mock_get_files: Mock, mock_thresholds: Mock
     ) -> None:
@@ -89,12 +88,10 @@ class TestInstrumentFilePileUpAlert:
             mock_filesystem,
         ]
 
-        # Mock get_raw_files_by_instrument_file_status with different scenarios
-        def mock_get_files_side_effect(
-            status: InstrumentFileStatus, instrument_id: str, min_age_hours: int
-        ) -> list[Mock]:
-            # Verify correct min_age_hours is passed
-            assert min_age_hours == 6
+        # Mock the raw file count with different scenarios
+        def mock_get_files_side_effect(where: RawFileFilter) -> int:
+            status, instrument_id = where.instrument_file_status, where.instrument_id
+            assert where.created_before == NOW - timedelta(hours=6)
 
             # Define file counts for each scenario
             scenarios = {
@@ -125,8 +122,7 @@ class TestInstrumentFilePileUpAlert:
                 },
             }
 
-            count = scenarios.get(instrument_id, {}).get(status, 0)
-            return [Mock() for _ in range(count)]
+            return scenarios.get(instrument_id, {}).get(status, 0)
 
         mock_get_files.side_effect = mock_get_files_side_effect
 
@@ -193,9 +189,7 @@ class TestInstrumentFilePileUpAlert:
     @patch(
         "monitoring.alerts.instrument_file_pile_up_alert.INSTRUMENT_FILE_PILE_UP_THRESHOLDS"
     )
-    @patch(
-        "monitoring.alerts.instrument_file_pile_up_alert.get_raw_files_by_instrument_file_status"
-    )
+    @patch("shared.db.raw_files.count")
     def test_check_should_return_empty_when_no_pile_ups(
         self, mock_get_files: Mock, mock_thresholds: Mock
     ) -> None:
@@ -226,12 +220,10 @@ class TestInstrumentFilePileUpAlert:
 
         status_objects.extend([mock_job, mock_filesystem])
 
-        # Mock get_raw_files_by_instrument_file_status - all counts below thresholds
-        def mock_get_files_side_effect(
-            status: InstrumentFileStatus, instrument_id: str, min_age_hours: int
-        ) -> list[Mock]:
-            # Verify correct min_age_hours is passed
-            assert min_age_hours == 12
+        # Mock the raw file count - all counts below thresholds
+        def mock_get_files_side_effect(where: RawFileFilter) -> int:
+            status, instrument_id = where.instrument_file_status, where.instrument_id
+            assert where.created_before == NOW - timedelta(hours=12)
 
             scenarios = {
                 "instrument1": {
@@ -245,8 +237,7 @@ class TestInstrumentFilePileUpAlert:
                 "instrument3": {},  # No files
             }
 
-            count = scenarios.get(instrument_id, {}).get(status, 0)
-            return [Mock() for _ in range(count)]
+            return scenarios.get(instrument_id, {}).get(status, 0)
 
         mock_get_files.side_effect = mock_get_files_side_effect
 
@@ -263,9 +254,7 @@ class TestInstrumentFilePileUpAlert:
     @patch(
         "monitoring.alerts.instrument_file_pile_up_alert.INSTRUMENT_FILE_PILE_UP_THRESHOLDS"
     )
-    @patch(
-        "monitoring.alerts.instrument_file_pile_up_alert.get_raw_files_by_instrument_file_status"
-    )
+    @patch("shared.db.raw_files.count")
     def test_entity_type_filtering_and_parameter_validation(
         self, mock_get_files: Mock, mock_thresholds: Mock
     ) -> None:
@@ -291,22 +280,20 @@ class TestInstrumentFilePileUpAlert:
 
         status_objects = [mock_instrument, mock_job, mock_filesystem]
 
-        # Mock get_raw_files_by_instrument_file_status - above thresholds for instrument
-        def mock_get_files_side_effect(
-            status: InstrumentFileStatus, instrument_id: str, min_age_hours: int
-        ) -> list[Mock]:
+        # Mock the raw file count - above thresholds for instrument
+        def mock_get_files_side_effect(where: RawFileFilter) -> int:
+            status, instrument_id = where.instrument_file_status, where.instrument_id
             assert (
                 instrument_id == "test_instrument"
             )  # Should only be called for instrument
-            assert min_age_hours == 8
+            assert where.created_before == NOW - timedelta(hours=8)
 
             counts = {
                 InstrumentFileStatus.INITIAL: 20,  # Above 15
                 InstrumentFileStatus.MOVED: 35,  # Above 30
             }
 
-            count = counts.get(status, 0)
-            return [Mock() for _ in range(count)]
+            return counts.get(status, 0)
 
         mock_get_files.side_effect = mock_get_files_side_effect
 
@@ -320,9 +307,7 @@ class TestInstrumentFilePileUpAlert:
 
         # Verify all calls were made with correct instrument
         for call in mock_get_files.call_args_list:
-            args, kwargs = call
-            assert kwargs["instrument_id"] == "test_instrument"
-            assert kwargs["min_age_hours"] == 8
+            assert call.args[0].instrument_id == "test_instrument"
 
         assert result == [
             Issue(

@@ -7,8 +7,8 @@ import pytest
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
 
-from shared.db.models import AlertSuppression
 from shared.domain.users import UserStatus
+from shared.tests.factories import alert_suppression
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
@@ -16,7 +16,7 @@ PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 @pytest.fixture(autouse=True)
 def _no_alert_suppressions():  # noqa: ANN202
     # the alert suppressions section would otherwise query the DB
-    with patch("shared.db.interface.get_alert_suppressions", return_value=[]):
+    with patch("shared.db.alerts.find_suppressions", return_value=[]):
         yield
 
 
@@ -32,7 +32,7 @@ def _user(initials: str, status: str = UserStatus.ACTIVE) -> MagicMock:
     return user
 
 
-@patch("shared.db.interface.get_all_users")
+@patch("shared.db.users.find")
 def test_non_admin_sees_no_user_management(mock_get_users: MagicMock) -> None:
     """Test that a non-admin accessing the page directly gets no user management."""
     at = AppTest.from_file(f"{PAGES_FOLDER}/admin.py").run()
@@ -43,7 +43,7 @@ def test_non_admin_sees_no_user_management(mock_get_users: MagicMock) -> None:
     mock_get_users.assert_not_called()
 
 
-@patch("shared.db.interface.get_all_users", return_value=[])
+@patch("shared.db.users.find", return_value=[])
 def test_admin_without_users(mock_get_users: MagicMock) -> None:  # noqa: ARG001
     """Test that the page renders the add form and no edit section without users."""
     at = _admin_app().run()
@@ -54,7 +54,7 @@ def test_admin_without_users(mock_get_users: MagicMock) -> None:  # noqa: ARG001
     assert "User" not in [s.label for s in at.selectbox]
 
 
-@patch("shared.db.interface.get_all_users")
+@patch("shared.db.users.find")
 def test_admin_shows_users(mock_get_users: MagicMock) -> None:
     """Test that the users are shown in the table and can be selected for editing."""
     mock_get_users.return_value = [
@@ -73,13 +73,13 @@ def test_admin_shows_users(mock_get_users: MagicMock) -> None:
     assert at.button[3].label == "Deactivate"
 
 
-@patch("shared.db.interface.add_user")
-@patch("shared.db.interface.get_all_users", return_value=[])
-def test_admin_adds_user_with_cleaned_inputs(
+@patch("shared.db.users.add")
+@patch("shared.db.users.find", return_value=[])
+def test_admin_adds_user_with_inputs_as_entered(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
-    """Test that adding a user passes the email and the stripped initials with their case kept."""
+    """Test that adding a user passes the inputs on unchanged, cleaning is not the page's job."""
     at = _admin_app().run()
 
     at.text_input[0].set_value(" A@B.de ")
@@ -89,12 +89,12 @@ def test_admin_adds_user_with_cleaned_inputs(
 
     assert not at.exception
     mock_add_user.assert_called_once_with(
-        email=" A@B.de ", initials="Ab", messenger_id="U123"
+        email=" A@B.de ", initials=" Ab ", messenger_id=" U123 "
     )
 
 
-@patch("shared.db.interface.update_user")
-@patch("shared.db.interface.get_all_users")
+@patch("shared.db.users.update")
+@patch("shared.db.users.find")
 def test_admin_updates_user(
     mock_get_users: MagicMock, mock_update_user: MagicMock
 ) -> None:
@@ -112,8 +112,8 @@ def test_admin_updates_user(
     )
 
 
-@patch("shared.db.interface.set_user_status")
-@patch("shared.db.interface.get_all_users")
+@patch("shared.db.users.set_status")
+@patch("shared.db.users.find")
 def test_admin_reactivates_inactive_user(
     mock_get_users: MagicMock, mock_set_status: MagicMock
 ) -> None:
@@ -127,14 +127,17 @@ def test_admin_reactivates_inactive_user(
     mock_set_status.assert_called_once_with("ab@b.de", UserStatus.ACTIVE)
 
 
-@patch("shared.db.interface.add_user")
-@patch("shared.db.interface.get_all_users", return_value=[])
+@patch("shared.db.users.add")
+@patch("shared.db.users.find", return_value=[])
 def test_admin_bulk_adds_users_and_reports_failures(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
     """Test that valid rows are added and failing rows are reported with their line."""
-    mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
+    mock_add_user.side_effect = [
+        _user("Ab"),
+        ValueError("initials 'CD' already exists."),
+    ]
     at = _admin_app().run()
 
     at.text_area[0].set_value("a@b.de,Ab,U123\n\nC@D.de,CD\nbad row")
@@ -153,13 +156,14 @@ def test_admin_bulk_adds_users_and_reports_failures(
     )
 
 
-@patch("shared.db.interface.add_user")
-@patch("shared.db.interface.get_all_users", return_value=[])
+@patch("shared.db.users.add")
+@patch("shared.db.users.find", return_value=[])
 def test_admin_bulk_add_report_is_shown_once(
     mock_get_users: MagicMock,  # noqa: ARG001
-    mock_add_user: MagicMock,  # noqa: ARG001
+    mock_add_user: MagicMock,
 ) -> None:
     """Test that the report disappears on the next interaction."""
+    mock_add_user.return_value = _user("ab")
     at = _admin_app().run()
     at.text_area[0].set_value("a@b.de,ab")
     at.button[1].click().run()
@@ -170,8 +174,8 @@ def test_admin_bulk_add_report_is_shown_once(
     assert not at.success
 
 
-@patch("shared.db.interface.get_all_users", return_value=[])
-@patch("shared.db.interface.get_alert_suppressions", return_value=[])
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.alerts.find_suppressions", return_value=[])
 def test_admin_page_should_render_without_suppressions(
     mock_get: MagicMock,  # noqa: ARG001
     mock_get_users: MagicMock,  # noqa: ARG001
@@ -186,8 +190,8 @@ def test_admin_page_should_render_without_suppressions(
     assert at.button(key="FormSubmitter:add_suppression_form-Add suppression")
 
 
-@patch("shared.db.interface.get_all_users", return_value=[])
-@patch("shared.db.interface.get_alert_suppressions")
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.alerts.find_suppressions")
 def test_admin_page_should_show_suppressions(
     mock_get: MagicMock,
     mock_get_users: MagicMock,  # noqa: ARG001
@@ -195,7 +199,7 @@ def test_admin_page_should_show_suppressions(
     """Existing suppressions are shown in a table, each with a delete button."""
     # given
     mock_get.return_value = [
-        AlertSuppression(
+        alert_suppression(
             id="0123456789abcdef01234567",
             alert="PumpPressureAlert",
             instrument_id="astral1",
@@ -212,3 +216,32 @@ def test_admin_page_should_show_suppressions(
     assert df["alert"].tolist() == ["PumpPressureAlert"]
     assert df["instrument"].tolist() == ["astral1"]
     assert at.button(key="delete_suppression_0123456789abcdef01234567")
+
+
+@patch("shared.db.users.find", return_value=[])
+@patch("shared.db.alerts.add_suppression")
+def test_admin_page_should_pass_suppression_form_as_entered(
+    mock_add_suppression: MagicMock,
+    mock_get_users: MagicMock,  # noqa: ARG001
+) -> None:
+    """The form values are passed on unchanged, validation and cleaning are not the page's job."""
+    # given
+    at = _admin_app().run(timeout=30)
+    at.text_area[1].set_value(" why ")
+
+    # when
+    at.button(key="FormSubmitter:add_suppression_form-Add suppression").click().run(
+        timeout=30
+    )
+
+    # then
+    assert not at.exception
+    mock_add_suppression.assert_called_once_with(
+        alert="*",
+        instrument_id="*",
+        identifier="*",
+        details="*",
+        comment=" why ",
+        expires_at=None,
+        created_by="",
+    )

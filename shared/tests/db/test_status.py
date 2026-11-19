@@ -1,10 +1,16 @@
 """Tests for the status API and its Mongo backend."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from shared.db import models
-from shared.db.status import instrument_ids
-from shared.domain.status import KrakenStatusEntities
+from shared.db._mongo import models
+from shared.db.status import find, instrument_ids, update
+from shared.domain.status import (
+    KrakenStatusEntities,
+    KrakenStatusValues,
+)
+from shared.keys import STATUS_DETAILS_MAX_LENGTH
+from shared.tests.factories import kraken_status
 
 
 @patch("shared.db._mongo.status.models")
@@ -15,8 +21,63 @@ def test_instrument_ids(mock_models: MagicMock) -> None:
         models.KrakenStatus(id="inst2"),
     ]
 
-    with patch("shared.db._mongo.status.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         assert instrument_ids() == ["inst1", "inst2"]
     mock_models.KrakenStatus.objects.assert_called_once_with(
         entity_type=KrakenStatusEntities.INSTRUMENT
     )
+
+
+@patch("shared.db._mongo.status.models")
+def test_find(mock_models: MagicMock) -> None:
+    """All status entries are mapped with UTC-aware datetimes."""
+    mock_models.KrakenStatus.objects = [
+        models.KrakenStatus(
+            id="inst1",
+            status=KrakenStatusValues.OK,
+            free_space_gb=100,
+            entity_type=KrakenStatusEntities.INSTRUMENT,
+            updated_at_=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 as stored by pymongo
+        )
+    ]
+
+    with patch("shared.db._mongo.connection.ensure_connected"):
+        assert find() == [kraken_status()]
+
+
+@patch("shared.db._mongo.status.datetime")
+@patch("shared.db._mongo.status.models")
+def test_update(mock_models: MagicMock, mock_datetime: MagicMock) -> None:
+    """The status entry is saved with the current time, replacing an existing one."""
+    with patch("shared.db._mongo.connection.ensure_connected"):
+        update(
+            "inst1",
+            status=KrakenStatusValues.ERROR,
+            status_details="details",
+            free_space_gb=123,
+        )
+
+    mock_models.KrakenStatus.assert_called_once_with(
+        id="inst1",
+        status=KrakenStatusValues.ERROR,
+        updated_at_=mock_datetime.now.return_value,
+        free_space_gb=123,
+        status_details="details",
+        entity_type=KrakenStatusEntities.INSTRUMENT,
+    )
+    mock_models.KrakenStatus.return_value.save.assert_called_once()
+
+
+@patch("shared.db._mongo.status.models")
+def test_update_truncates_too_long_status_details(mock_models: MagicMock) -> None:
+    """Too long details are cut, so that the status, e.g. an error, is still written."""
+    with patch("shared.db._mongo.connection.ensure_connected"):
+        update(
+            "file_remover",
+            status=KrakenStatusValues.ERROR,
+            status_details="x" * (STATUS_DETAILS_MAX_LENGTH + 1),
+            free_space_gb=-1,
+        )
+
+    stored = mock_models.KrakenStatus.call_args.kwargs["status_details"]
+    assert stored == "x" * (STATUS_DETAILS_MAX_LENGTH - 3) + "..."

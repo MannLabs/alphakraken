@@ -19,7 +19,7 @@ from service.db import (
 from service.query_params import QueryParams, get_all_query_params, get_query_param
 from service.utils import DEFAULT_MAX_AGE_STATUS, _log
 
-from shared.db import status
+from shared.db import status as status_store
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -39,7 +39,7 @@ st.markdown("# Status")
 def _display_status(combined_df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     try:
-        status_data_df = df_from_db_data(status.find())
+        status_data_df = df_from_db_data(status_store.find())
 
         if status_data_df.empty:
             st.warning("No data available.")

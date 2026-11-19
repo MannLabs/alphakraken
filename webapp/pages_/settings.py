@@ -1,9 +1,6 @@
 """Settings management page."""
 
-import re
 from collections import defaultdict
-
-# ruff: noqa: TRY301 # Abstract `raise` to an inner function
 from typing import Any
 
 import pandas as pd
@@ -20,40 +17,35 @@ from pages_.impl.settings_utils import (
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
-    get_project_data,
-    get_settings_data,
 )
-from service.owner import add_owner_initials, show_owner_selectbox
+from service.owner import OWNER_COLUMN, add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
-from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
-from shared.config_params import (
-    check_for_unknown_placeholders,
-    substitute_dummy_values,
-)
-from shared.db.interface import archive_settings, create_settings, delete_settings
-from shared.db.models import ProjectSettings
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
+from shared.domain.inputs import max_length
 from shared.domain.projects import ProjectStatus
-from shared.domain.settings import SettingsStatus
+from shared.domain.settings import (
+    NewSettings,
+    SettingsStatus,
+    selectable_metrics_types,
+)
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
-    SOFTWARE_TYPE_TO_METRICS_TYPES,
     JobEngines,
     MetricsTypes,
     SoftwareTypes,
 )
 from shared.path_views import Locations
 from shared.runners import RUNNERS, get_runner
-from shared.validation import check_for_malicious_content
 
 SHOW_RUNNER_SELECT = True
 
@@ -76,14 +68,26 @@ st.markdown("# Manage settings")
 
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_settings_df() -> pd.DataFrame:
-    """Get all settings entries."""
-    return df_from_db_data(get_settings_data())
+    """Get all settings entries, with the unique name in column `id`."""
+    return df_from_db_data(settings_store.find()).rename(
+        columns={"owner_email": OWNER_COLUMN}
+    )
+
+
+def _text(value: object) -> str:
+    """Return the value as text, an empty one if the value is missing."""
+    return "" if pd.isna(value) else str(value)
+
+
+def _integer_text(value: object) -> str:
+    """Return the integer as text, an empty one if the value is missing; pandas may hold it as float."""
+    return "" if pd.isna(value) else str(int(value))  # type: ignore[arg-type]
 
 
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
-    return {p.id for p in get_project_data() if p.status == ProjectStatus.ACTIVE}
+    return {p.id for p in project_store.find(statuses=[ProjectStatus.ACTIVE])}
 
 
 settings_df = get_settings_df()
@@ -108,7 +112,7 @@ def display_settings(
         default_value="status=^active",
     )
 
-    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+    filtered_df = filtered_df.drop(columns=["id"], errors="ignore").fillna("")
 
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
@@ -192,26 +196,24 @@ if selected_name_option != CREATE_NEW_OPTION:
 
     # Prepare prefill data from latest version
     prefill_data = {
-        "description": str(latest_settings.get("description", "")),
-        "software": str(latest_settings.get("software", "")),
-        "software_type": str(latest_settings.get("software_type", "")),
-        "runner_name": str(latest_settings.get("runner_name", "")),
-        "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
-        "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
-        "config_file_name": str(latest_settings.get("config_file_name", "")),
-        "config_params": str(latest_settings.get("config_params", "")),
-        "metrics_type": str(latest_settings.get("metrics_type", "")),
-        "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
-        "slurm_mem": str(latest_settings.get("slurm_mem", "")),
-        "slurm_time": str(latest_settings.get("slurm_time", "")),
-        "num_threads": latest_settings.get("num_threads", ""),
+        "description": _text(latest_settings.get("description")),
+        "software": _text(latest_settings.get("software")),
+        "software_type": _text(latest_settings.get("software_type")),
+        "runner_name": _text(latest_settings.get("runner_name")),
+        "fasta_file_name": _text(latest_settings.get("fasta_file_name")),
+        "speclib_file_name": _text(latest_settings.get("speclib_file_name")),
+        "config_file_name": _text(latest_settings.get("config_file_name")),
+        "config_params": _text(latest_settings.get("config_params")),
+        "metrics_type": _text(latest_settings.get("metrics_type")),
+        "slurm_cpus_per_task": _integer_text(
+            latest_settings.get("slurm_cpus_per_task")
+        ),
+        "slurm_mem": _text(latest_settings.get("slurm_mem")),
+        "slurm_time": _text(latest_settings.get("slurm_time")),
+        "num_threads": _integer_text(latest_settings.get("num_threads")),
     }
     owner = latest_settings.get("owner")
     prefill_owner_email = None if pd.isna(owner) else str(owner)
-    # Conversion for legacy data. Remove once all is transferred.
-    for k, v in prefill_data.items():
-        if pd.isna(v):
-            prefill_data[k] = ""
 
 
 disable_software_type_selection = "software_type" in prefill_data
@@ -228,14 +230,8 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-metrics_types_of_software = SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]
-# metrics can always be switched off, cf. MetricsTypes.CUSTOM
-metrics_type_options = list(
-    dict.fromkeys([*metrics_types_of_software, MetricsTypes.CUSTOM])
-)
-metrics_type_default = (
-    prefill_data.get("metrics_type", "") or metrics_types_of_software[0]
-)
+metrics_type_options = selectable_metrics_types(software_type)
+metrics_type_default = prefill_data.get("metrics_type", "") or metrics_type_options[0]
 metrics_type_index = (
     metrics_type_options.index(metrics_type_default)
     if metrics_type_default in metrics_type_options
@@ -398,13 +394,13 @@ with c1.expander("Resource parameters"):
     )
     slurm_mem = st.text_input(
         label="Memory (e.g. '62G') [Slurm only]",
-        max_chars=16,
+        max_chars=max_length(NewSettings, "slurm_mem"),
         value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
         help="Mapped to --mem",
     )
     slurm_time = st.text_input(
         label="Time limit (HH:MM:SS) [Slurm only]",
-        max_chars=16,
+        max_chars=max_length(NewSettings, "slurm_time"),
         value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
         help="Mapped to --time",
     )
@@ -416,7 +412,7 @@ with c1.expander("Resource parameters"):
     )
 
 c1.markdown("### Required files and software")
-settings_name_clean = empty_to_none(name)
+settings_name_clean = name.strip()
 settings_folder = get_display_settings_path(
     settings_name_clean or SETTINGS_NAME_PLACEHOLDER
 )
@@ -424,7 +420,7 @@ settings_folder = get_display_settings_path(
 referenced_files = [
     file_name
     for file_name in (fasta_file_name, speclib_file_name, config_file_name)
-    if empty_to_none(file_name)
+    if file_name and file_name.strip()
 ]
 if referenced_files:
     c1.markdown(
@@ -436,7 +432,7 @@ if software_used_by:
     c1.markdown(
         f"The software `{software}` is already used by {', '.join(software_used_by)}."
     )
-elif empty_to_none(software):
+elif software.strip():
     # `software` is a path below the software folder only for the non-containerized non-alphadia case
     if software_type == SoftwareTypes.ALPHADIA:
         software_hint = f"the Conda environment `{software}`"
@@ -460,7 +456,7 @@ upload_checkbox = (
 is_update = selected_name_option != CREATE_NEW_OPTION
 if is_update:
     c1.info(
-        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+        f"This will create a new version of the existing settings '{selected_name_option}'. "
         f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
         "Make sure to update (all or selected) projects to use the new version after creating it.",
         icon="ℹ️",  # noqa: RUF001
@@ -478,83 +474,36 @@ submit = c1.button(
 
 
 if submit:
-    validation_errors = []
-    for to_validate in [
-        fasta_file_name,
-        speclib_file_name,
-        software,
-        config_file_name,
-    ]:
-        if to_validate:
-            validation_errors.extend(check_for_malicious_content(to_validate))
-    validation_errors.extend(
-        check_runner_supports_software_type(runner_name, software_type)
-    )
-    if config_params:
-        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
-        # they currently pass validation and fail silently at runtime
-        placeholder_errors = check_for_unknown_placeholders(config_params)
-        validation_errors.extend(
-            placeholder_errors
-            or check_for_malicious_content(
-                substitute_dummy_values(config_params), allow_spaces=True
-            )
-        )
-    if slurm_mem:
-        validation_errors.extend(check_for_malicious_content(slurm_mem))
-        if not re.match(r"^\d+[KMGT]$", slurm_mem):
-            validation_errors.append(
-                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
-            )
-    if slurm_time and not re.match(r"^\d{2}:\d{2}:\d{2}$", slurm_time):
-        validation_errors.append("SLURM time must be in HH:MM:SS format.")
-
-    if software_type == SoftwareTypes.ALPHADIA and (
-        empty_to_none(fasta_file_name) is None
-        and empty_to_none(speclib_file_name) is None
+    with toast_result(
+        f"Created new settings '{name}'. Assign it to projects on the Projects page."
     ):
-        validation_errors.append(
-            "At least one of the fasta and speclib file names must be given."
-        )
-
-    try:
-        if validation_errors:
-            errors_str = "\n- ".join(validation_errors)
-            raise ValueError(
-                f"Found {len(validation_errors)} Input validation error:\n- {errors_str}"
-            )
-
         if not upload_checkbox:
             raise ValueError(
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        create_settings(
-            name=empty_to_none(name),
-            description=empty_to_none(description),
-            fasta_file_name=fasta_file_name,
-            speclib_file_name=speclib_file_name,
-            config_file_name=config_file_name,
-            config_params=config_params,
-            software_type=empty_to_none(software_type),
-            software=empty_to_none(software),
-            runner_name=runner_name,
-            metrics_type=metrics_type,
-            slurm_cpus_per_task=slurm_cpus_per_task,
-            slurm_mem=empty_to_none(slurm_mem),
-            slurm_time=empty_to_none(slurm_time),
-            num_threads=num_threads,
-            owner_email=owner_email,
-        )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        if is_update and archive_previous:
-            archive_settings(latest_settings["_id"])
-        get_settings_df.clear()
-        show_success_toast(
-            f"Created new settings '{name}'. Assign it to projects on the Projects page."
-        )
+        try:
+            settings_store.create(
+                name=name,
+                description=description,
+                fasta_file_name=fasta_file_name,
+                speclib_file_name=speclib_file_name,
+                config_file_name=config_file_name,
+                config_params=config_params,
+                software_type=software_type,
+                software=software,
+                runner_name=runner_name,
+                metrics_type=metrics_type,
+                slurm_cpus_per_task=slurm_cpus_per_task,
+                slurm_mem=slurm_mem,
+                slurm_time=slurm_time,
+                num_threads=num_threads,
+                owner_email=owner_email,
+                archive_previous=is_update and archive_previous,
+            )
+        finally:
+            # also after an error: the settings exist if only archiving the previous version failed
+            get_settings_df.clear()
 
 
 # ########################################### ARCHIVE/DELETE SETTINGS
@@ -575,55 +524,45 @@ else:
         st.warning(
             "Archived settings can no longer be assigned to projects or updated. "
             "Deleted settings are no longer shown. "
-            "Settings can only be deleted if they are not assigned to any project, including archived and deleted ones."
+            "Settings can only be deleted if they are not assigned to any active project."
         )
 
         # Map settings ID -> list of active project IDs
-        all_ps = ProjectSettings.objects.all()
         active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
-        assigned_settings_ids: set[str] = set()
-        for ps in all_ps:
-            project_id = str(ps.project.id)
-            assigned_settings_ids.add(str(ps.settings.id))
-            if project_id in active_project_ids:
-                assigned_projects[str(ps.settings.id)].append(project_id)
+        for ps in project_settings_store.find():
+            if ps.project_id in active_project_ids:
+                assigned_projects[ps.settings.id].append(ps.project_id)
 
         for _, row in active_settings_df.iterrows():
             col_btn, col_delete, col_info = st.columns([0.15, 0.15, 0.7])
-            projects = sorted(set(assigned_projects.get(str(row["_id"]), [])))
+            projects = sorted(set(assigned_projects.get(row["id"], [])))
             projects_str = ", ".join(projects) if projects else "none"
             col_info.write(
                 f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}`, description: `{row.get('description', '')}`) — assigned to projects: {projects_str}"
             )
             if col_btn.button(
                 "Archive",
-                key=f"archive_{row['_id']}",
+                key=f"archive_{row['id']}",
                 disabled=DISABLE_WRITE,
                 icon=":material/archive:",
             ):
-                try:
+                with toast_result(
+                    f"Archived settings '{row['name']}' version {int(row['version'])}."
+                ):
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
-                    archive_settings(row["_id"])
+                    settings_store.archive(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Archived settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
-            is_assigned = str(row["_id"]) in assigned_settings_ids
+            is_assigned = bool(projects)
             if col_delete.button(
                 "Delete",
-                key=f"delete_{row['_id']}",
+                key=f"delete_{row['id']}",
                 disabled=DISABLE_WRITE or is_assigned,
-                help="Unassign from all projects first." if is_assigned else "",
+                help="Unassign from all active projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
-                try:
-                    delete_settings(row["_id"])
+                with toast_result(
+                    f"Deleted settings '{row['name']}' version {int(row['version'])}."
+                ):
+                    settings_store.delete(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Deleted settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))

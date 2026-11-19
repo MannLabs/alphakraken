@@ -11,8 +11,8 @@ To run the update:
 """
 # ruff: noqa: T201, FBT001, FBT002
 
-from shared.db.engine import connect_db
-from shared.db.models import RawFile
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import RawFile
 
 
 def update_file_info_to_relative_paths(dry_run: bool = True) -> None:

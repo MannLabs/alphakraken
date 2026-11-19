@@ -4,7 +4,8 @@ import logging
 from datetime import datetime
 
 from shared.db._mongo import alerts as _backend
-from shared.domain.alerts import AlertIssue, AlertSuppression
+from shared.domain.alerts import AlertIssue, AlertSuppression, NewSuppression
+from shared.domain.inputs import parse
 
 
 def find_issues() -> list[AlertIssue]:
@@ -20,7 +21,7 @@ def add_issue(*, alert: str, key: str, first_seen: datetime) -> AlertIssue:
 
 
 def set_issue_notified(issue_id: str, notified_at: datetime) -> None:
-    """Record that the issue was notified."""
+    """Record that the issue was notified; does nothing if there is none, e.g. as it expired."""
     _backend.set_issue_notified(issue_id, notified_at)
 
 
@@ -30,3 +31,39 @@ def find_suppressions(*, active_only: bool = False) -> list[AlertSuppression]:
     :param active_only: leave out the expired ones
     """
     return _backend.find_suppressions(active_only=active_only)
+
+
+def add_suppression(  # noqa: PLR0913
+    *,
+    alert: str,
+    instrument_id: str,
+    identifier: str,
+    details: str,
+    comment: str,
+    expires_at: datetime | None = None,
+    created_by: str | None = None,
+) -> None:
+    """Add an alert suppression, cf. `NewSuppression`.
+
+    Raises:
+        InvalidInputError: if a field is invalid, or the suppression would mute all alerts.
+
+    """
+    new = parse(
+        NewSuppression,
+        alert=alert,
+        instrument_id=instrument_id,
+        identifier=identifier,
+        details=details,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    )
+    logging.info(f"Adding alert suppression to DB: {new!r}")
+    _backend.add_suppression(new)
+
+
+def delete_suppression(suppression_id: str) -> None:
+    """Delete an alert suppression; does nothing if there is none."""
+    _backend.delete_suppression(suppression_id)
+    logging.info(f"Deleted alert suppression: {suppression_id=}")

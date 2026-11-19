@@ -1,137 +1,148 @@
 """Test the overview.py file."""
 
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pandas as pd
+import pytest
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
+
+from shared.keys import MetricsTypes
+from shared.tests.factories import kraken_status, metrics, raw_file
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
-def _configure_mocks(
-    mock_df_from_db_data: MagicMock,
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """Configure the db mocks with two raw files and their metrics; return their timestamps."""
-    mock_raw_files_db, mock_metrics_db = (
-        MagicMock(),
-        MagicMock(),
-    )
-    mock_get_raw_file_and_metrics_data.return_value = (
-        mock_raw_files_db,
-        mock_metrics_db,
-        pd.Timestamp.now(tz="UTC"),
-    )
-
-    ts1 = pd.Timestamp.now(tz="UTC")
-    ts2 = pd.Timestamp(5e9 + 0.5, unit="s", tz="UTC")
-    raw_files_df = pd.DataFrame(
-        {
-            "_id": [1, 2],
-            "created_at_": [ts1, ts2],
-            "updated_at_": [ts1, ts2],
-            "created_at": [ts1, ts2],
-            "size": [1024**3, 2 * 1024**3],
-            "project_id": ["P1", "P2"],
-            "status": ["done", "error"],
-            "status_details": ["", ""],
-            "instrument_id": ["i1", "i1"],
-        },
-    )
-    metrics_df = pd.DataFrame(
-        {
-            "raw_file": [1, 2],
-            "proteins": [1, 2],
-            "precursors": [1, 2],
-            "ms1_accuracy": [1.0, 2.0],
-            "fwhm_rt": [1.0, 2.0],
-            "time_elapsed": [60.0, 120.0],
-            "weighted_ms1_intensity_sum": [1.0, 2.0],
-            "intensity_sum": [1.0, 2.0],
-            "settings_version": [1, 2],
-        }
-    )
-    custom_metrics_df = pd.DataFrame(
-        {
-            "raw_file": [1, 2],
-            "proteins": [1, 2],
-            "some_custom_metric": [1, 2],
-        }
-    )
-    status_df = pd.DataFrame(
-        {
-            "id": ["i1", "i1"],
-            "updated_at_": [ts1, ts2],
-            "status": ["ok", "ok"],
-            "status_details": ["", ""],
-            "entity_type": ["instrument", "instrument"],
-        }
-    )
-
-    # order must match MetricsTypes.get_values(), cf. the loop in data_handling.py
-    mock_df_from_db_data.side_effect = [
-        status_df,  # this is for display_status_warning
-        raw_files_df,
-        custom_metrics_df,  # custom metrics
-        metrics_df,  # alphadia metrics
-        pd.DataFrame(),  # empty msqc metrics
-        pd.DataFrame(),  # empty skyline metrics
-        pd.DataFrame(),  # empty diann metrics
-        status_df,
-    ]
-
-    return ts1, ts2
+TS1 = datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC)
+TS2 = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
-@patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("shared.db.status.find")
-def test_overview(
-    mock_find_status: MagicMock,  # noqa: ARG001
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
-    """Test that overview page renders successfully."""
-    mock_df_from_db_data = MagicMock()
-    ts1, ts2 = _configure_mocks(
-        mock_df_from_db_data, mock_get_raw_file_and_metrics_data
-    )
-
-    # when
+@pytest.fixture(autouse=True)
+def _db() -> Iterator[None]:
+    """Make the database hold two raw files with their metrics, and one healthy instrument."""
+    alphadia_values = {
+        "proteins": 1,
+        "precursors": 1,
+        "ms1_accuracy": 1.0,
+        "fwhm_rt": 1.0,
+        "time_elapsed": 60.0,
+        "weighted_ms1_intensity_sum": 1.0,
+        "intensity_sum": 1.0,
+    }
     with (
-        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
-        patch("service.status.df_from_db_data", mock_df_from_db_data),
+        patch("shared.db.raw_files.find") as mock_find,
+        patch("shared.db.metrics.latest_by_raw_file") as mock_latest,
+        patch("shared.db.status.find", return_value=[kraken_status(id="i1")]),
     ):
-        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
+        mock_find.return_value = [
+            raw_file(
+                id="f1",
+                original_name="f1",
+                instrument_id="i1",
+                project_id="P1",
+                status="done",
+                status_details="",
+                size=1024**3,
+                created_at=TS1,
+                created_at_=TS1,
+                updated_at_=TS1,
+            ),
+            raw_file(
+                id="f2",
+                original_name="f2",
+                instrument_id="i1",
+                project_id="P2",
+                status="error",
+                status_details="",
+                size=2 * 1024**3,
+                created_at=TS2,
+                created_at_=TS2,
+                updated_at_=TS2,
+            ),
+        ]
+        mock_latest.return_value = {
+            "f1": {
+                MetricsTypes.ALPHADIA: metrics(
+                    settings_version=1,
+                    relative_output_path=None,
+                    output_display_base_path=None,
+                    values=alphadia_values,
+                ),
+                MetricsTypes.CUSTOM: metrics(
+                    type=MetricsTypes.CUSTOM,
+                    relative_output_path=None,
+                    output_display_base_path=None,
+                    values={"proteins": 1, "some_custom_metric": 1},
+                ),
+            },
+            "f2": {
+                MetricsTypes.ALPHADIA: metrics(
+                    settings_version=2,
+                    relative_output_path=None,
+                    output_display_base_path=None,
+                    values={
+                        k: v * 2 if isinstance(v, int) else v * 2.0
+                        for k, v in alphadia_values.items()
+                    },
+                ),
+                MetricsTypes.CUSTOM: metrics(
+                    type=MetricsTypes.CUSTOM,
+                    relative_output_path=None,
+                    output_display_base_path=None,
+                    values={"proteins": 2, "some_custom_metric": 2},
+                ),
+            },
+            # metrics of a raw file that was not selected are discarded
+            "other": {
+                MetricsTypes.ALPHADIA: metrics(
+                    relative_output_path=None,
+                    output_display_base_path=None,
+                    values={"proteins": 99},
+                )
+            },
+        }
+        yield
 
-    ts1str = ts1.strftime("%Y-%m-%d %H:%M:%S")
-    ts2str = ts2.strftime("%Y-%m-%d %H:%M:%S")
-    ts1noms = ts1.replace(microsecond=0)
-    ts2noms = ts2.replace(microsecond=0)
+
+def test_overview() -> None:
+    """Test that overview page renders successfully."""
+    # when
+    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
+
+    # then
+    ts1str = TS1.strftime("%Y-%m-%d %H:%M:%S")
+    ts2str = TS2.strftime("%Y-%m-%d %H:%M:%S")
 
     expected_data = {
-        "_id": {1: 1, 2: 2},
-        "raw_file": {1: 1, 2: 2},
-        "alphadia__proteins": {1: 1, 2: 2},
-        "alphadia__precursors": {1: 1, 2: 2},
-        "alphadia__calibration_ms1_bias": {1: 1.0, 2: 2.0},
-        "alphadia__fwhm_rt": {1: 1.0, 2: 2.0},
-        "created_at": {1: ts1noms, 2: ts2noms},
-        "created_at_": {1: ts1noms, 2: ts2noms},
-        "updated_at_": {1: ts1noms, 2: ts2noms},
-        "file_created": {1: ts1str, 2: ts2str},
-        "alphadia__time_elapsed_minutes": {1: 1.0, 2: 2.0},
-        "size_gb": {1: 1.0, 2: 2.0},
-        "project_id": {1: "P1", 2: "P2"},
-        "status": {1: "done", 2: "error"},
-        "status_details": {1: "", 2: ""},
-        "instrument_id": {1: "i1", 2: "i1"},
-        "alphadia__weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
-        "alphadia__pg_intensity_sum": {1: 1.0, 2: 2.0},
-        "is_baseline": {1: False, 2: False},
-        "alphadia__settings_version": {1: 1, 2: 2},
-        "custom__proteins": {1: 1, 2: 2},
-        "custom__some_custom_metric": {1: 1, 2: 2},
+        "id": {"f1": "f1", "f2": "f2"},
+        "original_name": {"f1": "f1", "f2": "f2"},
+        "raw_file": {"f1": "f1", "f2": "f2"},
+        "alphadia__proteins": {"f1": 1, "f2": 2},
+        "alphadia__precursors": {"f1": 1, "f2": 2},
+        "alphadia__calibration_ms1_bias": {"f1": 1.0, "f2": 2.0},
+        "alphadia__fwhm_rt": {"f1": 1.0, "f2": 2.0},
+        "created_at": {"f1": TS1, "f2": TS2},
+        "created_at_": {"f1": TS1, "f2": TS2},
+        "updated_at_": {"f1": TS1, "f2": TS2},
+        "file_created": {"f1": ts1str, "f2": ts2str},
+        "alphadia__time_elapsed_minutes": {"f1": 1.0, "f2": 2.0},
+        "size_gb": {"f1": 1.0, "f2": 2.0},
+        "project_id": {"f1": "P1", "f2": "P2"},
+        "status": {"f1": "done", "f2": "error"},
+        "status_details": {"f1": "", "f2": ""},
+        "instrument_id": {"f1": "i1", "f2": "i1"},
+        "instrument_file_status": {"f1": "n/a", "f2": "n/a"},
+        "alphadia__weighted_ms1_intensity_sum": {"f1": 1.0, "f2": 2.0},
+        "alphadia__pg_intensity_sum": {"f1": 1.0, "f2": 2.0},
+        "is_baseline": {"f1": False, "f2": False},
+        "alphadia__settings_name": {"f1": "fallback", "f2": "fallback"},
+        "alphadia__settings_version": {"f1": 1, "f2": 2},
+        "custom__proteins": {"f1": 1, "f2": 2},
+        "custom__some_custom_metric": {"f1": 1, "f2": 2},
+        "custom__settings_name": {"f1": "fallback", "f2": "fallback"},
+        "custom__settings_version": {"f1": 1, "f2": 1},
     }
 
     assert not at.exception
@@ -139,24 +150,12 @@ def test_overview(
     # plots not tested
 
 
-@patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("shared.db.status.find")
-def test_overview_file_selection_mode(
-    mock_find_status: MagicMock,  # noqa: ARG001
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
+def test_overview_file_selection_mode() -> None:
     """Test that enabling the 'File selection' toggle shows the file list and its buttons."""
-    mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
-
     # when: the file selection toggle is enabled
-    with (
-        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
-        patch("service.status.df_from_db_data", mock_df_from_db_data),
-    ):
-        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
-        at.session_state["file_selection_mode_widget_key"] = True
-        at.run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
+    at.session_state["file_selection_mode_widget_key"] = True
+    at.run()
 
     # then: the file selection UI is shown instead of the table/plots
     assert not at.exception
@@ -169,78 +168,51 @@ def test_overview_file_selection_mode(
     assert "📁 Show output folders" in button_labels
 
 
-@patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("shared.db.status.find")
-def test_overview_project_id_filter(
-    mock_find_status: MagicMock,  # noqa: ARG001
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
+def test_overview_project_id_filter() -> None:
     """Test that selecting a project ID narrows the table to that project only."""
-    mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
-
     # when: the project ID "P1" is selected
-    with (
-        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
-        patch("service.status.df_from_db_data", mock_df_from_db_data),
-    ):
-        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
-        at.session_state["project_id_widget_key"] = "P1"
-        at.run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
+    at.session_state["project_id_widget_key"] = "P1"
+    at.run()
 
     # then: the dropdown offers all-projects plus both projects, and only P1 is shown
     assert not at.exception
     assert at.selectbox(key="project_id_widget_key").options == ["", "P1", "P2"]
-    assert at.dataframe[0].value["project_id"].to_dict() == {1: "P1"}
+    assert at.dataframe[0].value["project_id"].to_dict() == {"f1": "P1"}
 
 
-@patch("service.data_handling.get_raw_file_and_metrics_data")
-@patch("shared.db.status.find")
-def test_overview_csv_download_is_prepared_on_demand(
-    mock_find_status: MagicMock,  # noqa: ARG001
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
+def test_overview_csv_download_is_prepared_on_demand() -> None:
     """Test that the CSV is created on demand only and discarded once the selection changes."""
-    mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
 
-    with (
-        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
-        patch("service.status.df_from_db_data", mock_df_from_db_data),
-    ):
-        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
+    # then: nothing is generated before the user asks for it
+    assert not at.exception
+    assert "🧮 Prepare download of filtered table (2 entries)" in [
+        b.label for b in at.button
+    ]
+    assert at.get("download_button") == []
 
-        # then: nothing is generated before the user asks for it
-        assert not at.exception
-        assert "🧮 Prepare download of filtered table (2 entries)" in [
-            b.label for b in at.button
-        ]
-        assert at.get("download_button") == []
+    # AppTest reruns the whole script rather than only the fragment, so the first-run guard
+    # of the page has to be re-armed to get the table displayed again after a click.
+    at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
 
-        # AppTest reruns the whole script rather than only the fragment, so the first-run guard
-        # of the page has to be re-armed to get the table displayed again after a click.
-        mock_df_from_db_data.side_effect = None
-        at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
+    # when: the CSV is prepared
+    prepare_button = next(
+        b for b in at.button if b.label.startswith("🧮 Prepare download of filtered")
+    )
+    prepare_button.click().run()
 
-        # when: the CSV is prepared
-        prepare_button = next(
-            b
-            for b in at.button
-            if b.label.startswith("🧮 Prepare download of filtered")
-        )
-        prepare_button.click().run()
+    # then: it is served from the media store, not by a deferred callable (which would 404)
+    assert not at.exception
+    download_button = at.get("download_button")[0].proto
+    assert download_button.label == "⬇️ Download filtered table (2 entries)"
+    assert download_button.url.endswith(".csv")
+    assert not download_button.deferred_file_id
 
-        # then: it is served from the media store, not by a deferred callable (which would 404)
-        assert not at.exception
-        download_button = at.get("download_button")[0].proto
-        assert download_button.label == "⬇️ Download filtered table (2 entries)"
-        assert download_button.url.endswith(".csv")
-        assert not download_button.deferred_file_id
+    # when: the selection changes
+    at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
+    at.selectbox(key="project_id_widget_key").select("P1").run()
 
-        # when: the selection changes
-        at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
-        at.selectbox(key="project_id_widget_key").select("P1").run()
-
-        # then: the prepared CSV no longer matches the selection and is discarded
-        assert not at.exception
-        assert at.get("download_button") == []
+    # then: the prepared CSV no longer matches the selection and is discarded
+    assert not at.exception
+    assert at.get("download_button") == []

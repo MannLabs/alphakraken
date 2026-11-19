@@ -56,12 +56,11 @@ def assign(  # noqa: PLR0913
         NewAssignment,
         project_id=project_id,
         settings_id=settings_id,
+        # not `or`: an empty list is an error, not all instruments
         scopes=[DEFAULT_SCOPE] if scopes is None else scopes,
-        excluded_scopes=[] if excluded_scopes is None else excluded_scopes,
-        raw_file_id_filter=[] if raw_file_id_filter is None else raw_file_id_filter,
-        raw_file_id_exclude_filter=[]
-        if raw_file_id_exclude_filter is None
-        else raw_file_id_exclude_filter,
+        excluded_scopes=excluded_scopes or [],
+        raw_file_id_filter=raw_file_id_filter or [],
+        raw_file_id_exclude_filter=raw_file_id_exclude_filter or [],
     )
     errors = _scope_errors(new)
     errors += _project_errors(new.project_id, allow_fallback=allow_fallback)

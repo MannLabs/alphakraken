@@ -69,10 +69,8 @@ def add(
 
     Raises:
         AlreadyExistsError: if the project id is in use.
-        NotFoundError: if there is no user with `owner_email`; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
         InvalidInputError: if a field is invalid, the project id was used by a deleted project,
-            the fallback project is not allowed, or the owner is not active.
+            the fallback project is not allowed, or the owner does not exist or is not active.
 
     """
     new = parse(

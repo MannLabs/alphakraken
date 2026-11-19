@@ -45,12 +45,10 @@ def assign(  # noqa: PLR0913
     :param raw_file_id_exclude_filter: None for none
 
     Raises:
-        NotFoundError: if the project or the settings do not exist; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
         InvalidInputError: if a field is invalid, a scope is unknown, a scope or file name filter
             entry would never apply, the fallback project is not allowed, the project or the
-            settings are archived or deleted, or the settings are already assigned to the project
-            with the same file name filters.
+            settings do not exist or are archived or deleted, or the settings are already assigned
+            to the project with the same file name filters.
 
     """
     new = parse(
@@ -96,31 +94,28 @@ def _scope_errors(new: NewAssignment) -> list[str]:
 
 
 def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
-    """Return why the assignments of the project may not be changed by the caller.
-
-    Raises:
-        NotFoundError: if there is no such project.
-
-    """
+    """Return why the assignments of the project may not be changed by the caller."""
     errors = []
     if project_id == FALLBACK_PROJECT_ID and not allow_fallback:
         errors.append(
             f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
         )
+    try:
+        project = projects.get(project_id)
+    except NotFoundError:
+        return [*errors, f"Project '{project_id}' does not exist."]
     errors += inactive_errors(
-        f"Project '{project_id}'", projects.get(project_id).status, ProjectStatus.ACTIVE
+        f"Project '{project_id}'", project.status, ProjectStatus.ACTIVE
     )
     return errors
 
 
 def _settings_errors(settings_id: str) -> list[str]:
-    """Return an error if the settings may not be assigned.
-
-    Raises:
-        NotFoundError: if there are no such settings.
-
-    """
-    assigned = settings.get(settings_id)
+    """Return an error if the settings do not exist or may not be assigned."""
+    try:
+        assigned = settings.get(settings_id)
+    except NotFoundError:
+        return [f"Settings '{settings_id}' do not exist."]
     return inactive_errors(
         f"Settings '{assigned.name}' version {assigned.version}",
         assigned.status,

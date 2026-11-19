@@ -179,6 +179,12 @@ def test_owner_errors_without_email() -> None:
     assert users.owner_errors(None) == []
 
 
+@patch("shared.db._mongo.users.get", side_effect=NotFoundError("No user"))
+def test_owner_errors_of_unknown_user(mock_get: MagicMock) -> None:  # noqa: ARG001
+    """An unknown owner is a rule error like an inactive one, not a NotFoundError."""
+    assert users.owner_errors("x@b.de") == ["User 'x@b.de' does not exist."]
+
+
 @pytest.fixture
 def taken() -> Iterator[dict[str, MagicMock]]:
     """No email and no initials are taken; the backend writes are mocked."""

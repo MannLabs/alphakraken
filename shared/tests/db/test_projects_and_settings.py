@@ -1097,6 +1097,24 @@ def test_assign_with_fully_excluded_scope_raises(
     assignable["backend_assign"].assert_not_called()
 
 
+def test_assign_reports_unknown_project_and_settings_as_rule_errors(
+    assignable: dict[str, MagicMock],
+) -> None:
+    """Unknown references are reported with the other rule errors, not as a NotFoundError."""
+    assignable["find_projects"].return_value = []
+    assignable["get_settings"].side_effect = NotFoundError("No settings fallback_v9")
+
+    with pytest.raises(InvalidInputError) as e:
+        project_settings.assign(
+            "P9", "fallback_v9", allow_fallback=False, scopes=["test9"]
+        )
+
+    assert e.value.errors[0] == "Project 'P9' does not exist."
+    assert "Settings 'fallback_v9' do not exist." in e.value.errors
+    assert any(error.startswith("Unknown scopes") for error in e.value.errors)
+    assignable["backend_assign"].assert_not_called()
+
+
 def test_assign_reports_all_rule_errors(assignable: dict[str, MagicMock]) -> None:
     """The errors of the scopes, the project and the settings are reported together."""
     assignable["find_projects"].return_value = [

@@ -4,7 +4,7 @@ import logging
 
 from shared.db._checks import inactive_errors
 from shared.db._mongo import users as _backend
-from shared.domain.errors import InvalidInputError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.users import (
     NewUser,
@@ -26,19 +26,17 @@ def project_owner(raw_file_id: str) -> User | None:
 
 
 def owner_errors(email: str | None) -> list[str]:
-    """Return an error if the owner with the email is not active, nothing if no email is given.
+    """Return an error if the owner with the email does not exist or is not active, nothing if no email is given.
 
     :param email: as it is stored, cf. `normalize_email`
-
-    Raises:
-        NotFoundError: if there is no such user.
-
     """
     if email is None:
         return []
-    return inactive_errors(
-        f"User '{email}'", _backend.get(email).status, UserStatus.ACTIVE
-    )
+    try:
+        owner = _backend.get(email)
+    except NotFoundError:
+        return [f"User '{email}' does not exist."]
+    return inactive_errors(f"User '{email}'", owner.status, UserStatus.ACTIVE)
 
 
 def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:

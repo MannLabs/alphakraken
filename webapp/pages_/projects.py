@@ -17,8 +17,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.db import project_settings as project_settings_store
@@ -196,14 +195,11 @@ with c_assign1:
                     help=f"Unassign '{ps.settings.name}' from this project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                     icon=":material/link_off:",
                 ):
-                    try:
+                    with toast_result(
+                        f"Removed settings assignment from project {selected_project_id}."
+                    ):
                         _check_assignment_allowed(selected_project_id)
                         project_settings_store.unassign(ps_id)
-                        show_success_toast(
-                            f"Removed settings assignment from project {selected_project_id}."
-                        )
-                    except Exception as e:  # noqa: BLE001
-                        show_error_toast(str(e))
 
                 update_help = (
                     f"Update to version {latest.version}"
@@ -217,14 +213,11 @@ with c_assign1:
                     help=update_help,
                     icon=":material/upgrade:",
                 ):
-                    try:
+                    with toast_result(
+                        f"Updated '{ps.settings.name}' to its latest version."
+                    ):
                         _check_assignment_allowed(selected_project_id)
-                        updated = project_settings_store.update_to_latest(ps_id)
-                        show_success_toast(
-                            f"Updated '{ps.settings.name}' to version {updated.settings.version}."
-                        )
-                    except Exception as e:  # noqa: BLE001
-                        show_error_toast(str(e))
+                        project_settings_store.update_to_latest(ps_id)
         else:
             st.info("No settings assigned to this project.")
 
@@ -281,7 +274,9 @@ with c_assign1:
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):
-                try:
+                with toast_result(
+                    f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
+                ):
                     _check_assignment_allowed(selected_project_id)
                     new_settings_id = settings_options_map[selected_settings_display]
                     project_settings_store.assign(
@@ -294,11 +289,6 @@ with c_assign1:
                             raw_file_id_exclude_filter_input
                         ),
                     )
-                    show_success_toast(
-                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
 
 with c_assign2:
     if selected_project_id:
@@ -417,7 +407,7 @@ def _check_project_id(project_id: str) -> None:
 
 
 if form_submit:
-    try:
+    with toast_result(f"Added new project '{project_id}' to the database."):
         _check_project_id(empty_to_none(project_id))
 
         project_store.add(
@@ -426,10 +416,6 @@ if form_submit:
             description=project_description,
             owner_email=owner_email,
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
-        show_success_toast(f"Added new project '{project_id}' to the database.")
 
 
 # ########################################### ARCHIVE/DELETE PROJECTS
@@ -460,19 +446,13 @@ else:
                 disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
                 icon=":material/archive:",
             ):
-                try:
+                with toast_result(f"Archived project '{p.id}'."):
                     project_store.archive(p.id)
-                    show_success_toast(f"Archived project '{p.id}'.")
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
             if col_delete.button(
                 "Delete",
                 key=f"delete_{p.id}",
                 disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result(f"Deleted project '{p.id}'."):
                     project_store.delete(p.id)
-                    show_success_toast(f"Deleted project '{p.id}'.")
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))

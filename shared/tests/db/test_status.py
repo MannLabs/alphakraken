@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 from shared.db._mongo import models
 from shared.db.status import find, instrument_ids, update
-from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
+from shared.domain.status import (
+    KRAKEN_STATUS_DETAILS_MAX_LENGTH,
+    KrakenStatusEntities,
+    KrakenStatusValues,
+)
 from shared.tests.factories import kraken_status
 
 
@@ -62,3 +66,18 @@ def test_update(mock_models: MagicMock, mock_datetime: MagicMock) -> None:
         entity_type=KrakenStatusEntities.INSTRUMENT,
     )
     mock_models.KrakenStatus.return_value.save.assert_called_once()
+
+
+@patch("shared.db._mongo.status.models")
+def test_update_truncates_too_long_status_details(mock_models: MagicMock) -> None:
+    """Too long details are cut, so that the status, e.g. an error, is still written."""
+    with patch("shared.db._mongo.connection.ensure_connected"):
+        update(
+            "file_remover",
+            status=KrakenStatusValues.ERROR,
+            status_details="x" * (KRAKEN_STATUS_DETAILS_MAX_LENGTH + 1),
+            free_space_gb=-1,
+        )
+
+    stored = mock_models.KrakenStatus.call_args.kwargs["status_details"]
+    assert stored == "x" * (KRAKEN_STATUS_DETAILS_MAX_LENGTH - 3) + "..."

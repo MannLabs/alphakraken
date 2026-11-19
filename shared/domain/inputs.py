@@ -44,6 +44,16 @@ def _message(error: Any) -> str:
     return f"{field}: {message}" if field else message
 
 
+_TRUNCATION_MARK = "..."
+
+
+def truncated(value: Any, max_length: int) -> Any:
+    """Return a text longer than `max_length` cut to it, ending in `...`; any other value as it is."""
+    if isinstance(value, str) and len(value) > max_length:
+        return value[: max_length - len(_TRUNCATION_MARK)] + _TRUNCATION_MARK
+    return value
+
+
 def empty_to_none(value: Any) -> Any:
     """Return None for an empty or blank string, any other value as it is."""
     return None if isinstance(value, str) and not value.strip() else value

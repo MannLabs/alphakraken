@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from pydantic import BeforeValidator, Field
 
-from shared.domain.inputs import InputModel
+from shared.domain.inputs import InputModel, truncated
 from shared.keys import FALLBACK_PROJECT_ID
 
 # (size, hash) or (size, hash, etag) of one file of a raw file folder
@@ -168,17 +168,6 @@ def get_created_at_year_month(raw_file: RawFile) -> str:
 
 
 STATUS_DETAILS_MAX_LENGTH = 1024
-_TRUNCATION_MARK = "..."
-
-
-def _truncated(value: Any) -> Any:
-    """Return a too long text cut to `STATUS_DETAILS_MAX_LENGTH`, ending in `...`; any other value as it is."""
-    if isinstance(value, str) and len(value) > STATUS_DETAILS_MAX_LENGTH:
-        return (
-            value[: STATUS_DETAILS_MAX_LENGTH - len(_TRUNCATION_MARK)]
-            + _TRUNCATION_MARK
-        )
-    return value
 
 
 class RawFileUpdate(InputModel):
@@ -186,9 +175,10 @@ class RawFileUpdate(InputModel):
 
     status: str | None = Field(default=None, max_length=32)
     # truncated instead of rejected: an error message must not keep its status from being written
-    status_details: Annotated[str | None, BeforeValidator(_truncated)] = Field(
-        default=None, max_length=STATUS_DETAILS_MAX_LENGTH
-    )
+    status_details: Annotated[
+        str | None,
+        BeforeValidator(lambda value: truncated(value, STATUS_DETAILS_MAX_LENGTH)),
+    ] = Field(default=None, max_length=STATUS_DETAILS_MAX_LENGTH)
     size: int | None = Field(default=None, ge=-1, le=1000 * 1024**3)
     file_info: dict[str, Any] | None = None
     backup_status: str | None = Field(default=None, max_length=32)

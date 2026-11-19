@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+KRAKEN_STATUS_DETAILS_MAX_LENGTH = 1024
+
 
 class KrakenStatusValues:
     """Values of kraken health status."""

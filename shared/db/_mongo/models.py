@@ -304,6 +304,7 @@ class KrakenStatus(Document):
     id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
+    # longer ones are truncated, cf. `shared.db.status.update`
     status_details = StringField(max_length=1024)
 
     free_space_gb = IntField(min_value=-1, default=-1)

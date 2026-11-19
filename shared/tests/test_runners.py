@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytz
 
-from shared.db.models import RawFile, Settings
 from shared.keys import JobEngines
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations
 from shared.runners import RUNNERS, OperatingSystems, _build_runners, get_runner
+from shared.tests import factories
 
 _SLURM_VIEW = {
     Locations.BACKUP: "/fs/pool/backup",
@@ -191,19 +191,17 @@ def test_build_runners_windows_view_resolves_layout_paths() -> None:
             )
         ]
     )
-    raw_file = MagicMock(
-        wraps=RawFile,
+    raw_file = factories.raw_file(
         id="f.raw",
         instrument_id="test1",
         project_id="P1",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
-    raw_file.has_project = True
 
     # when
     view = runners["win_box"].view
     raw_file_path = view.resolve(Locations.BACKUP, get_raw_file_rel_path(raw_file))
-    settings = Settings(name="s1", version=2)
+    settings = factories.settings(id="s1_v2", name="s1", version=2)
     output_path = view.resolve(
         Locations.OUTPUT, get_output_folder_rel_path(raw_file, settings)
     )

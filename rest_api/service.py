@@ -3,10 +3,14 @@
 from datetime import datetime
 from typing import Any
 
-from shared.db import metrics, project_settings, projects, raw_files, settings
-from shared.display_paths import get_display_backup_path, get_display_output_path
+from shared.api_responses import to_metrics_dict
+from shared.db import metrics as metrics_store
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import raw_files as raw_file_store
+from shared.db import settings as settings_store
+from shared.display_paths import get_display_backup_path
 from shared.domain.errors import NotFoundError
-from shared.domain.metrics import Metrics
 from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import RawFile
 from shared.domain.settings import Settings, SettingsStatus
@@ -14,10 +18,8 @@ from shared.domain.settings import Settings, SettingsStatus
 FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
-OUTPUT_PATH_KEY = "output_path"
-METRICS_TYPE_KEY = "type"
 
-RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
+RAW_FILE_EXCLUDED_KEYS = frozenset({"created_at_", FILE_INFO_KEY})
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -37,38 +39,27 @@ def _query_raw_files(  # noqa: PLR0913
         Tuple of (paginated raw files, total count matching the filters).
 
     """
-    where = raw_files.RawFileFilter(
+    where = raw_file_store.RawFileFilter(
         instrument_id=instrument_id,
         name_contains=name_contains,
         project_id=project_id,
         created_after=date_from,
         created_before=date_to,
     )
-    found = raw_files.find(
+    found = raw_file_store.find(
         where, limit=limit, offset=offset, include_file_info=include_file_info
     )
-    return found, raw_files.count(where)
+    return found, raw_file_store.count(where)
 
 
-def _to_metrics_dict(type_metrics: Metrics) -> dict[str, Any]:
-    """Build a metrics response dict: the type, the values and the output folder as users see it."""
-    data = {METRICS_TYPE_KEY: type_metrics.type, **type_metrics.values}
-    if type_metrics.relative_output_path is not None:
-        data[OUTPUT_PATH_KEY] = get_display_output_path(
-            type_metrics.relative_output_path, type_metrics.output_display_base_path
-        )
-    return data
-
-
-def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
-    """Build a raw file response dict, excluding internal keys and unset fields."""
+def _to_dict(
+    entity: RawFile | Project | Settings, excluded_keys: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Build a response dict from a domain object, leaving out the excluded keys and unset fields."""
     return {
-        "id": raw_file.id,
-        **{
-            k: v
-            for k, v in vars(raw_file).items()
-            if k not in excluded_keys and v is not None
-        },
+        k: v
+        for k, v in vars(entity).items()
+        if k not in excluded_keys and v is not None
     }
 
 
@@ -108,33 +99,28 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     if include_file_info:
         excluded_keys = excluded_keys - {FILE_INFO_KEY}
 
-    results = [
-        _to_raw_file_dict(raw_file, excluded_keys=excluded_keys) for raw_file in found
-    ]
+    results = [_to_dict(raw_file, excluded_keys) for raw_file in found]
 
-    if include_metrics:
-        latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
-        for raw_file, result in zip(found, results, strict=True):
+    latest_metrics = (
+        metrics_store.latest_by_raw_file([raw_file.id for raw_file in found])
+        if include_metrics
+        else {}
+    )
+    for raw_file, result in zip(found, results, strict=True):
+        if include_metrics:
             result["metrics"] = [
-                _to_metrics_dict(type_metrics)
+                to_metrics_dict(type_metrics)
                 for type_metrics in latest_metrics.get(raw_file.id, {}).values()
             ]
-
-    if include_file_info:
-        for raw_file, result in zip(found, results, strict=True):
+        if include_file_info:
             result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total
 
 
-def _to_dict(entity: Project | Settings) -> dict[str, Any]:
-    """Build a response dict from a project or settings, leaving out unset fields."""
-    return {k: v for k, v in vars(entity).items() if v is not None}
-
-
 def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
     return {
-        "settings_id": ps.settings.unique_name,
+        "settings_id": ps.settings.id,
         "name": ps.settings.name,
         "version": ps.settings.version,
         "scopes": ps.scopes,
@@ -154,11 +140,11 @@ def get_projects(
 
     """
     ids = None if project_id is None else [project_id]
-    found = projects.find(ids=ids, limit=limit, offset=offset)
-    total = projects.count(ids=ids)
+    found = project_store.find(ids=ids, limit=limit, offset=offset)
+    total = project_store.count(ids=ids)
 
     assignments: dict[str, list[dict[str, Any]]] = {p.id: [] for p in found}
-    for ps in project_settings.find(list(assignments)):
+    for ps in project_settings_store.find(list(assignments)):
         assignments[ps.project_id].append(_assignment_to_dict(ps))
 
     return [{**_to_dict(p), "settings": assignments[p.id]} for p in found], total
@@ -179,14 +165,14 @@ def get_settings(
         Tuple of (list of settings dicts, total count matching the filters).
 
     """
-    found = settings.find(name=name, limit=limit, offset=offset)
-    return [_to_dict(s) for s in found], settings.count(name=name)
+    found = settings_store.find(name=name, limit=limit, offset=offset)
+    return [_to_dict(s) for s in found], settings_store.count(name=name)
 
 
 def get_settings_by_unique_name(unique_name: str) -> dict[str, Any] | None:
     """Get non-deleted settings by unique name (e.g. `fallback_v7`), or None if it does not exist."""
     try:
-        found = settings.get(unique_name)
+        found = settings_store.get(unique_name)
     except NotFoundError:
         return None
     return None if found.status == SettingsStatus.DELETED else _to_dict(found)

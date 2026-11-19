@@ -7,8 +7,8 @@ and metrics, respectively, to record which file system holds the data.
 
 from typing import Any
 
-from shared.db.models import RawFile
-from shared.domain import raw_files
+from shared.domain.metrics import Metrics
+from shared.domain.raw_files import RawFile
 from shared.path_layout import get_raw_file_folder_rel_path
 from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -55,7 +55,7 @@ def _display_path(location: str, rel_path: str, base: str | None = None) -> str:
     )
 
 
-def get_display_backup_path(raw_file: RawFile | raw_files.RawFile) -> str:
+def get_display_backup_path(raw_file: RawFile) -> str:
     """Get the folder holding the backup of `raw_file`, as users see it."""
     return _display_path(
         Locations.BACKUP,
@@ -74,12 +74,12 @@ def get_current_output_display_base_path() -> str:
     return DISPLAY_PATHS[Locations.OUTPUT]
 
 
-def get_display_output_path(
-    relative_output_path: str, output_display_base_path: str | None = None
-) -> str:
-    """Get the output folder for `relative_output_path` below `output_display_base_path` (default: current one), as users see it."""
+def get_display_output_path(metrics: Metrics) -> str | None:
+    """Get the output folder of `metrics`, as users see it. None if no output path was recorded."""
+    if metrics.relative_output_path is None:
+        return None
     return _display_path(
-        Locations.OUTPUT, relative_output_path, output_display_base_path
+        Locations.OUTPUT, metrics.relative_output_path, metrics.output_display_base_path
     )
 
 

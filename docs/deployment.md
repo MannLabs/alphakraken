@@ -550,6 +550,7 @@ Set up a local MCP server using the following configuration:
         "-e", "MONGO_USER=<MONGO_USER_READ>",
         "-e", "MONGO_PASSWORD=<MONGO_PASSWORD_READ>",
         "-e", "MCP_TRANSPORT=stdio",
+        "-e", "ENV_NAME=<ENV_NAME>",
         "mannlabs/alphakraken-mcp-server:latest"
       ]
     }
@@ -557,6 +558,9 @@ Set up a local MCP server using the following configuration:
 }
 ```
 where the variables need to be set according to the `envs/${ENV}.env` file.
+The server reads `envs/alphakraken.${ENV_NAME}.yaml` on start (for the display paths of the output folders)
+and fails without it. The image holds the yaml files of the repository at build time, so if your
+`display_paths` differ from those, build the image yourself (see below).
 `MCP_TRANSPORT` can also be set to `streamable-http` to run the server in http mode (default port: 8089, override by `MCP_PORT`).
 
 Alternatively, create the image yourself. First build the `alphakraken-mcp-server` container

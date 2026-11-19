@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import streamlit as st
@@ -16,39 +16,19 @@ PAGES = ["overview.py", "status.py", "projects.py", "settings.py"]
 # generous, as the first page run also pays the matplotlib font cache build
 RUN_TIMEOUT_SECONDS = 30
 
-DB_MODELS = ["Project", "Settings"]
-
-
-def _empty_query_set() -> MagicMock:
-    """Get a mock QuerySet that yields no documents, whatever is chained on it."""
-    query_set = MagicMock()
-    query_set.__iter__ = MagicMock(side_effect=lambda: iter([]))
-    query_set.__len__ = MagicMock(return_value=0)
-    query_set.__bool__ = MagicMock(return_value=False)
-    for method in ["only", "exclude", "order_by", "filter"]:
-        getattr(query_set, method).return_value = query_set
-    query_set.return_value = query_set
-    return query_set
-
 
 @pytest.fixture
 def _empty_db() -> Iterator[None]:
-    """Make every database collection appear empty."""
+    """Make every database query return nothing."""
     with (
-        patch("shared.db.interface.connect_db"),
         patch("shared.db.raw_files.find", return_value=[]),
         patch("shared.db.metrics.latest_by_raw_file", return_value={}),
         patch("shared.db.status.find", return_value=[]),
         patch("shared.db.settings.find", return_value=[]),
         patch("shared.db.projects.find", return_value=[]),
         patch("shared.db.project_settings.find", return_value=[]),
-        patch("service.db.connect_db"),
-        patch.multiple(
-            "service.db", **{model: MagicMock() for model in DB_MODELS}
-        ) as mocks,
+        patch("shared.db.users.find", return_value=[]),
     ):
-        for mock in mocks.values():
-            mock.objects = _empty_query_set()
         yield
 
 

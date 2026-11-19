@@ -1,3 +1,4 @@
 # requirements for the REST API
-fastapi==0.115.0
-uvicorn[standard]==0.30.0
+# versions of packages also in the airflow constraint file must equal the ones there (cf. airflow_src/requirements_airflow.txt)
+fastapi==0.136.3
+uvicorn[standard]==0.52.4

@@ -156,13 +156,8 @@ def delete(unique_name: str) -> None:
     # check and write are separate steps; a race between concurrent writes is accepted: an assignment made meanwhile points to deleted settings
     project_ids = _backend.assigned_project_ids(unique_name)
     # archiving and deleting a project are final, so its assignments never apply again
-    active_ids = (
-        sorted(
-            p.id
-            for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
-        )
-        if project_ids
-        else []
+    active_ids = sorted(
+        p.id for p in projects.find(ids=project_ids, statuses=[ProjectStatus.ACTIVE])
     )
     if active_ids:
         raise InvalidInputError(

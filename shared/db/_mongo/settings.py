@@ -75,13 +75,13 @@ def settings_by_unique_name(unique_name: str) -> QuerySet:
 
 @db_backend_function
 def assigned_project_ids(unique_name: str) -> list[str]:
-    """Return the ids of the projects the settings are assigned to, sorted."""
+    """Return the ids of the projects the settings are assigned to."""
     settings = settings_by_unique_name(unique_name).first()
     if settings is None:
         raise NotFoundError(f"No settings {unique_name}")
     # only these assignments are read, so that a broken one of other settings does not matter
     assignments = models.ProjectSettings.objects(settings=settings)
-    return sorted({reference_id(doc, "project") for doc in assignments})
+    return list({reference_id(doc, "project") for doc in assignments})
 
 
 @db_backend_function

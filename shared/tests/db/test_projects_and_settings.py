@@ -618,10 +618,14 @@ def test_backend_set_status_of_unknown_project_raises(mock_models: MagicMock) ->
 
 
 @patch("shared.db._mongo.settings.set_status")
+@patch("shared.db.projects.find", return_value=[])
 @patch("shared.db._mongo.settings.assigned_project_ids", return_value=[])
 @patch("shared.db.settings.get")
 def test_delete_settings(
-    mock_get: MagicMock, mock_assigned: MagicMock, mock_set_status: MagicMock
+    mock_get: MagicMock,
+    mock_assigned: MagicMock,
+    mock_find_projects: MagicMock,  # noqa: ARG001
+    mock_set_status: MagicMock,
 ) -> None:
     """Active settings that are not assigned are soft-deleted."""
     mock_get.return_value = factories.settings()
@@ -1366,7 +1370,7 @@ def test_backend_get_project_id_of_unknown_assignment_raises(
 
 
 def test_backend_assigned_project_ids(mock_models: MagicMock) -> None:
-    """Only the assignments of the given settings are read, their project ids come sorted and unique."""
+    """Only the assignments of the given settings are read, their project ids come unique."""
     settings_document = _settings_document()
     mock_models.Settings.objects.return_value.first.return_value = settings_document
     mock_models.ProjectSettings.objects.return_value = [
@@ -1378,7 +1382,7 @@ def test_backend_assigned_project_ids(mock_models: MagicMock) -> None:
 
     result = settings_backend.assigned_project_ids("fallback_v7")
 
-    assert result == ["P1", "P2"]
+    assert sorted(result) == ["P1", "P2"]
     mock_models.Settings.objects.assert_called_once_with(name="fallback", version=7)
     mock_models.ProjectSettings.objects.assert_called_once_with(
         settings=settings_document

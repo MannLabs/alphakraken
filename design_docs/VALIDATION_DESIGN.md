@@ -36,7 +36,7 @@ Write validation is spread over three layers. Only the middle one applies to eve
 | 14 | Assignment: project active, settings not archived, default scope normalization, no duplicate file filters | `shared/db/project_settings.py` `assign` | all |
 | 15 | Unassignment: project active | `shared/db/project_settings.py` `unassign` | all |
 | 16 | Assignment: `*` not in excluded scopes, scopes not overlapping excluded scopes | nowhere (TODO at `shared/db/project_settings.py:69`); the form only leaves `*` out of the excluded options | none |
-| 17 | Assignment: scopes are `*`, a known vendor or a configured instrument | options of the multiselects (`projects.py:36`) | webapp only, implied |
+| 17 | Assignment: scopes are `*`, a known instrument type or a configured instrument | options of the multiselects (`projects.py:36`) | webapp only, implied |
 | 18 | Assignment: `_FALLBACK` only by admin | `projects.py:50` `_check_assignment_allowed` | webapp only (authorization) |
 | 19 | User: email regex, initials `^[a-zA-Z]{2,8}$` | `_mongo/models.py` `User` | `save()` only |
 | 20 | User: email stripped and lower-cased, unique; initials unique | `shared/db/users.py` `add`, `update` | all |

@@ -37,6 +37,7 @@ def parse(model: type[T], **fields: Any) -> T:
 
 
 def _message(error: Any) -> str:
+    """Return the message of a pydantic error, prefixed by its field if it has one."""
     message = error["msg"].removeprefix(_VALUE_ERROR_PREFIX)
     field = ".".join(str(part) for part in error["loc"])
     return f"{field}: {message}" if field else message
@@ -55,6 +56,7 @@ def required(hint: str | None = None) -> Callable[[Any], Any]:
     message = f"is required, {hint}." if hint else "is required."
 
     def _required(value: Any) -> Any:
+        """Reject None and empty or blank strings."""
         if empty_to_none(value) is None:
             raise ValueError(message)
         return value

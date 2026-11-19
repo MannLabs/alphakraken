@@ -10,7 +10,7 @@ from pages_.impl.projects_utils import (
 from shared.domain.settings import Settings
 from shared.tests.factories import project_settings, settings
 
-_INSTRUMENTS_CONFIG = {"instr1": {"type": "thermo"}, "instr2": {"type": "bruker"}}
+_INSTRUMENT_TYPES = {"instr1": "thermo", "instr2": "bruker"}
 
 
 def _settings(name: str, software_type: str) -> Settings:
@@ -30,7 +30,7 @@ def test_get_resolved_settings_df_lists_all_resolved_settings_per_instrument(
         else []
     )
 
-    df = get_resolved_settings_df("P1", ["instr1", "instr2"], _INSTRUMENTS_CONFIG)
+    df = get_resolved_settings_df("P1", _INSTRUMENT_TYPES)
 
     assert df["instrument"].tolist() == ["instr1", "instr1", "instr2"]
     assert df["settings"].tolist() == [
@@ -55,7 +55,7 @@ def test_get_resolved_settings_df_warns_on_same_software_type(
         _settings("c", "alphadia"),
     ]
 
-    df = get_resolved_settings_df("P1", ["instr1"], _INSTRUMENTS_CONFIG)
+    df = get_resolved_settings_df("P1", {"instr1": "thermo"})
 
     flagged = [SAME_SOFTWARE_TYPE_WARNING in s for s in df["settings"]]
     assert flagged == [True, True, False]
@@ -78,7 +78,7 @@ def test_get_resolved_settings_df_annotates_file_name_filters(
     )
     mock_find.return_value = [ps_match, ps_other_instrument]
 
-    df = get_resolved_settings_df("P1", ["instr1"], _INSTRUMENTS_CONFIG)
+    df = get_resolved_settings_df("P1", {"instr1": "thermo"})
 
     assert df["settings"].tolist() == [
         "a version 1 (alphadia) (only for files containing: PP, QQ; not for files containing: blank)"

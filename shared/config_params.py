@@ -88,6 +88,8 @@ def check_config_params(config_params: str) -> list[str]:
         list[str]: List of validation error messages (empty if valid)
 
     """
+    # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
+    # they currently pass validation and fail silently at runtime
     # an unknown placeholder would be reported again for its braces
     return _check_for_unknown_placeholders(
         config_params

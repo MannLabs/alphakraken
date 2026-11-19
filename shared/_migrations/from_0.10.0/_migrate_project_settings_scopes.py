@@ -1,7 +1,7 @@
 """Migration: ProjectSettings scope fields become lists, resolution becomes a filter.
 
 Before, exactly one settings per software_type applied to a raw file: the most specific scope
-won ("*" < vendor < instrument). Now every matching assignment applies, and restriction is
+won ("*" < instrument type < instrument). Now every matching assignment applies, and restriction is
 explicit via `excluded_scopes` and `raw_file_id_exclude_filter`.
 
 For each ProjectSettings document without `scopes`:
@@ -14,7 +14,7 @@ For each ProjectSettings document without `scopes`:
 `--dry-run` additionally prints a co-firing report: per project and instrument, the assignments
 that were overridden before and will run in addition after the migration. Read it. Any entry
 there doubles the quanting load for that project unless an exclusion is added. Instruments and
-their vendors are read from alphakraken.yaml, so run it against the converted yaml.
+their types are read from alphakraken.yaml, so run it against the converted yaml.
 
 # Usage (export DB credentials as env vars first):
     PYTHONPATH=. python shared/_migrations/from_0.10.0/_migrate_project_settings_scopes.py --dry-run
@@ -28,7 +28,7 @@ from typing import Any
 
 from shared.db._mongo.connection import connect_db
 from shared.db._mongo.models import ProjectSettings, Settings
-from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.keys import DEFAULT_SCOPE, KNOWN_INSTRUMENT_TYPES
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -97,7 +97,7 @@ def _scope_level(scope: str, instrument_id: str, instrument_type: str) -> int | 
         return 0
     if scope == instrument_id:
         return 2
-    if scope in KNOWN_VENDOR_NAMES and scope == instrument_type:
+    if scope in KNOWN_INSTRUMENT_TYPES and scope == instrument_type:
         return 1
     return None
 

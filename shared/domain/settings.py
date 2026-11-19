@@ -118,6 +118,7 @@ class NewSettings(InputModel):
     @field_validator("software_type")
     @classmethod
     def _known_software_type(cls, value: str) -> str:
+        """Reject a software type that is not in `SoftwareTypes`."""
         if value not in SoftwareTypes.get_values():
             raise ValueError(
                 f"Unknown software type '{value}', known are: {SoftwareTypes.get_values()}."
@@ -127,6 +128,7 @@ class NewSettings(InputModel):
     @field_validator("metrics_type")
     @classmethod
     def _metrics_type_fits_software_type(cls, value: str, info: ValidationInfo) -> str:
+        """Reject a metrics type that the software type cannot have."""
         # absent if the software type itself is invalid
         software_type = info.data.get("software_type")
         if software_type and value not in (
@@ -143,6 +145,7 @@ class NewSettings(InputModel):
     )
     @classmethod
     def _no_malicious_content(cls, value: str | None) -> str | None:
+        """Reject content that could be used for command injection."""
         if value and (errors := check_for_malicious_content(value)):
             raise ValueError("; ".join(errors))
         return value
@@ -150,8 +153,7 @@ class NewSettings(InputModel):
     @field_validator("config_params")
     @classmethod
     def _safe_config_params(cls, value: str | None) -> str | None:
-        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
-        # they currently pass validation and fail silently at runtime
+        """Reject unknown placeholders and content that could be used for command injection."""
         if value and (errors := check_config_params(value)):
             raise ValueError("; ".join(errors))
         return value
@@ -159,6 +161,7 @@ class NewSettings(InputModel):
     @field_validator("slurm_mem")
     @classmethod
     def _slurm_mem_format(cls, value: str | None) -> str | None:
+        """Reject a memory value that is not a number followed by a unit."""
         if value and not re.match(SLURM_MEM_REGEX, value):
             raise ValueError(
                 "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
@@ -168,12 +171,14 @@ class NewSettings(InputModel):
     @field_validator("slurm_time")
     @classmethod
     def _slurm_time_format(cls, value: str | None) -> str | None:
+        """Reject a time limit that is not of the form HH:MM:SS."""
         if value and not re.match(SLURM_TIME_REGEX, value):
             raise ValueError("SLURM time must be in HH:MM:SS format.")
         return value
 
     @model_validator(mode="after")
     def _alphadia_needs_fasta_or_speclib(self) -> Self:
+        """Reject alphadia settings with neither a fasta nor a speclib file name."""
         if (
             self.software_type == SoftwareTypes.ALPHADIA
             and not self.fasta_file_name

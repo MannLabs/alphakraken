@@ -65,6 +65,7 @@ class NewSuppression(InputModel):
 
     @model_validator(mode="after")
     def _not_all_wildcards(self) -> Self:
+        """Reject a suppression whose match fields are all wildcards."""
         if all(
             field == ALERT_SUPPRESSION_WILDCARD
             for field in (self.alert, self.instrument_id, self.identifier, self.details)

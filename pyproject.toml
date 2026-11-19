@@ -41,9 +41,6 @@ ignore = [
 "mongoengine".msg = "use shared.db"
 "pymongo".msg = "use shared.db"
 "shared.db._mongo".msg = "use shared.db"
-"shared.db.models".msg = "legacy, use shared.db and shared.domain"
-"shared.db.interface".msg = "legacy, use shared.db"
-"shared.db.engine".msg = "legacy, use shared.db"
 
 [tool.ruff.lint.per-file-ignores]
 # the Mongo backend, its tests and the migration scripts
@@ -52,16 +49,10 @@ ignore = [
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 "airflow_src/plugins/celery_config.py" = ["TID251"]
-# the API modules are the only importers of the backend; this also covers the legacy
-# interface.py, models.py and engine.py until they are gone
+# manual DB interventions work on the documents, like the migration scripts
+"nbs/access_db.ipynb" = ["TID251", "T201"]
+# the API modules are the only importers of the backend
 "shared/db/*.py" = ["TID251"]
-# legacy, cf. design_docs/DB_INTERFACE_PLAN.md: remove an entry once the module is ported
-"shared/path_layout.py" = ["TID251"]
-"shared/display_paths.py" = ["TID251"]
-"shared/tests/test_path_layout.py" = ["TID251"]
-"shared/tests/test_display_paths.py" = ["TID251"]
-"shared/tests/test_runners.py" = ["TID251"]
-"airflow_src/**" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected
 ]

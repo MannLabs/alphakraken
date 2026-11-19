@@ -85,7 +85,8 @@ def test_status(
     mock_get_raw_files_for_throughput_per_day.return_value = throughput_df
 
     # when
-    at = AppTest.from_file(f"{PAGES_FOLDER}/status.py").run()
+    # the default of 3 s is too short for a cold start, e.g. when this test runs first
+    at = AppTest.from_file(f"{PAGES_FOLDER}/status.py").run(timeout=30)
 
     ts1noms = ts1.replace(microsecond=0)
     assert not at.exception

@@ -337,6 +337,8 @@ services:
       MONGO_PASSWORD_WEBAPP: ${MONGO_PASSWORD_WEBAPP:?error}
       MONGO_USER_ALERTING: ${MONGO_USER_ALERTING:?error}
       MONGO_PASSWORD_ALERTING: ${MONGO_PASSWORD_ALERTING:?error}
+      MONGO_USER_REST_API: ${MONGO_USER_REST_API:?error}
+      MONGO_PASSWORD_REST_API: ${MONGO_PASSWORD_REST_API:?error}
     env_file:
       - ./envs/.env-mongo
     healthcheck:
@@ -458,8 +460,10 @@ services:
       ENV_NAME: ${ENV_NAME:?error}
       MONGO_HOST: ${MONGO_HOST:?error}
       MONGO_PORT: ${MONGO_PORT:?error}
-      MONGO_USER: ${MONGO_USER_READ:?error}
-      MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
+      MONGO_USER: ${MONGO_USER_REST_API:?error}
+      MONGO_PASSWORD: ${MONGO_PASSWORD_REST_API:?error}
+      # without a key the writes and `GET /users/` answer 401
+      REST_API_KEY: ${REST_API_KEY:-}
       REST_API_PORT: 8090
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]

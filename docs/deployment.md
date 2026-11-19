@@ -505,14 +505,16 @@ This component allows to detect issues early and to react before they become cri
 See the `monitoring` folder for details.
 
 ## MongoDB User Management
-AlphaKraken implements a role-based access control system for MongoDB with four user types:
+AlphaKraken implements a role-based access control system for MongoDB with five user types:
 
 1. `MONGO_USER_READWRITE`: Full read-write access to the database, used by Airflow workers that need to update file status
-2. `MONGO_USER_READ`: Read-only access to all collections, used by the MCP server and REST API
+2. `MONGO_USER_READ`: Read-only access to all collections, used by the MCP server
 3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project, settings and user collections
 4. `MONGO_USER_ALERTING`: Custom role with read access to all collections, but write access only to the `alert_issue` and
 `alerting_active_instance` collections, used by the monitoring service to record the issues it found and notified and to elect
 the one instance that runs the checks
+5. `MONGO_USER_REST_API`: Custom role with read access to all collections, but write access only to the `project`, `settings`
+and `project_settings` collections, used by the REST API. Unlike the webapp role, it cannot write users or alert suppressions.
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 
@@ -575,15 +577,58 @@ Finally, substitute `mannlabs/alphakraken-mcp-server:latest` -> `alphakraken-mcp
 
 
 ## REST API
-A read-only REST API for programmatic access to raw files and metrics, projects and settings, available on port 8090.
+A REST API for programmatic access, available on port 8090: it reads raw files with metrics, projects, settings and the
+status, and manages projects, settings and their assignments like the webapp does (no admin operations).
 
-- Interactive docs: `http://<alphakraken_ip_address>:8090/docs`
+- Interactive docs with all endpoints and request bodies: `http://<alphakraken_ip_address>:8090/docs`
 - `GET /raw_files/`: raw files with metrics, e.g. `curl "http://<alphakraken_ip_address>:8090/raw_files/?instrument_id=test1&limit=10"`
-- `GET /projects/`, `GET /projects/{project_id}`: non-deleted projects with their settings assignments (settings id, name, version, scopes, filters)
+- `GET /projects/`, `GET /projects/{project_id}`: non-deleted projects with their settings assignments (id, settings id, name, version, scopes, filters)
 - `GET /settings/`, `GET /settings/{settings_id}`: non-deleted settings; `settings_id` is `<name>_v<version>`, e.g. `fallback_v7`
+- `GET /status/`: the status of all instruments, file systems and jobs
+- `GET /users/` (needs the API key): email and initials of the active users, i.e. the possible owners
+- Writes (need the API key):
+  - `POST /projects/`, `POST /projects/{project_id}/archive`, `DELETE /projects/{project_id}`
+  - `POST /settings/` (creates the next version of a name; `?archive_previous=true` archives the latest active one),
+    `POST /settings/{settings_id}/archive`, `DELETE /settings/{settings_id}`
+  - `POST /assignments/`, `DELETE /assignments/{assignment_id}`, `POST /assignments/{assignment_id}/update_to_latest`
 
-The service is started automatically with the `local` and `infrastructure` profiles and uses read-only database credentials.
+  The fallback project and its assignments cannot be changed through the REST API.
+
+The service is started automatically with the `local` and `infrastructure` profiles. It connects to MongoDB as
+`MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)).
 See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
+
+### API key
+The writes and `GET /users/` need the header `X-API-Key` with the value of `REST_API_KEY` (`envs/<ENV>.env`):
+```bash
+curl -X POST "http://<alphakraken_ip_address>:8090/projects/" -H "X-API-Key: <api_key>" -H "Content-Type: application/json" -d '{"project_id": "P1234", "name": "My project"}'
+```
+A missing or wrong key gives `401`. If `REST_API_KEY` is not set, every such request gives `401`, i.e. the API is read-only.
+The key is needed in addition to the basic auth of nginx (cf. [URL redirect](#url-redirect)), as port 8090 is also published directly.
+Generate one e.g. with `openssl rand -hex 32`.
+
+Errors: `401` (key), `404` (the record in the path does not exist), `409` (the project id is in use), `422` (invalid
+input, `{"detail": ["<field>: <message>", ...]}` with all violations).
+
+### Enabling the writes on an existing deployment
+`misc/init-mongo.sh` creates the role and user of the REST API only when the database is first created. On an existing
+database, create them by hand. This needs no downtime; test on `sandbox` first.
+
+1. On every PC (VM) of the deployment, add `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` to `envs/<ENV>.env`,
+   and `REST_API_KEY` on the PC hosting the infrastructure.
+2. On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory, `export ENV=production` and create the role and
+   the user (replace the two placeholders):
+   ```bash
+   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createRole({role: \"restApiRole\", privileges: [{resource: {db: \"krakendb\", collection: \"project\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"project_settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}], roles: [\"read\"]})"'
+   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createUser({user: \"<MONGO_USER_REST_API>\", pwd: \"<MONGO_PASSWORD_REST_API>\", roles: [\"restApiRole\"]})"'
+   ```
+3. Verify that the three collections are listed:
+   ```bash
+   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").getRole(\"restApiRole\", {showPrivileges: true}).privileges.map(p => p.resource.collection)"'
+   ```
+   Expected: `[ 'project', 'settings', 'project_settings' ]`.
+4. On the PC (VM) hosting the infrastructure, restart the REST API with the new version: `./compose.sh up rest-api --build -d`.
+5. Confirm that `curl "http://<alphakraken_ip_address>:8090/users/" -H "X-API-Key: <api_key>"` returns the users.
 
 
 ## Automated MongoDB Database Backups

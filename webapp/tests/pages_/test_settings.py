@@ -10,7 +10,7 @@ import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.runners import RUNNERS
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
@@ -398,7 +398,7 @@ def test_create_settings_passes_selected_owner(  # noqa: PLR0913
     assert mock_create_settings.call_args.kwargs["owner_email"] == "a@b.de"
 
 
-@patch("shared.db.settings.create", side_effect=ValidationError(["archiving failed"]))
+@patch("shared.db.settings.create", side_effect=InvalidInputError(["archiving failed"]))
 @patch("shared.db.users.find", return_value=[])
 @patch("shared.db.project_settings.find", return_value=[])
 @patch("shared.db.projects.find", return_value=[])

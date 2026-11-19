@@ -21,7 +21,7 @@ def add_issue(*, alert: str, key: str, first_seen: datetime) -> AlertIssue:
 
 
 def set_issue_notified(issue_id: str, notified_at: datetime) -> None:
-    """Record that the issue was notified."""
+    """Record that the issue was notified; does nothing if there is none, e.g. as it expired."""
     _backend.set_issue_notified(issue_id, notified_at)
 
 
@@ -46,7 +46,7 @@ def add_suppression(  # noqa: PLR0913
     """Add an alert suppression, cf. `NewSuppression`.
 
     Raises:
-        ValidationError: if a field is invalid, or the suppression would mute all alerts.
+        InvalidInputError: if a field is invalid, or the suppression would mute all alerts.
 
     """
     new = parse(
@@ -64,6 +64,6 @@ def add_suppression(  # noqa: PLR0913
 
 
 def delete_suppression(suppression_id: str) -> None:
-    """Delete an alert suppression."""
+    """Delete an alert suppression; does nothing if there is none."""
     _backend.delete_suppression(suppression_id)
     logging.info(f"Deleted alert suppression: {suppression_id=}")

@@ -70,9 +70,9 @@ class NewProject(InputModel):
     def _valid_project_id(cls, value: str) -> str:
         """Reject a project id that violates `PROJECT_ID_REGEX`."""
         # the fallback project is exempt from the rule
-        if value != FALLBACK_PROJECT_ID and not re.match(PROJECT_ID_REGEX, value):
+        if value != FALLBACK_PROJECT_ID and not re.fullmatch(PROJECT_ID_REGEX, value):
             raise ValueError(
-                f"Invalid project id '{value}'. Please choose a different one."
+                f"Invalid project id '{value}': only upper-case letters and digits, not only digits."
             )
         return value
 

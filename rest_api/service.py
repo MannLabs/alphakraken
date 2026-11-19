@@ -19,7 +19,7 @@ FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
 
-RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
+RAW_FILE_EXCLUDED_KEYS = frozenset({"created_at_", FILE_INFO_KEY})
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -52,15 +52,14 @@ def _query_raw_files(  # noqa: PLR0913
     return found, raw_file_store.count(where)
 
 
-def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
-    """Build a raw file response dict, excluding internal keys and unset fields."""
+def _to_dict(
+    entity: RawFile | Project | Settings, excluded_keys: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Build a response dict from a domain object, leaving out the excluded keys and unset fields."""
     return {
-        "id": raw_file.id,
-        **{
-            k: v
-            for k, v in vars(raw_file).items()
-            if k not in excluded_keys and v is not None
-        },
+        k: v
+        for k, v in vars(entity).items()
+        if k not in excluded_keys and v is not None
     }
 
 
@@ -100,35 +99,28 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     if include_file_info:
         excluded_keys = excluded_keys - {FILE_INFO_KEY}
 
-    results = [
-        _to_raw_file_dict(raw_file, excluded_keys=excluded_keys) for raw_file in found
-    ]
+    results = [_to_dict(raw_file, excluded_keys) for raw_file in found]
 
-    if include_metrics:
-        latest_metrics = metrics_store.latest_by_raw_file(
-            [raw_file.id for raw_file in found]
-        )
-        for raw_file, result in zip(found, results, strict=True):
+    latest_metrics = (
+        metrics_store.latest_by_raw_file([raw_file.id for raw_file in found])
+        if include_metrics
+        else {}
+    )
+    for raw_file, result in zip(found, results, strict=True):
+        if include_metrics:
             result["metrics"] = [
                 to_metrics_dict(type_metrics)
                 for type_metrics in latest_metrics.get(raw_file.id, {}).values()
             ]
-
-    if include_file_info:
-        for raw_file, result in zip(found, results, strict=True):
+        if include_file_info:
             result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total
 
 
-def _to_dict(entity: Project | Settings) -> dict[str, Any]:
-    """Build a response dict from a project or settings, leaving out unset fields."""
-    return {k: v for k, v in vars(entity).items() if v is not None}
-
-
 def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
     return {
-        "settings_id": ps.settings.unique_name,
+        "settings_id": ps.settings.id,
         "name": ps.settings.name,
         "version": ps.settings.version,
         "scopes": ps.scopes,

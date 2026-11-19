@@ -218,7 +218,7 @@ def df_from_db_data(
         query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
 
     if drop_none_columns:
-        # this is required for the Metrics, as e.g. custom metrics may not have all columns
+        # e.g. fields that no raw file of the selection has, such as `s3_upload_path`
         none_columns = [
             col for col in query_set_df.columns if query_set_df[col].isna().all()
         ]

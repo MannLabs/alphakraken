@@ -1,4 +1,7 @@
-"""A MCP server for accessing data in the AlphaKraken database."""
+"""A MCP server for accessing data in the AlphaKraken database.
+
+Needs `alphakraken.<ENV_NAME>.yaml` at import time, for the display paths of the output folders.
+"""
 
 import logging
 import math

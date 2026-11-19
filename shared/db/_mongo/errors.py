@@ -42,7 +42,9 @@ def translate_errors(func: Callable[P, R]) -> Callable[P, R]:
         except (
             pymongo.errors.PyMongoError,
             mongoengine.ConnectionFailure,
-            # on writes mongoengine wraps pymongo's OperationFailure in its own OperationError
+            # on writes mongoengine wraps pymongo's OperationFailure in its own OperationError;
+            # this also turns mongoengine's signals of a coding error, e.g. InvalidQueryError for an
+            # unknown query key, into a DatabaseError, which clients show as a database failure
             MongoEngineException,
         ) as e:
             raise DatabaseError(str(e)) from e

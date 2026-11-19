@@ -82,7 +82,9 @@ def create(  # noqa: PLR0913
 
     :param slurm_cpus_per_task: None for the default of the software type, likewise `slurm_mem`,
         `slurm_time` and `num_threads`
-    :param archive_previous: archive the latest active version of the name afterwards
+    :param archive_previous: archive the latest active version of the name afterwards; if that
+        fails, e.g. as it was archived concurrently, the error is raised although the new version
+        exists, and a retry creates yet another version
 
     Raises:
         InvalidInputError: if a field is invalid, the runner is unknown or cannot run the software

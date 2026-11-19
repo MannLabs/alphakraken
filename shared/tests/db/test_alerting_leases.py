@@ -20,7 +20,7 @@ def mock_collection() -> Iterator[MagicMock]:
     """Patch the lease collection."""
     db = MagicMock()
     with (
-        patch("shared.db._mongo.alerting_leases.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.alerting_leases.get_db", return_value=db),
     ):
         yield db[LEASE_COLLECTION]

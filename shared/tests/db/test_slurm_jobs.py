@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pymongo import UpdateOne
 
-from shared.db import models, slurm_jobs
+from shared.db import slurm_jobs
+from shared.db._mongo import models
 from shared.domain.slurm_jobs import SlurmJob, SlurmJobQueueStates
 
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
@@ -17,7 +18,7 @@ NOW = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 def mock_slurm_job() -> Iterator[MagicMock]:
     """Patch the SlurmJob model and the clock of the backend."""
     with (
-        patch("shared.db._mongo.slurm_jobs.ensure_connected"),
+        patch("shared.db._mongo.connection.ensure_connected"),
         patch("shared.db._mongo.slurm_jobs.datetime") as mock_datetime,
         patch("shared.db._mongo.slurm_jobs.models") as mock_models,
     ):

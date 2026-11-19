@@ -317,12 +317,7 @@ def test_decide_raw_file_handling(
     """A test for the decide_raw_file_handling function."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = {"file1": "", "file2": "", "file3": "123-"}
-    # archived projects do not take new raw files
-    mock_get_project_ids.return_value = [
-        project(id="project1"),
-        project(id="project2"),
-        project(id="archived", status=ProjectStatus.INACTIVE),
-    ]
+    mock_get_project_ids.return_value = [project(id="project1"), project(id="project2")]
     mock_get_unique.side_effect = [None, "project1", "project2"]
     mock_file_meets.side_effect = [True, True, False]
 
@@ -332,7 +327,8 @@ def test_decide_raw_file_handling(
     mock_get_xcom.assert_called_once_with(
         mock_ti, "raw_file_names_to_process", task_ids="get_unknown_raw_files"
     )
-    mock_get_project_ids.assert_called_once()
+    # archived projects do not take new raw files
+    mock_get_project_ids.assert_called_once_with(statuses=[ProjectStatus.ACTIVE])
     mock_get_unique.assert_any_call("file1", ["project1", "project2"])
     mock_get_unique.assert_any_call("file2", ["project1", "project2"])
     mock_get_unique.assert_any_call("file3", ["project1", "project2"])

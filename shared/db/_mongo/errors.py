@@ -1,9 +1,10 @@
-"""Translation of mongoengine and pymongo exceptions into domain errors."""
+"""Translation of mongoengine, pymongo and bson exceptions into domain errors."""
 
 import functools
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
+import bson.errors
 import mongoengine
 import pymongo.errors
 from mongoengine.errors import MongoEngineException
@@ -21,7 +22,7 @@ R = TypeVar("R")
 
 
 def translate_errors(func: Callable[P, R]) -> Callable[P, R]:
-    """Raise domain errors instead of mongoengine and pymongo ones."""
+    """Raise domain errors instead of mongoengine, pymongo and bson ones."""
 
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -33,6 +34,9 @@ def translate_errors(func: Callable[P, R]) -> Callable[P, R]:
             raise AlreadyExistsError(str(e)) from e
         except mongoengine.ValidationError as e:
             raise InvalidInputError(_messages(e)) from e
+        # a value that cannot be encoded, e.g. a numpy scalar; not a PyMongoError
+        except bson.errors.InvalidDocument as e:
+            raise InvalidInputError([str(e)]) from e
         except pymongo.errors.ConnectionFailure as e:
             raise DatabaseUnavailableError(str(e)) from e
         except (

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import bson.errors
 import mongoengine
 import pymongo.errors
 import pytest
@@ -320,6 +321,7 @@ def test_find_rejects_unknown_order_field() -> None:
         (mongoengine.OperationError("not authorized"), DatabaseError),
         (mongoengine.MultipleObjectsReturned("two"), DatabaseError),
         (mongoengine.InvalidQueryError("bad query"), DatabaseError),
+        (bson.errors.InvalidDocument("cannot encode object"), InvalidInputError),
     ],
 )
 def test_translate_errors(raised: Exception, expected: type[Exception]) -> None:

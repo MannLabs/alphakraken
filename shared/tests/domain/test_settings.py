@@ -183,7 +183,7 @@ def test_new_settings_accepts_custom_metrics_for_any_software_type(
     ("software_type", "expected"),
     [
         ("alphadia", ["alphadia", "custom"]),
-        ("custom", ["custom", "alphadia", "msqc", "skyline", "diann"]),
+        ("custom", ["custom", "alphadia", "msqc", "skyline", "diann", "peaks"]),
     ],
 )
 def test_selectable_metrics_types(software_type: str, expected: list[str]) -> None:

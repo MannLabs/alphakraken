@@ -128,7 +128,7 @@ def _to_dict(entity: Project | Settings) -> dict[str, Any]:
 
 def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
     return {
-        "settings_id": ps.settings.unique_name,
+        "settings_id": ps.settings.id,
         "name": ps.settings.name,
         "version": ps.settings.version,
         "scopes": ps.scopes,

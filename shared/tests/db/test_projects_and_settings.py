@@ -136,7 +136,7 @@ def test_find_settings(mock_models: MagicMock) -> None:
     result = settings.find(name="fallback", limit=10, offset=20)
 
     assert result == [factories.settings(created_at_=AWARE_TIME)]
-    assert result[0].unique_name == "fallback_v7"
+    assert result[0].id == "fallback_v7"
     mock_models.Settings.objects.assert_called_once_with(
         status__ne=SettingsStatus.DELETED, name="fallback"
     )

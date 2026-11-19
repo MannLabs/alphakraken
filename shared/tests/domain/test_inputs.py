@@ -81,12 +81,21 @@ def test_empty_to_none(value: Any, expected: Any) -> None:
 class _Limited(InputModel):
     plain: str | None = Field(default=None, max_length=8)
     constrained: Annotated[str, StringConstraints(to_lower=True, max_length=16)]
+    unlimited: str
 
 
 @pytest.mark.parametrize(("field", "expected"), [("plain", 8), ("constrained", 16)])
 def test_max_length(field: str, expected: int) -> None:
     """The declared maximum length is found for both ways of declaring it."""
     assert max_length(_Limited, field) == expected
+
+
+def test_max_length_of_unlimited_field_raises() -> None:
+    """A field without a maximum length is named, not a bare StopIteration."""
+    with pytest.raises(
+        ValueError, match=r"_Limited.unlimited declares no maximum length"
+    ):
+        max_length(_Limited, "unlimited")
 
 
 def test_parse_rejects_unknown_field() -> None:

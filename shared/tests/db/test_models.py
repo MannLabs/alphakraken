@@ -22,8 +22,9 @@ from shared.db._mongo.models import (
 from shared.domain.alerts import NewSuppression
 from shared.domain.inputs import InputModel, max_length
 from shared.domain.projects import NewAssignment, NewProject
-from shared.domain.raw_files import parse_file_info_item
+from shared.domain.raw_files import RawFileUpdate, parse_file_info_item
 from shared.domain.settings import NewSettings, split_unique_settings_name
+from shared.domain.status import KrakenStatusUpdate
 from shared.domain.users import NewUser
 
 
@@ -155,6 +156,8 @@ _STORED_AS: list[tuple[type[InputModel], type[Document], dict[str, str]]] = [
     (NewSuppression, AlertSuppression, {}),
     (NewProject, Project, {"project_id": "id"}),
     (NewSettings, Settings, {}),
+    (RawFileUpdate, RawFile, {}),
+    (KrakenStatusUpdate, KrakenStatus, {}),
 ]
 
 
@@ -186,6 +189,43 @@ def test_input_type_and_model_have_the_same_max_length(
 ) -> None:
     """A value passing the input type must not fail in the model, whose error names the model's fields."""
     assert max_length(input_type, field) == getattr(model, model_field).max_length
+
+
+def _bound(metadata: list, name: str) -> object:
+    return next((getattr(m, name) for m in metadata if hasattr(m, name)), None)
+
+
+def _bounded_fields() -> list:
+    """Return input type, model and both names of every numerically bounded field of an input type."""
+    return [
+        pytest.param(
+            input_type,
+            field,
+            model,
+            renamed.get(field, field),
+            id=f"{input_type.__name__}.{field}",
+        )
+        for input_type, model, renamed in _STORED_AS
+        for field, info in input_type.model_fields.items()
+        if _bound(info.metadata, "ge") is not None
+        or _bound(info.metadata, "le") is not None
+    ]
+
+
+@pytest.mark.parametrize(
+    ("input_type", "field", "model", "model_field"), _bounded_fields()
+)
+def test_input_type_and_model_have_the_same_numeric_bounds(
+    input_type: type[InputModel], field: str, model: type[Document], model_field: str
+) -> None:
+    """A number passing the input type must not fail in the model."""
+    metadata = input_type.model_fields[field].metadata
+    stored = getattr(model, model_field)
+
+    assert (_bound(metadata, "ge"), _bound(metadata, "le")) == (
+        stored.min_value,
+        stored.max_value,
+    )
 
 
 @pytest.mark.parametrize(

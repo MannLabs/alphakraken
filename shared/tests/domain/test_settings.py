@@ -33,7 +33,7 @@ CUSTOM: dict[str, Any] = {
 
 
 def test_new_settings_cleans_fields() -> None:
-    """Strings are stripped, empty optional fields become None, resources are optional."""
+    """Strings are stripped, empty optional fields become None, missing resources are the defaults."""
     new = parse(
         NewSettings,
         **{**ALPHADIA, "name": " plasma_fast ", "description": " ", "slurm_mem": ""},
@@ -45,12 +45,38 @@ def test_new_settings_cleans_fields() -> None:
         "speclib_file_name": None,
         "config_file_name": None,
         "config_params": None,
-        "slurm_cpus_per_task": None,
-        "slurm_mem": None,
-        "slurm_time": None,
-        "num_threads": None,
+        "slurm_cpus_per_task": 8,
+        "slurm_mem": "62G",
+        "slurm_time": "02:00:00",
+        "num_threads": 8,
         "owner_email": None,
     }
+
+
+def test_new_settings_fills_resource_defaults_of_the_software_type() -> None:
+    """Missing resources are the defaults of the software type, given ones are kept."""
+    new = parse(
+        NewSettings,
+        **{**CUSTOM, "software_type": "msqc", "metrics_type": "msqc"},
+        slurm_time="01:00:00",
+    )
+
+    assert (
+        new.slurm_cpus_per_task,
+        new.slurm_mem,
+        new.slurm_time,
+        new.num_threads,
+    ) == (2, "31G", "01:00:00", 2)
+
+
+def test_new_settings_with_unknown_software_type_reports_only_that() -> None:
+    """Filling the defaults does not fail on an unknown software type."""
+    with pytest.raises(InvalidInputError) as e:
+        parse(NewSettings, **{**ALPHADIA, "software_type": "other"})
+
+    assert [error.split(",")[0] for error in e.value.errors] == [
+        "software_type: Unknown software type 'other'"
+    ]
 
 
 def test_new_settings_lower_cases_owner_email() -> None:

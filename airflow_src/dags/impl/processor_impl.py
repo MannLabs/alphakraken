@@ -54,7 +54,6 @@ from shared.db import project_settings as project_settings_store
 from shared.db import raw_files as raw_file_store
 from shared.db import settings as settings_store
 from shared.display_paths import get_current_output_display_base_path
-from shared.domain.errors import NotFoundError
 from shared.domain.raw_files import RawFile, RawFileStatus
 from shared.domain.settings import Settings
 from shared.keys import SoftwareTypes
@@ -71,19 +70,13 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     instrument_id = raw_file.instrument_id
 
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
-    try:
-        project_settings = project_settings_store.find([raw_file.project_id])
-        settings_list = resolve_scoped_settings(
-            project_settings,
-            instrument_id=instrument_id,
-            instrument_type=instrument_type,
-            raw_file_id=raw_file_id,
-        )
-    except NotFoundError as e:
-        # this should not happen as every project has a fallback setting
-        raise AirflowFailException(
-            f"Project or settings not found for '{raw_file.project_id}'."
-        ) from e
+    project_settings = project_settings_store.find([raw_file.project_id])
+    settings_list = resolve_scoped_settings(
+        project_settings,
+        instrument_id=instrument_id,
+        instrument_type=instrument_type,
+        raw_file_id=raw_file_id,
+    )
 
     if not settings_list:
         # this should not happen as this DAG should not be triggered if there are no settings
@@ -533,8 +526,6 @@ def compute_metrics(
     )
 
 
-MAX_STATUS_DETAILS_LENGTH = 1024
-
 _TASK_GROUP_PREFIX = f"{TaskGroups.PROCESSING}."
 _PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_JOB_RESULT}"
@@ -661,9 +652,6 @@ def _extract_errors(
 
 
 def _build_status_details(errors: list[tuple[str, str]]) -> str:
-    """Join per-branch error tuples into a single status_details string, truncating if needed."""
+    """Join per-branch error tuples into a single status_details string; `raw_files.update` truncates it."""
     details = "; ".join(f"[{name}] {err}" for name, err in errors)
-    details = f"error while processing: {details}"
-    if len(details) > MAX_STATUS_DETAILS_LENGTH:
-        details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
-    return details
+    return f"error while processing: {details}"

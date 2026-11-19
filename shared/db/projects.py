@@ -61,15 +61,16 @@ def add(
     name: str,
     description: str | None = None,
     owner_email: str | None = None,
+    allow_fallback: bool,
 ) -> None:
     """Add a new active project, cf. `NewProject`.
 
+    :param allow_fallback: whether the caller may create the fallback project
+
     Raises:
         AlreadyExistsError: if the project id is in use.
-        NotFoundError: if there is no user with `owner_email`; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
-        InvalidInputError: if a field is invalid, the project id was used by a deleted project, or
-            the owner is inactive.
+        InvalidInputError: if a field is invalid, the project id was used by a deleted project,
+            the fallback project is not allowed, or the owner does not exist or is not active.
 
     """
     new = parse(
@@ -79,17 +80,19 @@ def add(
         description=description,
         owner_email=owner_email,
     )
-    logging.info(f"Adding to DB: {new!r}")
     errors = []
+    if new.project_id == FALLBACK_PROJECT_ID and not allow_fallback:
+        errors.append(f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed.")
     existing = find(ids=[new.project_id], include_deleted=True)
     if existing and existing[0].status == ProjectStatus.DELETED:
         errors.append(
             f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
-    errors += users.check_active(new.owner_email)
+    errors += users.owner_errors(new.owner_email)
     if errors:
         raise InvalidInputError(errors)
 
+    logging.info(f"Adding to DB: {new!r}")
     _backend.add(new)
 
 
@@ -123,7 +126,7 @@ def _set_status(project_id: str, status: str) -> None:
             [f"Project '{FALLBACK_PROJECT_ID}' cannot be archived or deleted."]
         )
     current = get(project_id).status
-    # archiving and deleting are final
+    # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if current != ProjectStatus.ACTIVE:
         raise InvalidInputError(
             [f"Cannot set project '{project_id}' from '{current}' to '{status}'."]

@@ -3,19 +3,21 @@
 import logging
 
 from shared.db import projects, settings
+from shared.db._checks import inactive_errors
 from shared.db._mongo import project_settings as _backend
 from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewAssignment, ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
-from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
+from shared.keys import FALLBACK_PROJECT_ID
 from shared.settings_scope_resolver import fully_excluded_scopes, known_scopes
 
 
 def find(project_ids: list[str] | None = None) -> list[ProjectSettings]:
     """Return the settings assignments with their settings, oldest first.
 
-    An assignment whose settings no longer exist is left out.
+    An assignment whose settings no longer exist is left out and logged as an error; the
+    application never removes settings, so this needs a direct edit of the database.
 
     :param project_ids: only the assignments of these projects, None for all, also those of
         archived and deleted projects
@@ -28,7 +30,7 @@ def assign(  # noqa: PLR0913
     settings_id: str,
     *,
     allow_fallback: bool,
-    scopes: list[str] | None = None,
+    scopes: list[str],
     excluded_scopes: list[str] | None = None,
     raw_file_id_filter: list[str] | None = None,
     raw_file_id_exclude_filter: list[str] | None = None,
@@ -37,38 +39,31 @@ def assign(  # noqa: PLR0913
 
     :param settings_id: the unique name of the settings, e.g. `fallback_v7`
     :param allow_fallback: whether the caller may change the assignments of the fallback project
-    :param scopes: None for all instruments
+    :param scopes: required, so that leaving it out cannot mean all instruments; `['*']` for those
     :param excluded_scopes: None for none
     :param raw_file_id_filter: None for all files
     :param raw_file_id_exclude_filter: None for none
 
     Raises:
-        NotFoundError: if the project or the settings do not exist; raised instead of the
-            InvalidInputError, so its rule errors are not reported then.
         InvalidInputError: if a field is invalid, a scope is unknown, a scope or file name filter
             entry would never apply, the fallback project is not allowed, the project or the
-            settings are archived or deleted, or the settings are already assigned to the project
-            with the same file name filters.
+            settings do not exist or are archived or deleted, or the settings are already assigned
+            to the project with the same file name filters.
 
     """
     new = parse(
         NewAssignment,
         project_id=project_id,
         settings_id=settings_id,
-        scopes=[DEFAULT_SCOPE] if scopes is None else scopes,
-        excluded_scopes=[] if excluded_scopes is None else excluded_scopes,
-        raw_file_id_filter=[] if raw_file_id_filter is None else raw_file_id_filter,
-        raw_file_id_exclude_filter=[]
-        if raw_file_id_exclude_filter is None
-        else raw_file_id_exclude_filter,
+        scopes=scopes,
+        excluded_scopes=excluded_scopes or [],
+        raw_file_id_filter=raw_file_id_filter or [],
+        raw_file_id_exclude_filter=raw_file_id_exclude_filter or [],
     )
-    errors = _scope_errors(new)
-    errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
-    assigned = settings.get(new.settings_id)
-    if assigned.status != SettingsStatus.ACTIVE:
-        errors.append(
-            f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
-        )
+    errors = _project_errors(new.project_id, allow_fallback=allow_fallback)
+    errors += _scope_errors(new)
+    # check and write are separate steps; a race between concurrent writes is accepted, cf. `settings.delete`
+    errors += _settings_errors(new.settings_id)
     errors += _duplicate_errors(
         new.project_id,
         new.settings_id,
@@ -98,22 +93,33 @@ def _scope_errors(new: NewAssignment) -> list[str]:
 
 
 def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
-    """Return why the assignments of the project may not be changed by the caller.
-
-    Raises:
-        NotFoundError: if there is no such project.
-
-    """
+    """Return why the assignments of the project may not be changed by the caller."""
     errors = []
     if project_id == FALLBACK_PROJECT_ID and not allow_fallback:
         errors.append(
             f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
         )
-    if projects.get(project_id).status != ProjectStatus.ACTIVE:
-        errors.append(
-            f"Cannot change the settings assignments of archived or deleted project '{project_id}'"
-        )
+    try:
+        project = projects.get(project_id)
+    except NotFoundError:
+        return [*errors, f"Project '{project_id}' does not exist."]
+    errors += inactive_errors(
+        f"Project '{project_id}'", project.status, ProjectStatus.ACTIVE
+    )
     return errors
+
+
+def _settings_errors(settings_id: str) -> list[str]:
+    """Return an error if the settings do not exist or may not be assigned."""
+    try:
+        assigned = settings.get(settings_id)
+    except NotFoundError:
+        return [f"Settings '{settings_id}' do not exist."]
+    return inactive_errors(
+        f"Settings '{assigned.name}' version {assigned.version}",
+        assigned.status,
+        SettingsStatus.ACTIVE,
+    )
 
 
 def _duplicate_errors(
@@ -174,16 +180,15 @@ def update_to_latest(assignment_id: str, *, allow_fallback: bool) -> ProjectSett
     if current is None:
         # `find` leaves out an assignment whose settings no longer exist
         raise NotFoundError(f"Settings of assignment {assignment_id} do not exist")
+    errors = _project_errors(project_id, allow_fallback=allow_fallback)
     latest = settings.latest_active(current.settings.name)
     if latest is None or latest.version <= current.settings.version:
-        raise InvalidInputError(
-            [
-                f"No newer active version of settings '{current.settings.name}' "
-                f"than version {current.settings.version}"
-            ]
+        errors.append(
+            f"No newer active version of settings '{current.settings.name}' "
+            f"than version {current.settings.version}"
         )
-
-    errors = _project_errors(project_id, allow_fallback=allow_fallback)
+        # the duplicate check needs the newer version
+        raise InvalidInputError(errors)
     errors += _duplicate_errors(
         project_id,
         latest.id,

@@ -67,7 +67,8 @@ class RawFile(Document):
     project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
-    status_details = StringField(max_length=512)
+    # longer ones are truncated, cf. `RawFileUpdate`
+    status_details = StringField(max_length=1024)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
@@ -303,6 +304,7 @@ class KrakenStatus(Document):
     id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
+    # longer ones are truncated, cf. `KrakenStatusUpdate`
     status_details = StringField(max_length=1024)
 
     free_space_gb = IntField(min_value=-1, default=-1)

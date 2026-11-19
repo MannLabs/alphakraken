@@ -27,6 +27,8 @@ def project_owner(raw_file_id: str) -> User | None:
         return None
     project = models.Project.objects(id=raw_file.project_id).only("owner").first()
     owner = project.owner if project is not None else None
+    # not handled: an owner reference to a user that no longer exists raises an AttributeError;
+    # users are never deleted, only deactivated
     if owner is None or owner.status != UserStatus.ACTIVE:
         return None
     return to_user(owner)

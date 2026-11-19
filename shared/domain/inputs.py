@@ -44,6 +44,16 @@ def _message(error: Any) -> str:
     return f"{field}: {message}" if field else message
 
 
+_TRUNCATION_MARK = "..."
+
+
+def truncated(value: Any, max_length: int) -> Any:
+    """Return a text longer than `max_length` cut to it, ending in `...`; any other value as it is."""
+    if isinstance(value, str) and len(value) > max_length:
+        return value[: max_length - len(_TRUNCATION_MARK)] + _TRUNCATION_MARK
+    return value
+
+
 def empty_to_none(value: Any) -> Any:
     """Return None for an empty or blank string, any other value as it is."""
     return None if isinstance(value, str) and not value.strip() else value
@@ -90,9 +100,20 @@ OptionalStr = Annotated[str | None, pydantic.BeforeValidator(empty_to_none)]
 
 
 def max_length(model: type[InputModel], field: str) -> int:
-    """Return the maximum length declared for a string field of the input type."""
-    return next(
-        constraint.max_length
-        for constraint in model.model_fields[field].metadata
-        if getattr(constraint, "max_length", None) is not None
+    """Return the maximum length declared for a string field of the input type.
+
+    Raises:
+        ValueError: if the field declares none.
+
+    """
+    limit = next(
+        (
+            constraint.max_length
+            for constraint in model.model_fields[field].metadata
+            if getattr(constraint, "max_length", None) is not None
+        ),
+        None,
     )
+    if limit is None:
+        raise ValueError(f"{model.__name__}.{field} declares no maximum length.")
+    return limit

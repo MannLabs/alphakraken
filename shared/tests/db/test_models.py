@@ -24,6 +24,7 @@ from shared.domain.inputs import InputModel, max_length
 from shared.domain.projects import NewAssignment, NewProject
 from shared.domain.raw_files import RawFileUpdate, parse_file_info_item
 from shared.domain.settings import NewSettings, split_unique_settings_name
+from shared.domain.status import KrakenStatusUpdate
 from shared.domain.users import NewUser
 
 
@@ -156,6 +157,7 @@ _STORED_AS: list[tuple[type[InputModel], type[Document], dict[str, str]]] = [
     (NewProject, Project, {"project_id": "id"}),
     (NewSettings, Settings, {}),
     (RawFileUpdate, RawFile, {}),
+    (KrakenStatusUpdate, KrakenStatus, {}),
 ]
 
 

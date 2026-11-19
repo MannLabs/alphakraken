@@ -3,12 +3,8 @@
 import logging
 
 from shared.db._mongo import status as _backend
-from shared.domain.inputs import truncated
-from shared.domain.status import (
-    KRAKEN_STATUS_DETAILS_MAX_LENGTH,
-    KrakenStatus,
-    KrakenStatusEntities,
-)
+from shared.domain.inputs import parse
+from shared.domain.status import KrakenStatus, KrakenStatusEntities, KrakenStatusUpdate
 
 
 def find() -> list[KrakenStatus]:
@@ -29,17 +25,19 @@ def update(
     free_space_gb: int,
     entity_type: str = KrakenStatusEntities.INSTRUMENT,
 ) -> None:
-    """Set the status of an entity, creating it if it does not exist.
+    """Set the status of an entity, creating it if it does not exist, cf. `KrakenStatusUpdate`.
 
-    :param status_details: truncated if too long, so that the status is still written
+    Raises:
+        InvalidInputError: if a value violates the limits of its field.
+
     """
-    logging.info(
-        f"Updating DB: {id_=} to {status=} with {status_details=} {free_space_gb=} {entity_type=}"
-    )
-    _backend.update(
-        id_,
+    new = parse(
+        KrakenStatusUpdate,
+        id=id_,
         status=status,
-        status_details=truncated(status_details, KRAKEN_STATUS_DETAILS_MAX_LENGTH),
+        status_details=status_details,
         free_space_gb=free_space_gb,
         entity_type=entity_type,
     )
+    logging.info(f"Updating DB: {new!r}")
+    _backend.update(new)

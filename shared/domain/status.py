@@ -2,6 +2,11 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated
+
+from pydantic import BeforeValidator, Field
+
+from shared.domain.inputs import InputModel, RequiredStr, truncated
 
 KRAKEN_STATUS_DETAILS_MAX_LENGTH = 1024
 
@@ -32,3 +37,20 @@ class KrakenStatus:
     # cf. `KrakenStatusEntities`
     entity_type: str
     updated_at_: datetime
+
+
+class KrakenStatusUpdate(InputModel):
+    """The status of an entity to set, cf. `KrakenStatus`; written by the pipeline only, so only the field limits are checked."""
+
+    id: RequiredStr = Field(max_length=64)
+    status: RequiredStr = Field(max_length=64)
+    # truncated instead of rejected: an error message must not keep its status from being written
+    status_details: Annotated[
+        str,
+        BeforeValidator(
+            lambda value: truncated(value, KRAKEN_STATUS_DETAILS_MAX_LENGTH)
+        ),
+    ] = Field(max_length=KRAKEN_STATUS_DETAILS_MAX_LENGTH)
+    free_space_gb: int = Field(ge=-1)
+    # cf. `KrakenStatusEntities`
+    entity_type: RequiredStr = Field(max_length=16)

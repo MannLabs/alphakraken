@@ -1,4 +1,18 @@
-"""Raw file constants."""
+"""Raw file domain type and constants."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Annotated, Any
+
+from pydantic import BeforeValidator, Field
+
+from shared.domain.inputs import InputModel, truncated
+from shared.keys import FALLBACK_PROJECT_ID, STATUS_DETAILS_MAX_LENGTH
+
+# (size, hash) or (size, hash, etag) of one file of a raw file folder
+FileInfoItem = (
+    tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
+)
 
 
 class RawFileStatus:
@@ -74,3 +88,99 @@ class InstrumentFileStatus:
     )
     MOVED = "moved"  # File moved from instrument to instrument backup folder
     PURGED = "purged"  # File removed from instrument backup folder
+
+
+@dataclass(frozen=True)
+class RawFile:
+    """A raw file as acquired by an instrument. Datetimes are UTC-aware."""
+
+    # the file name, prefixed with the collision flag in case of a name collision
+    id: str
+    collision_flag: str | None
+    original_name: str
+    instrument_id: str
+    project_id: str
+    status: str
+    status_details: str | None
+    # bytes
+    size: int | None
+    backup_status: str | None
+    # `display_paths.backup` at copy time: records which backup file system holds the file
+    backup_display_base_path: str | None
+    # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that
+    s3_upload_path: str | None
+    instrument_file_status: str
+    # paths relative to the raw file folder (cf. path_layout) to their file info;
+    # None if not loaded, cf. `shared.db.raw_files.find`
+    file_info: dict[str, FileInfoItem] | None
+    created_at: datetime
+    # when the acquisition was finished (mtime of main file)
+    finalized_at: datetime | None
+    created_at_: datetime
+    updated_at_: datetime
+
+    @property
+    def has_project(self) -> bool:
+        """Return whether the raw file has a project assigned or belongs to the fallback project."""
+        return self.project_id != FALLBACK_PROJECT_ID
+
+    def get_file_info(self) -> dict[str, FileInfoItem]:
+        """Return the file info.
+
+        Raises:
+            ValueError: if it was not loaded, cf. `shared.db.raw_files`.
+
+        """
+        if self.file_info is None:
+            raise ValueError(f"file_info of raw file {self.id} was not loaded.")
+        return self.file_info
+
+
+def parse_file_info_item(
+    item: FileInfoItem | None,
+) -> tuple[float | None, str | None]:
+    """Parse a file_info item tuple.
+
+    This is to hide the details of the file_info storage format from the rest of the codebase.
+
+    Args:
+        item: The file_info item tuple to parse.
+
+    Returns:
+        A tuple containing the size and hash.
+
+    Raises:
+        ValueError: If the item length is invalid.
+
+    """
+    if not item:
+        return item  # type: ignore[invalid-return-type]
+
+    if len(item) >= 2:  # noqa: PLR2004
+        return item[0], item[1]
+
+    raise ValueError(f"Invalid file_info item length {len(item)} {item}.")
+
+
+def get_created_at_year_month(raw_file: RawFile) -> str:
+    """Get the year and month of the raw file creation date."""
+    return raw_file.created_at.strftime("%Y_%m")
+
+
+class RawFileUpdate(InputModel):
+    """Changes of a raw file, cf. `RawFile`; written by the pipeline only, so only the field limits are checked."""
+
+    status: str | None = Field(default=None, max_length=32)
+    # truncated instead of rejected: an error message must not keep its status from being written
+    status_details: Annotated[
+        str | None,
+        BeforeValidator(lambda value: truncated(value, STATUS_DETAILS_MAX_LENGTH)),
+    ] = Field(default=None, max_length=STATUS_DETAILS_MAX_LENGTH)
+    size: int | None = Field(default=None, ge=-1, le=1000 * 1024**3)
+    file_info: dict[str, Any] | None = None
+    backup_status: str | None = Field(default=None, max_length=32)
+    backup_display_base_path: str | None = Field(default=None, max_length=1024)
+    s3_upload_path: str | None = Field(default=None, max_length=1024)
+    instrument_file_status: str | None = Field(default=None, max_length=16)
+    finalized_at: datetime | None = None
+    created_at: datetime | None = None

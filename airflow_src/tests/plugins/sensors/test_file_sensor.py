@@ -96,7 +96,7 @@ def test_file_creation_sensor_timeout(
     assert sensor.poke({}) is True
 
 
-@patch("plugins.sensors.file_sensor.update_kraken_status")
+@patch("shared.db.status.update")
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path_for_instrument")
 @patch("plugins.sensors.file_sensor.get_internal_output_path")
@@ -147,7 +147,7 @@ def test_check_health_when_all_paths_exist(
     )
 
 
-@patch("plugins.sensors.file_sensor.update_kraken_status")
+@patch("shared.db.status.update")
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path_for_instrument")
 @patch("plugins.sensors.file_sensor.get_internal_output_path")

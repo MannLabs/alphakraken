@@ -1,8 +1,16 @@
 """Unit tests for scope resolution."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from shared.settings_scope_resolver import _scopes_match, resolve_scoped_settings
+import pytest
+
+from shared.keys import KNOWN_INSTRUMENT_TYPES
+from shared.settings_scope_resolver import (
+    _scopes_match,
+    fully_excluded_scopes,
+    known_scopes,
+    resolve_scoped_settings,
+)
 
 
 def _make_ps(  # noqa: PLR0913
@@ -53,15 +61,15 @@ def test_scopes_match_instrument_id() -> None:
     assert not _scopes_match(["other_instrument"], INSTRUMENT_ID, INSTRUMENT_TYPE)
 
 
-def test_scopes_match_vendor() -> None:
-    """Test that a known vendor name matches on instrument_type only."""
+def test_scopes_match_instrument_type() -> None:
+    """Test that a known instrument type matches on instrument_type only."""
     assert _scopes_match(["bruker"], INSTRUMENT_ID, "bruker")
     assert not _scopes_match(["thermo"], INSTRUMENT_ID, "bruker")
 
 
-def test_scopes_match_unknown_vendor_matching_instrument_type_returns_false() -> None:
-    """Test that an unknown vendor is treated as an instrument ID, not a vendor."""
-    assert not _scopes_match(["unknown_vendor"], INSTRUMENT_ID, "unknown_vendor")
+def test_scopes_match_unknown_instrument_type_returns_false() -> None:
+    """Test that an unknown instrument type is treated as an instrument ID."""
+    assert not _scopes_match(["unknown_type"], INSTRUMENT_ID, "unknown_type")
 
 
 def test_scopes_match_any_of_list() -> None:
@@ -94,14 +102,14 @@ def test_resolve_default_scope_matches_any_instrument() -> None:
 
 
 def test_resolve_all_matching_assignments_apply() -> None:
-    """Test that default, vendor and instrument scopes all apply, no override."""
+    """Test that default, instrument type and instrument scopes all apply, no override."""
     ps_default = _make_ps(["*"], settings_name="default")
-    ps_vendor = _make_ps(["bruker"], settings_name="vendor")
+    ps_type = _make_ps(["bruker"], settings_name="instrument_type")
     ps_instrument = _make_ps(["instrument_1"], settings_name="instrument")
 
-    result = _resolve([ps_default, ps_vendor, ps_instrument])
+    result = _resolve([ps_default, ps_type, ps_instrument])
 
-    assert result == [ps_default.settings, ps_vendor.settings, ps_instrument.settings]
+    assert result == [ps_default.settings, ps_type.settings, ps_instrument.settings]
 
 
 def test_resolve_same_software_type_twice_keeps_both() -> None:
@@ -136,8 +144,8 @@ def test_resolve_excluded_instrument_skipped() -> None:
     assert _resolve([ps]) == []
 
 
-def test_resolve_excluded_vendor_skipped() -> None:
-    """Test that an excluded vendor beats a matching scope."""
+def test_resolve_excluded_instrument_type_skipped() -> None:
+    """Test that an excluded instrument type beats a matching scope."""
     ps = _make_ps(["*"], excluded_scopes=["bruker"])
     assert _resolve([ps]) == []
 
@@ -151,11 +159,11 @@ def test_resolve_non_excluded_instrument_still_matches() -> None:
 def test_resolve_exclusion_does_not_affect_other_assignments() -> None:
     """Test that exclusion is per assignment."""
     ps_default = _make_ps(["*"], settings_name="default")
-    ps_vendor = _make_ps(
-        ["bruker"], settings_name="vendor", excluded_scopes=["instrument_1"]
+    ps_type = _make_ps(
+        ["bruker"], settings_name="instrument_type", excluded_scopes=["instrument_1"]
     )
 
-    assert _resolve([ps_default, ps_vendor]) == [ps_default.settings]
+    assert _resolve([ps_default, ps_type]) == [ps_default.settings]
 
 
 # === raw_file_id_filter ===
@@ -227,3 +235,45 @@ def test_raw_file_id_filters_ignored_when_raw_file_id_is_none() -> None:
         ps_included.settings,
         ps_excluded.settings,
     ]
+
+
+@patch.dict(
+    "shared.yamlsettings.YAMLSETTINGS",
+    {"instruments": {"test1": {}, "test2": {}}},
+    clear=True,
+)
+def test_known_scopes() -> None:
+    """The default scope comes first, then the instrument types, then the instruments of the yaml."""
+    assert known_scopes() == ["*", *KNOWN_INSTRUMENT_TYPES, "test1", "test2"]
+
+
+@pytest.mark.parametrize(
+    ("scopes", "excluded_scopes", "expected"),
+    [
+        (["test1"], ["thermo"], ["test1"]),
+        (["thermo"], ["test1", "test2"], ["thermo"]),
+        (["*"], ["thermo", "test3"], ["*"]),
+        (["thermo", "test3"], ["test1"], []),
+        # excluded directly
+        (["thermo", "test3"], ["thermo"], ["thermo"]),
+        (["test1", "test3"], ["*"], ["test1", "test3"]),
+        # no instrument of the type: nothing to exclude
+        (["sciex"], ["test1"], []),
+    ],
+)
+@patch.dict(
+    "shared.yamlsettings.YAMLSETTINGS",
+    {
+        "instruments": {
+            "test1": {"type": "thermo"},
+            "test2": {"type": "thermo"},
+            "test3": {"type": "bruker"},
+        }
+    },
+    clear=True,
+)
+def test_fully_excluded_scopes(
+    scopes: list[str], excluded_scopes: list[str], expected: list[str]
+) -> None:
+    """A scope is fully excluded if each of its instruments matches an excluded scope."""
+    assert fully_excluded_scopes(scopes, excluded_scopes) == expected

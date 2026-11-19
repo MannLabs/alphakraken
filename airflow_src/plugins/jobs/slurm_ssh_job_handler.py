@@ -13,7 +13,7 @@ from common.settings import Timings
 from jobs.job_handler import JobHandler, posix_export_lines
 from sensors.ssh_utils import ssh_execute
 
-from shared.db.interface import get_slurm_job
+from shared.db import slurm_jobs as slurm_job_store
 from shared.domain.slurm_jobs import SlurmJobQueueStates
 
 
@@ -59,15 +59,12 @@ class SlurmSSHJobHandler(JobHandler):
         Otherwise queried via SSH (e.g. job not yet polled, poller not running).
         A job that left the queue gets the state `LEFT_QUEUE`, its final state is up to `get_job_result`.
         """
-        job = get_slurm_job(self._ssh_connection_id_prefix, job_id)
+        job = slurm_job_store.get(self._ssh_connection_id_prefix, job_id)
         if job is not None:
             if job.state == SlurmJobQueueStates.LEFT_QUEUE:
                 return job.state
 
-            # the DB returns naive datetimes in UTC
-            age_s = (
-                datetime.now(tz=pytz.utc) - job.updated_at_.replace(tzinfo=pytz.utc)
-            ).total_seconds()
+            age_s = (datetime.now(tz=pytz.utc) - job.updated_at_).total_seconds()
             if age_s < Timings.CLUSTER_POLLER_MAX_STALENESS_S:
                 logging.info(f"Got job status from DB, age {age_s:.0f}s")
                 return job.state

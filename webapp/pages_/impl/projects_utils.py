@@ -4,27 +4,24 @@ from collections import Counter
 
 import pandas as pd
 
-from shared.db.interface import get_project_settings
-from shared.db.models import ProjectSettings, Settings
+from shared.db import project_settings as project_settings_store
+from shared.domain.projects import ProjectSettings
+from shared.domain.settings import Settings
 from shared.settings_scope_resolver import resolve_scoped_settings
-from shared.yamlsettings import YamlKeys
 
 SAME_SOFTWARE_TYPE_WARNING = "⚠️ same software type as another settings on this instrument. Check this is intended and/or make sure the file name filters separate them."
 
 
 def get_resolved_settings_df(
-    selected_project_id: str, instrument_ids: list[str], instruments_config: dict
+    selected_project_id: str, instrument_types: dict[str, str]
 ) -> pd.DataFrame:
     """Build a DataFrame showing resolved settings per instrument.
 
     File name filters are ignored here, so every settings that could apply is shown.
     """
-    all_ps = get_project_settings(selected_project_id)
+    all_ps = project_settings_store.find([selected_project_id])
     rows = []
-    for instrument_id in instrument_ids:
-        instrument_type = instruments_config.get(instrument_id, {}).get(
-            YamlKeys.TYPE, ""
-        )
+    for instrument_id, instrument_type in instrument_types.items():
         resolved = resolve_scoped_settings(
             all_ps, instrument_id=instrument_id, instrument_type=instrument_type
         )
@@ -77,7 +74,7 @@ def _describe_filters(
     """Describe the file-name filters of the assignments that resolve `settings` for the instrument."""
     parts = []
     for ps in all_ps:
-        if ps.settings.id != settings.id or not resolve_scoped_settings(  # type: ignore[unresolved-attribute]
+        if ps.settings.id != settings.id or not resolve_scoped_settings(
             [ps], instrument_id=instrument_id, instrument_type=instrument_type
         ):
             continue

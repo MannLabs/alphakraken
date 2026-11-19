@@ -7,7 +7,9 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.raw_file_error_alert import RawFileErrorAlert
+from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import RawFileStatus
+from shared.tests.factories import raw_file
 
 NOW = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
 
@@ -41,33 +43,34 @@ class TestRawFileErrorAlert:
             "- `processing_job_123`: None"
         )
 
-    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
+    @patch("shared.db.raw_files.find")
     @patch("monitoring.alerts.raw_file_error_alert.RAW_FILE_STATUS_LOOKBACK_HOURS", 24)
-    def test_get_issues_should_query_recent_error_files(
-        self, mock_raw_file: Mock
-    ) -> None:
+    def test_get_issues_should_query_recent_error_files(self, mock_find: Mock) -> None:
         """Only files in ERROR status updated within the lookback are queried."""
         # given
-        mock_raw_file.objects.filter.return_value.only.return_value = []
+        mock_find.return_value = []
 
         # when
         result = RawFileErrorAlert()._get_issues([], NOW)
 
         # then
         assert result == []
-        mock_raw_file.objects.filter.assert_called_once_with(
-            status=RawFileStatus.ERROR, updated_at___gt=NOW - timedelta(hours=24)
+        mock_find.assert_called_once_with(
+            RawFileFilter(
+                status=RawFileStatus.ERROR,
+                updated_after=NOW - timedelta(hours=24),
+            )
         )
 
-    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
+    @patch("shared.db.raw_files.find")
     def test_get_issues_should_return_one_issue_per_error_file(
-        self, mock_raw_file: Mock
+        self, mock_find: Mock
     ) -> None:
         """Each error file yields an issue keyed by file id and error details."""
         # given
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            Mock(id="file1", status_details="Disk full", instrument_id="inst1"),
-            Mock(id="file2", status_details=None, instrument_id="inst2"),
+        mock_find.return_value = [
+            raw_file(id="file1", status_details="Disk full", instrument_id="inst1"),
+            raw_file(id="file2", status_details=None, instrument_id="inst2"),
         ]
         alert = RawFileErrorAlert()
 
@@ -86,18 +89,14 @@ class TestRawFileErrorAlert:
         assert first[0].key != first[1].key
         assert second == first  # stateless: the alert manager reports each key once
 
-    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    def test_key_changes_with_the_error_details(self, mock_raw_file: Mock) -> None:
+    @patch("shared.db.raw_files.find")
+    def test_key_changes_with_the_error_details(self, mock_find: Mock) -> None:
         """A file failing again with a different error gets a new key."""
         # given
         alert = RawFileErrorAlert()
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            Mock(id="file1", status_details="first error", instrument_id="inst1")
-        ]
+        mock_find.return_value = [raw_file(id="file1", status_details="first error")]
         first = alert._get_issues([], NOW)[0]
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            Mock(id="file1", status_details="second error", instrument_id="inst1")
-        ]
+        mock_find.return_value = [raw_file(id="file1", status_details="second error")]
 
         # when
         second = alert._get_issues([], NOW)[0]

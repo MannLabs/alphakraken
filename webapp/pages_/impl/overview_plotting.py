@@ -121,7 +121,7 @@ def _draw_plot(  # noqa: PLR0913, C901
         x=x,
         y=y,
         color=color_by_column,
-        hover_name="_id",
+        hover_name="id",
         hover_data=hover_data,
         height=PLOT_HEIGHT,
         error_y=_get_yerror_column_name(y, df) if show_std else None,

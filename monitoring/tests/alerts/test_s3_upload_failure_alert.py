@@ -7,17 +7,11 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.s3_upload_failure_alert import S3UploadFailureAlert
+from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import BackupStatus
+from shared.tests.factories import raw_file
 
 NOW = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
-
-
-def _create_mock_raw_file(**kwargs: str | None) -> Mock:
-    """Create a mock RawFile with the given attributes."""
-    mock_file = Mock()
-    for key, value in kwargs.items():
-        setattr(mock_file, key, value)
-    return mock_file
 
 
 class TestS3UploadFailureAlert:
@@ -49,36 +43,36 @@ class TestS3UploadFailureAlert:
             "- `file2`: S3 upload failed | project: proj2 | instrument: inst2"
         )
 
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
+    @patch("shared.db.raw_files.find")
     @patch(
         "monitoring.alerts.s3_upload_failure_alert.RAW_FILE_STATUS_LOOKBACK_HOURS", 24
     )
-    def test_get_issues_should_query_recent_failed_files(
-        self, mock_raw_file: Mock
-    ) -> None:
+    def test_get_issues_should_query_recent_failed_files(self, mock_find: Mock) -> None:
         """Only files in UPLOAD_FAILED status updated within the lookback are queried."""
         # given
-        mock_raw_file.objects.filter.return_value.only.return_value = []
+        mock_find.return_value = []
 
         # when
         result = S3UploadFailureAlert()._get_issues([], NOW)
 
         # then
         assert result == []
-        mock_raw_file.objects.filter.assert_called_once_with(
-            backup_status=BackupStatus.UPLOAD_FAILED,
-            updated_at___gt=NOW - timedelta(hours=24),
+        mock_find.assert_called_once_with(
+            RawFileFilter(
+                backup_status=BackupStatus.UPLOAD_FAILED,
+                updated_after=NOW - timedelta(hours=24),
+            )
         )
 
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
+    @patch("shared.db.raw_files.find")
     def test_get_issues_should_return_one_issue_per_failed_file(
-        self, mock_raw_file: Mock
+        self, mock_find: Mock
     ) -> None:
         """Each failed file yields an issue keyed by file id."""
         # given
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            _create_mock_raw_file(id="file1", project_id="P1", instrument_id="inst1"),
-            _create_mock_raw_file(id="file2", project_id=None, instrument_id=None),
+        mock_find.return_value = [
+            raw_file(id="file1", project_id="P1", instrument_id="inst1"),
+            raw_file(id="file2", project_id=None, instrument_id=None),
         ]
         alert = S3UploadFailureAlert()
 

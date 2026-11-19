@@ -176,9 +176,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         now = get_timestamp()
 
         if self._file_is_old:
-            logging.info(
-                "File is old compared to the youngest file in the directory."
-            )
+            logging.info("File is old compared to the youngest file in the directory.")
             return self._acquisition_finalized()
 
         if not self._main_file_exists:
@@ -236,9 +234,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             return False
 
-        logging.info(
-            f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min."
-        )
+        logging.info(f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min.")
         return True
 
     def _next_file_appeared_and_files_settled(
@@ -384,7 +380,9 @@ class AcquisitionMonitor(BaseSensorOperator):
                 f"Files size changed: total size {sum(size for size, _ in files_stat.values())} ({len(files_stat)} file(s))"
             )
             for path, (size, mtime) in files_stat.items():
-                logging.info(f"  {path.name}: size {size}, mtime {datetime.fromtimestamp(mtime, tz=pytz.utc)}")
+                logging.info(
+                    f"  {path.name}: size {size}, mtime {datetime.fromtimestamp(mtime, tz=pytz.utc)}"
+                )
             self._files_stat = files_stat
             self._files_unchanged_since = now
 

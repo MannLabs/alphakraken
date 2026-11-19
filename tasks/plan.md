@@ -102,7 +102,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 
 ### Phase 2: Settings and assignments
 - [x] T7: `POST /settings/` (+ `archive_previous`)
-- [ ] T8: `POST /settings/{id}/archive`, `DELETE /settings/{id}`
+- [x] T8: `POST /settings/{id}/archive`, `DELETE /settings/{id}`
 - [ ] T9: assignment `id` in responses, `POST /assignments/`
 - [ ] T10: `DELETE /assignments/{id}`, `POST /assignments/{id}/update_to_latest`
 

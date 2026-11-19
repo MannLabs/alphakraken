@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from rest_api.auth import API_KEY_ENV_VAR, API_KEY_HEADER
 from rest_api.main import app
 from rest_api.service import ProjectWithAssignments
-from shared.domain.errors import AlreadyExistsError, InvalidInputError
+from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.tests.factories import project
 
 client = TestClient(app)
@@ -137,6 +137,69 @@ def test_create_project_misspelled_key(mock_add: MagicMock) -> None:
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert response.json() == {"detail": ["descriptio: Extra inputs are not permitted"]}
     mock_add.assert_not_called()
+
+
+WRITES_BY_ID = [
+    ("post", "/projects/P123/archive", "archive"),
+    ("delete", "/projects/P123", "delete"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
+def test_archive_and_delete_project(method: str, path: str, function: str) -> None:
+    """Archive and delete call their write function and return no content."""
+    with patch(f"rest_api.routers.projects.project_store.{function}") as mock_write:
+        response = client.request(method, path, headers=KEY_HEADERS)
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert response.content == b""
+    mock_write.assert_called_once_with("P123")
+
+
+@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
+def test_archive_and_delete_project_without_key(
+    method: str, path: str, function: str
+) -> None:
+    """Without the key nothing is written."""
+    with patch(f"rest_api.routers.projects.project_store.{function}") as mock_write:
+        response = client.request(method, path)
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    mock_write.assert_not_called()
+
+
+@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
+@pytest.mark.parametrize(
+    ("error", "status_code", "body"),
+    [
+        (
+            NotFoundError("No project P123"),
+            status.HTTP_404_NOT_FOUND,
+            {"detail": "No project P123"},
+        ),
+        (
+            InvalidInputError(["already archived"]),
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {"detail": ["already archived"]},
+        ),
+    ],
+)
+def test_archive_and_delete_project_errors(  # noqa: PLR0913
+    method: str,
+    path: str,
+    function: str,
+    error: Exception,
+    status_code: int,
+    body: dict,
+) -> None:
+    """The errors of the write functions are mapped to their status codes."""
+    with patch(
+        f"rest_api.routers.projects.project_store.{function}", side_effect=error
+    ):
+        response = client.request(method, path, headers=KEY_HEADERS)
+
+    assert response.status_code == status_code
+    assert response.json() == body
 
 
 def test_invalid_query_parameter_names_its_location() -> None:

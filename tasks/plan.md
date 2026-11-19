@@ -94,7 +94,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 
 ### Phase 1: Projects
 - [x] T5: API key, error mapping, `POST /projects/`
-- [ ] T6: `POST /projects/{id}/archive`, `DELETE /projects/{id}`
+- [x] T6: `POST /projects/{id}/archive`, `DELETE /projects/{id}`
 
 ### Checkpoint 1
 - [ ] unit + e2e green; 401/404/409/422 shapes verified over HTTP

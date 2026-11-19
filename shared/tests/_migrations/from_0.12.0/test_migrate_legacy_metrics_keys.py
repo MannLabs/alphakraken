@@ -33,6 +33,13 @@ def test_get_changes_drops_legacy_key_with_the_same_value() -> None:
     assert migration._get_changes(doc) == ({}, ["msqc_proteins"])
 
 
+def test_get_changes_treats_nan_values_as_the_same() -> None:
+    """NaN is not equal to itself, but two NaN values are the same metric value."""
+    doc = {"_id": 1, "msqc_proteins": float("nan"), "proteins": float("nan")}
+
+    assert migration._get_changes(doc) == ({}, ["msqc_proteins"])
+
+
 def test_get_changes_keeps_legacy_key_with_another_value() -> None:
     """A legacy key whose current name holds another value is left alone."""
     doc = {"_id": 1, "msqc_proteins": 5, "proteins": 6}

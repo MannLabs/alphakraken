@@ -14,6 +14,7 @@ hold the same value, and otherwise left alone and reported.
 
 import argparse
 import logging
+import math
 from collections import Counter
 from typing import Any
 
@@ -43,19 +44,32 @@ def _get_changes(metrics_doc: dict[str, Any]) -> tuple[dict[str, str], list[str]
             continue
 
         # the key that holds or will hold the current name after the renames
-        existing = new_key if new_key in metrics_doc else None
-        existing = existing or next(
-            (k for k, new in renames.items() if new == new_key), None
+        existing = (
+            new_key
+            if new_key in metrics_doc
+            else next((k for k, new in renames.items() if new == new_key), None)
         )
         if existing is None:
             renames[key] = new_key
-        elif metrics_doc[existing] == value:
+        elif _same_value(metrics_doc[existing], value):
             drops.append(key)
         else:
             logger.warning(
                 f"Metrics {metrics_doc['_id']}: not renaming '{key}', '{new_key}' exists with another value."
             )
     return renames, drops
+
+
+def _same_value(a: Any, b: Any) -> bool:
+    """Return whether two metric values are the same, NaN included, which is not equal to itself."""
+    if (
+        isinstance(a, float)
+        and isinstance(b, float)
+        and math.isnan(a)
+        and math.isnan(b)
+    ):
+        return True
+    return a == b
 
 
 def _update_operators(renames: dict[str, str], drops: list[str]) -> dict[str, Any]:

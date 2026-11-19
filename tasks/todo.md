@@ -135,7 +135,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 ## Phase 2: Settings and assignments
 
-- [ ] **T7: `POST /settings/`**
+- [x] **T7: `POST /settings/`**
   - Acceptance:
     - Body `NewSettings`, query `archive_previous` (default false), keyed → 201 with `SettingsResponse`; a second create of the same name → version 2.
     - `archive_previous=true` archives the latest *active* version (K2, documented in the route docstring).

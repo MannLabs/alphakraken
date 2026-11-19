@@ -101,7 +101,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [ ] review with human
 
 ### Phase 2: Settings and assignments
-- [ ] T7: `POST /settings/` (+ `archive_previous`)
+- [x] T7: `POST /settings/` (+ `archive_previous`)
 - [ ] T8: `POST /settings/{id}/archive`, `DELETE /settings/{id}`
 - [ ] T9: assignment `id` in responses, `POST /assignments/`
 - [ ] T10: `DELETE /assignments/{id}`, `POST /assignments/{id}/update_to_latest`

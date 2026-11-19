@@ -189,6 +189,43 @@ def test_input_type_and_model_have_the_same_max_length(
     assert max_length(input_type, field) == getattr(model, model_field).max_length
 
 
+def _bound(metadata: list, name: str) -> object:
+    return next((getattr(m, name) for m in metadata if hasattr(m, name)), None)
+
+
+def _bounded_fields() -> list:
+    """Return input type, model and both names of every numerically bounded field of an input type."""
+    return [
+        pytest.param(
+            input_type,
+            field,
+            model,
+            renamed.get(field, field),
+            id=f"{input_type.__name__}.{field}",
+        )
+        for input_type, model, renamed in _STORED_AS
+        for field, info in input_type.model_fields.items()
+        if _bound(info.metadata, "ge") is not None
+        or _bound(info.metadata, "le") is not None
+    ]
+
+
+@pytest.mark.parametrize(
+    ("input_type", "field", "model", "model_field"), _bounded_fields()
+)
+def test_input_type_and_model_have_the_same_numeric_bounds(
+    input_type: type[InputModel], field: str, model: type[Document], model_field: str
+) -> None:
+    """A number passing the input type must not fail in the model."""
+    metadata = input_type.model_fields[field].metadata
+    stored = getattr(model, model_field)
+
+    assert (_bound(metadata, "ge"), _bound(metadata, "le")) == (
+        stored.min_value,
+        stored.max_value,
+    )
+
+
 @pytest.mark.parametrize(
     "field",
     ["scopes", "excluded_scopes", "raw_file_id_filter", "raw_file_id_exclude_filter"],

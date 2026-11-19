@@ -178,23 +178,30 @@ def test_add(mock_models: MagicMock, mock_connected: MagicMock) -> None:  # noqa
 @pytest.mark.parametrize(
     ("name", "error"),
     [
-        ("type", "values: 'type' is a field of a metrics entry."),
-        ("created_at_", "values: 'created_at_' is a field of a metrics entry."),
-        ("id", "values: 'id' is a field of a metrics entry."),
-        ("_id", "values: '_id' is a field of a metrics entry."),
+        ("type", "values: 'type' is a field or method of a metrics entry."),
+        (
+            "created_at_",
+            "values: 'created_at_' is a field or method of a metrics entry.",
+        ),
+        ("id", "values: 'id' is a field or method of a metrics entry."),
+        ("validate", "values: 'validate' is a field or method of a metrics entry."),
+        ("objects", "values: 'objects' is a field or method of a metrics entry."),
+        ("_id", "values: '_id' must not start with '_'."),
+        ("_private", "values: '_private' must not start with '_'."),
         ("raw.proteins", "values: 'raw.proteins' must not contain '.' or '$'."),
         ("$set", "values: '$set' must not contain '.' or '$'."),
     ],
 )
 @patch("shared.db._mongo.connection.ensure_connected")
-@patch("shared.db._mongo.metrics.models")
+@patch.object(models.Metrics, "save")
 def test_add_rejects_value_names_that_cannot_be_stored(
-    mock_models: MagicMock,
+    mock_save: MagicMock,
     mock_connected: MagicMock,  # noqa: ARG001
     name: str,
     error: str,
 ) -> None:
-    """A value must not overwrite the metadata or the id, nor be read as a path or an operator."""
+    """A value must not replace a field or method of the document, nor be dropped or read as a path or an operator."""
+    # the real model, as the check reads its attributes; rejected before the database is asked
     with pytest.raises(InvalidInputError) as e:
         add(
             "f1",
@@ -207,4 +214,4 @@ def test_add_rejects_value_names_that_cannot_be_stored(
         )
 
     assert e.value.errors == [error]
-    mock_models.Metrics.assert_not_called()
+    mock_save.assert_not_called()

@@ -27,7 +27,7 @@ from alerts.suppressions import is_muted
 from messenger import Message, send
 from utils import extract_error_line
 
-from shared.db import alerts as alerts_store
+from shared.db import alerts as alert_store
 from shared.db import status as status_store
 from shared.domain.alerts import AlertIssue, AlertSuppression
 from shared.domain.status import KrakenStatus
@@ -68,7 +68,7 @@ class AlertManager:
         """
         logging.info("Checking for issues...")
         status_objects = status_store.find()
-        records = {(r.alert, r.key): r for r in alerts_store.find_issues()}
+        records = {(r.alert, r.key): r for r in alert_store.find_issues()}
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
@@ -94,7 +94,7 @@ class AlertManager:
                 continue
             record = records.get((alert.name, issue.key))
             if record is None:
-                record = alerts_store.add_issue(
+                record = alert_store.add_issue(
                     alert=alert.name, key=issue.key, first_seen=now
                 )
             if _is_due(record, alert.get_cooldown_minutes(issue), now):
@@ -107,7 +107,7 @@ class AlertManager:
         )
         for issue, record in due:
             if issue in delivered:
-                alerts_store.set_issue_notified(record.id, now)
+                alert_store.set_issue_notified(record.id, now)
 
     def report_exception(
         self, e: Exception, now: datetime, scope: str = "checks"
@@ -124,7 +124,7 @@ class AlertManager:
     def _refresh_suppressions(self) -> None:
         """Read the active suppressions, keeping the last known ones if the DB is unreachable."""
         try:
-            self._suppressions = alerts_store.find_suppressions(active_only=True)
+            self._suppressions = alert_store.find_suppressions(active_only=True)
         except Exception:  # noqa: BLE001
             logging.warning(
                 "Could not read the alert suppressions, using the last known ones"

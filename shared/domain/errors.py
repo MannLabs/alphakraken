@@ -9,7 +9,7 @@ class AlreadyExistsError(Exception):
     """A record with the same unique key exists."""
 
 
-class ValidationError(Exception):
+class InvalidInputError(Exception):
     """A record violates its constraints, one message per violation."""
 
     def __init__(self, errors: list[str]) -> None:

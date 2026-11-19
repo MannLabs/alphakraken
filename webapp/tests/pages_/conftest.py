@@ -9,5 +9,5 @@ import pytest
 @pytest.fixture(autouse=True)
 def _no_users() -> Iterator[None]:
     """Run the pages without users by default, tests needing users patch on top."""
-    with patch("service.owner.get_all_users", return_value=[]):
+    with patch("shared.db.users.find", return_value=[]):
         yield

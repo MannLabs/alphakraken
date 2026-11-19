@@ -70,7 +70,7 @@ def test_start_job_handles_invalid_job_id(
         SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(make_quanting_env())
 
 
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job", return_value=None)
+@patch("shared.db.slurm_jobs.get", return_value=None)
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_returns_correctly(
     mock_ssh_execute: MagicMock,
@@ -95,11 +95,10 @@ def test_get_job_status_returns_correctly(
 
 
 def _db_job(state: str, age_s: int) -> MagicMock:
-    """Create a mock DB job of the given age, with a naive UTC timestamp as returned by the DB."""
+    """Create a mock DB job of the given age."""
     return MagicMock(
         state=state,
-        updated_at_=datetime.now(tz=pytz.utc).replace(tzinfo=None)
-        - timedelta(seconds=age_s),
+        updated_at_=datetime.now(tz=pytz.utc) - timedelta(seconds=age_s),
     )
 
 
@@ -110,7 +109,7 @@ def _db_job(state: str, age_s: int) -> MagicMock:
         ("LEFT_QUEUE", 10_000),  # final, so age does not matter
     ],
 )
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
+@patch("shared.db.slurm_jobs.get")
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_returns_status_from_db(
     mock_ssh_execute: MagicMock,
@@ -137,7 +136,7 @@ def test_get_job_status_returns_status_from_db(
         _db_job("RUNNING", 10_000),  # stale
     ],
 )
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
+@patch("shared.db.slurm_jobs.get")
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_falls_back_to_ssh(
     mock_ssh_execute: MagicMock,

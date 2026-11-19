@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.raw_files import BackupStatus, RawFile
 from shared.domain.status import KrakenStatus
 
@@ -24,8 +24,8 @@ class S3UploadFailureAlert(BaseAlert):
         del status_objects
 
         youngest_updated_at = now - timedelta(hours=RAW_FILE_STATUS_LOOKBACK_HOURS)
-        failed_raw_files = raw_files.find(
-            raw_files.RawFileFilter(
+        failed_raw_files = raw_file_store.find(
+            raw_file_store.RawFileFilter(
                 backup_status=BackupStatus.UPLOAD_FAILED,
                 updated_after=youngest_updated_at,
             )

@@ -1,12 +1,9 @@
-"""Database models for the MongoDB.
-
-Note: this module must not have any dependencies on the rest of the codebase.
-"""
+"""Database models for the MongoDB."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from mongoengine import (
     DateTimeField,
@@ -20,12 +17,25 @@ from mongoengine import (
     StringField,
 )
 
-from shared.domain.projects import ProjectStatus
-from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
-from shared.domain.settings import SETTINGS_VERSION_SEPARATOR, SettingsStatus
+from shared.domain.projects import (
+    PROJECT_ID_MAX_LENGTH,
+    PROJECT_ID_MIN_LENGTH,
+    ProjectStatus,
+)
+from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.settings import (
+    SETTINGS_NAME_REGEX,
+    SETTINGS_VERSION_SEPARATOR,
+    SettingsStatus,
+)
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
-from shared.domain.users import UserStatus
+from shared.domain.users import (
+    USER_EMAIL_REGEX,
+    USER_INITIALS_MAX_LENGTH,
+    USER_INITIALS_REGEX,
+    UserStatus,
+)
 from shared.keys import (
     ALERT_SUPPRESSION_WILDCARD,
     DEFAULT_SCOPE,
@@ -33,9 +43,6 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
-
-if TYPE_CHECKING:
-    from shared.domain import raw_files
 
 
 class RawFile(Document):
@@ -60,7 +67,8 @@ class RawFile(Document):
     project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
-    status_details = StringField(max_length=512)
+    # longer ones are truncated, cf. `RawFileUpdate`
+    status_details = StringField(max_length=1024)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
@@ -83,42 +91,6 @@ class RawFile(Document):
     # audit fields
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
     updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-    @property
-    def has_project(self) -> bool:
-        """Return whether the raw file has a project assigned or belongs to the fallback project."""
-        return self.project_id != FALLBACK_PROJECT_ID
-
-
-def parse_file_info_item(
-    item: FileInfoItem | None,
-) -> tuple[float | None, str | None]:
-    """Parse a file_info item tuple.
-
-    This is to hide the details of the file_info storage format from the rest of the codebase.
-
-    Args:
-        item: The file_info item tuple to parse.
-
-    Returns:
-        A tuple containing the size and hash.
-
-    Raises:
-        ValueError: If the item length is invalid.
-
-    """
-    if not item:
-        return item  # type: ignore[invalid-return-type]
-
-    if len(item) >= 2:  # noqa: PLR2004
-        return item[0], item[1]
-
-    raise ValueError(f"Invalid file_info item length {len(item)} {item}.")
-
-
-def get_created_at_year_month(raw_file: RawFile | raw_files.RawFile) -> str:
-    """Get the year and month of the raw file creation date."""
-    return raw_file.created_at.strftime("%Y_%m")
 
 
 class Metrics(DynamicDocument):
@@ -149,11 +121,6 @@ class Metrics(DynamicDocument):
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
 
 
-USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
-USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
-
-
 class User(Document):
     """Schema for a user, used as owner of projects and settings.
 
@@ -167,7 +134,9 @@ class User(Document):
     email = StringField(
         required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
     )
-    initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+    initials = StringField(
+        required=True, max_length=USER_INITIALS_MAX_LENGTH, regex=USER_INITIALS_REGEX
+    )
     # user id in the messenger (e.g. Slack member ID), to notify the user directly
     messenger_id = StringField(max_length=512)
 
@@ -207,7 +176,7 @@ class AlertSuppression(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[AlertSuppression]]
 
-    # alert class name, e.g. "PumpPressureAlert"
+    # alert class name, e.g. "PumpPressureHighAlert"
     alert = StringField(
         required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )
@@ -237,7 +206,12 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(required=True, primary_key=True, min_length=4, max_length=16)
+    id = StringField(
+        required=True,
+        primary_key=True,
+        min_length=PROJECT_ID_MIN_LENGTH,
+        max_length=PROJECT_ID_MAX_LENGTH,
+    )
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 
@@ -246,9 +220,6 @@ class Project(Document):
     owner = ReferenceField(User, default=None)
 
     created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-
-SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
 
 
 class Settings(Document):
@@ -315,7 +286,7 @@ class ProjectSettings(Document):
 
     project = ReferenceField(Project, required=True)
     settings = ReferenceField(Settings, required=True)
-    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    # "*", an instrument type or an instrument ID; an assignment applies if any scope matches and no excluded one does
     scopes = ListField(StringField(max_length=64), default=lambda: [DEFAULT_SCOPE])
     excluded_scopes = ListField(StringField(max_length=64), default=list)
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
@@ -333,6 +304,7 @@ class KrakenStatus(Document):
     id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
+    # longer ones are truncated, cf. `KrakenStatusUpdate`
     status_details = StringField(max_length=1024)
 
     free_space_gb = IntField(min_value=-1, default=-1)
@@ -362,8 +334,3 @@ class SlurmJob(Document):
     state = StringField(max_length=32)
 
     updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-
-
-def get_slurm_job_db_id(cluster_id: str, job_id: str) -> str:
-    """Get the DB id of the Slurm job `job_id` on the cluster `cluster_id`, unique across clusters."""
-    return f"{cluster_id}/{job_id}"

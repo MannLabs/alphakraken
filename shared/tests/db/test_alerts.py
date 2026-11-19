@@ -2,12 +2,16 @@
 
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from bson import ObjectId
 
-from shared.db import alerts, models
+from shared.db import alerts
+from shared.db._mongo import models
+from shared.domain.alerts import NewSuppression
+from shared.domain.errors import InvalidInputError
 from shared.tests.factories import alert_issue, alert_suppression
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo
@@ -17,7 +21,7 @@ OBJECT_ID = ObjectId("65a0000000000000000000aa")
 
 @pytest.fixture(autouse=True)
 def _connected() -> Iterator[None]:
-    with patch("shared.db._mongo.alerts.ensure_connected"):
+    with patch("shared.db._mongo.connection.ensure_connected"):
         yield
 
 
@@ -84,3 +88,50 @@ def test_find_suppressions(mock_models: MagicMock, *, active_only: bool) -> None
         "-created_at_"
     )
     assert query.filter.called is active_only
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_add_suppression(mock_models: MagicMock) -> None:
+    """A new suppression is saved with the given fields, stripped."""
+    fields: dict[str, Any] = {
+        "alert": "PumpPressureAlert",
+        "instrument_id": "astral1",
+        "identifier": "*",
+        "details": "*",
+        "comment": "maintenance",
+        "expires_at": AWARE_TIME,
+        "created_by": "me",
+    }
+
+    entered: dict[str, Any] = {**fields, "alert": " PumpPressureAlert "}
+
+    alerts.add_suppression(**entered)
+
+    mock_models.AlertSuppression.assert_called_once_with(**fields)
+    # a field added to the input type must be mapped in the backend
+    assert fields.keys() == NewSuppression.model_fields.keys()
+    mock_models.AlertSuppression.return_value.save.assert_called_once()
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_add_invalid_suppression_raises(mock_models: MagicMock) -> None:
+    """An invalid suppression is rejected before anything is stored."""
+    with pytest.raises(InvalidInputError, match="comment: is required"):
+        alerts.add_suppression(
+            alert="PumpPressureAlert",
+            instrument_id="*",
+            identifier="*",
+            details="*",
+            comment=" ",
+        )
+
+    mock_models.AlertSuppression.assert_not_called()
+
+
+@patch("shared.db._mongo.alerts.models")
+def test_delete_suppression(mock_models: MagicMock) -> None:
+    """The suppression with the given id is deleted."""
+    alerts.delete_suppression("abc")
+
+    mock_models.AlertSuppression.objects.assert_called_once_with(id="abc")
+    mock_models.AlertSuppression.objects.return_value.delete.assert_called_once()

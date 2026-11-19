@@ -3,27 +3,23 @@
 from datetime import datetime
 from typing import Any
 
-from shared.db import metrics, raw_files
-from shared.db.engine import connect_db
-from shared.db.models import (
-    Project,
-    ProjectSettings,
-    Settings,
-    split_unique_settings_name,
-)
-from shared.display_paths import get_display_backup_path, get_display_output_path
-from shared.domain.metrics import Metrics
-from shared.domain.projects import ProjectStatus
+from shared.api_responses import to_metrics_dict
+from shared.db import metrics as metrics_store
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import raw_files as raw_file_store
+from shared.db import settings as settings_store
+from shared.display_paths import get_display_backup_path
+from shared.domain.errors import NotFoundError
+from shared.domain.projects import Project, ProjectSettings
 from shared.domain.raw_files import RawFile
-from shared.domain.settings import SettingsStatus
+from shared.domain.settings import Settings, SettingsStatus
 
 FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
-OUTPUT_PATH_KEY = "output_path"
-METRICS_TYPE_KEY = "type"
 
-RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
+RAW_FILE_EXCLUDED_KEYS = frozenset({"created_at_", FILE_INFO_KEY})
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -43,38 +39,27 @@ def _query_raw_files(  # noqa: PLR0913
         Tuple of (paginated raw files, total count matching the filters).
 
     """
-    where = raw_files.RawFileFilter(
+    where = raw_file_store.RawFileFilter(
         instrument_id=instrument_id,
         name_contains=name_contains,
         project_id=project_id,
         created_after=date_from,
         created_before=date_to,
     )
-    found = raw_files.find(
+    found = raw_file_store.find(
         where, limit=limit, offset=offset, include_file_info=include_file_info
     )
-    return found, raw_files.count(where)
+    return found, raw_file_store.count(where)
 
 
-def _to_metrics_dict(type_metrics: Metrics) -> dict[str, Any]:
-    """Build a metrics response dict: the type, the values and the output folder as users see it."""
-    data = {METRICS_TYPE_KEY: type_metrics.type, **type_metrics.values}
-    if type_metrics.relative_output_path is not None:
-        data[OUTPUT_PATH_KEY] = get_display_output_path(
-            type_metrics.relative_output_path, type_metrics.output_display_base_path
-        )
-    return data
-
-
-def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
-    """Build a raw file response dict, excluding internal keys and unset fields."""
+def _to_dict(
+    entity: RawFile | Project | Settings, excluded_keys: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Build a response dict from a domain object, leaving out the excluded keys and unset fields."""
     return {
-        "id": raw_file.id,
-        **{
-            k: v
-            for k, v in vars(raw_file).items()
-            if k not in excluded_keys and v is not None
-        },
+        k: v
+        for k, v in vars(entity).items()
+        if k not in excluded_keys and v is not None
     }
 
 
@@ -114,41 +99,28 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     if include_file_info:
         excluded_keys = excluded_keys - {FILE_INFO_KEY}
 
-    results = [
-        _to_raw_file_dict(raw_file, excluded_keys=excluded_keys) for raw_file in found
-    ]
+    results = [_to_dict(raw_file, excluded_keys) for raw_file in found]
 
-    if include_metrics:
-        latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
-        for raw_file, result in zip(found, results, strict=True):
+    latest_metrics = (
+        metrics_store.latest_by_raw_file([raw_file.id for raw_file in found])
+        if include_metrics
+        else {}
+    )
+    for raw_file, result in zip(found, results, strict=True):
+        if include_metrics:
             result["metrics"] = [
-                _to_metrics_dict(type_metrics)
+                to_metrics_dict(type_metrics)
                 for type_metrics in latest_metrics.get(raw_file.id, {}).values()
             ]
-
-    if include_file_info:
-        for raw_file, result in zip(found, results, strict=True):
+        if include_file_info:
             result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total
 
 
-def _project_to_dict(project: Project) -> dict[str, Any]:
-    data = project.to_mongo().to_dict()
-    data["id"] = data.pop("_id")
-    return data
-
-
-def _settings_to_dict(settings: Settings) -> dict[str, Any]:
-    """Convert settings to a dict, with the unique name as `id` instead of the ObjectId."""
-    data = settings.to_mongo().to_dict()
-    data.pop("_id", None)
-    return {"id": settings.unique_name, **data}
-
-
 def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
     return {
-        "settings_id": ps.settings.unique_name,
+        "settings_id": ps.settings.id,
         "name": ps.settings.name,
         "version": ps.settings.version,
         "scopes": ps.scopes,
@@ -167,30 +139,21 @@ def get_projects(
         Tuple of (list of project dicts, total count matching the filters).
 
     """
-    connect_db()
+    ids = None if project_id is None else [project_id]
+    found = project_store.find(ids=ids, limit=limit, offset=offset)
+    total = project_store.count(ids=ids)
 
-    query = Project.objects(status__ne=ProjectStatus.DELETED)
-    if project_id is not None:
-        query = query.filter(id=project_id)
+    assignments: dict[str, list[dict[str, Any]]] = {p.id: [] for p in found}
+    for ps in project_settings_store.find(list(assignments)):
+        assignments[ps.project_id].append(_assignment_to_dict(ps))
 
-    total = query.count()
-    projects = list(query.order_by("-created_at_").skip(offset).limit(limit))
-
-    assignments: dict[str, list[dict[str, Any]]] = {p.id: [] for p in projects}
-    for ps in ProjectSettings.objects(project__in=list(assignments)).order_by(
-        "created_at_"
-    ):
-        assignments[ps.project.id].append(_assignment_to_dict(ps))
-
-    return [
-        {**_project_to_dict(p), "settings": assignments[p.id]} for p in projects
-    ], total
+    return [{**_to_dict(p), "settings": assignments[p.id]} for p in found], total
 
 
 def get_project(project_id: str) -> dict[str, Any] | None:
     """Get a non-deleted project by ID, or None if it does not exist."""
-    projects, _ = get_projects(project_id=project_id, limit=1)
-    return projects[0] if projects else None
+    found, _ = get_projects(project_id=project_id, limit=1)
+    return found[0] if found else None
 
 
 def get_settings(
@@ -202,26 +165,14 @@ def get_settings(
         Tuple of (list of settings dicts, total count matching the filters).
 
     """
-    connect_db()
-
-    query = Settings.objects(status__ne=SettingsStatus.DELETED)
-    if name is not None:
-        query = query.filter(name=name)
-
-    total = query.count()
-    settings = query.order_by("-created_at_").skip(offset).limit(limit)
-
-    return [_settings_to_dict(s) for s in settings], total
+    found = settings_store.find(name=name, limit=limit, offset=offset)
+    return [_to_dict(s) for s in found], settings_store.count(name=name)
 
 
 def get_settings_by_unique_name(unique_name: str) -> dict[str, Any] | None:
     """Get non-deleted settings by unique name (e.g. `fallback_v7`), or None if it does not exist."""
-    connect_db()
     try:
-        name, version = split_unique_settings_name(unique_name)
-    except ValueError:
+        found = settings_store.get(unique_name)
+    except NotFoundError:
         return None
-    settings = Settings.objects(
-        name=name, version=version, status__ne=SettingsStatus.DELETED
-    ).first()
-    return None if settings is None else _settings_to_dict(settings)
+    return None if found.status == SettingsStatus.DELETED else _to_dict(found)

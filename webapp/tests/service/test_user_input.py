@@ -1,35 +1,20 @@
 """Tests for the user_input module."""
 
 import pytest
-from service.user_input import (
-    clean_initials,
-    clean_messenger_id,
-    parse_user_row,
-)
-
-
-def test_clean_initials() -> None:
-    """Test that initials are stripped and keep their case."""
-    assert clean_initials(" Ab ") == "Ab"
-
-
-def test_clean_messenger_id() -> None:
-    """Test that the messenger id is stripped and empty becomes None."""
-    assert clean_messenger_id(" U123 ") == "U123"
-    assert clean_messenger_id("  ") is None
+from service.user_input import parse_user_row
 
 
 @pytest.mark.parametrize(
     ("row", "expected"),
     [
-        (" A@B.de , Ab", (" A@B.de ", "Ab", None)),
-        (" A@B.de \t Ab", (" A@B.de ", "Ab", None)),
-        (" A@B.de , Ab , U123 ", (" A@B.de ", "Ab", "U123")),
-        ("a@b.de,Ab,", ("a@b.de", "Ab", None)),
+        (" A@B.de , Ab", (" A@B.de ", " Ab", None)),
+        (" A@B.de \t Ab", (" A@B.de ", " Ab", None)),
+        (" A@B.de , Ab , U123 ", (" A@B.de ", " Ab ", " U123 ")),
+        ("a@b.de,Ab,", ("a@b.de", "Ab", "")),
     ],
 )
 def test_parse_user_row(row: str, expected: tuple[str, str, str | None]) -> None:
-    """Test that a comma- or tab-separated row is parsed, the messenger id is optional."""
+    """Test that a comma- or tab-separated row is split as it is, the messenger id is optional."""
     assert parse_user_row(row) == expected
 
 

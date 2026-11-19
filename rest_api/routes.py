@@ -1,13 +1,14 @@
 """REST API endpoint definitions."""
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Query
 
 from rest_api.schemas import (
     ProjectResponse,
     ProjectsListResponse,
+    RawFileResponse,
     RawFilesListResponse,
     SettingsListResponse,
     SettingsResponse,
@@ -26,7 +27,7 @@ MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
 
 
-@router.get("/raw_files/", response_model=RawFilesListResponse)
+@router.get("/raw_files/")
 def list_raw_files(  # noqa: PLR0913
     instrument_id: Annotated[
         str | None, Query(description="Filter by instrument ID (exact match)")
@@ -58,7 +59,7 @@ def list_raw_files(  # noqa: PLR0913
             description="Include the file_info mapping and backup_path for each raw file"
         ),
     ] = False,
-) -> dict[str, Any]:
+) -> RawFilesListResponse:
     """List raw files with optional filtering, including flattened metrics."""
     data, total = get_raw_files_with_metrics(
         instrument_id=instrument_id,
@@ -72,15 +73,15 @@ def list_raw_files(  # noqa: PLR0913
         include_file_info=include_file_info,
     )
 
-    return {
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "data": data,
-    }
+    return RawFilesListResponse(
+        total=total,
+        offset=offset,
+        limit=limit,
+        data=[RawFileResponse.of(item) for item in data],
+    )
 
 
-@router.get("/projects/", response_model=ProjectsListResponse)
+@router.get("/projects/")
 def list_projects(
     project_id: Annotated[
         str | None, Query(description="Filter by project ID (exact match)")
@@ -89,19 +90,24 @@ def list_projects(
         int, Query(ge=1, le=MAX_LIMIT, description="Number of results per page")
     ] = DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0, description="Number of results to skip")] = 0,
-) -> dict[str, Any]:
+) -> ProjectsListResponse:
     """List non-deleted projects with their settings assignments."""
     data, total = get_projects(project_id=project_id, limit=limit, offset=offset)
-    return {"total": total, "offset": offset, "limit": limit, "data": data}
+    return ProjectsListResponse(
+        total=total,
+        offset=offset,
+        limit=limit,
+        data=[ProjectResponse.of(item) for item in data],
+    )
 
 
-@router.get("/projects/{project_id}", response_model=ProjectResponse)
-def read_project(project_id: str) -> dict[str, Any]:
+@router.get("/projects/{project_id}")
+def read_project(project_id: str) -> ProjectResponse:
     """Get a project by ID."""
-    return get_project(project_id)
+    return ProjectResponse.of(get_project(project_id))
 
 
-@router.get("/settings/", response_model=SettingsListResponse)
+@router.get("/settings/")
 def list_settings(
     name: Annotated[
         str | None, Query(description="Filter by settings name (exact match)")
@@ -110,13 +116,18 @@ def list_settings(
         int, Query(ge=1, le=MAX_LIMIT, description="Number of results per page")
     ] = DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0, description="Number of results to skip")] = 0,
-) -> dict[str, Any]:
+) -> SettingsListResponse:
     """List non-deleted settings."""
     data, total = get_settings(name=name, limit=limit, offset=offset)
-    return {"total": total, "offset": offset, "limit": limit, "data": data}
+    return SettingsListResponse(
+        total=total,
+        offset=offset,
+        limit=limit,
+        data=[SettingsResponse.model_validate(s) for s in data],
+    )
 
 
-@router.get("/settings/{settings_id}", response_model=SettingsResponse)
-def read_settings(settings_id: str) -> dict[str, Any]:
+@router.get("/settings/{settings_id}")
+def read_settings(settings_id: str) -> SettingsResponse:
     """Get settings by ID, i.e. `<name>_v<version>`."""
-    return get_settings_by_unique_name(settings_id)
+    return SettingsResponse.model_validate(get_settings_by_unique_name(settings_id))

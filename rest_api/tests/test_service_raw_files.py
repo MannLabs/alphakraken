@@ -6,12 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rest_api.service import get_raw_files_with_metrics
+from rest_api.service import RawFileWithMetrics, get_raw_files_with_metrics
 from shared.db.raw_files import RawFileFilter
 from shared.keys import MetricsTypes
 from shared.tests.factories import metrics, raw_file
 
 CREATED_AT = datetime(2025, 1, 2, 3, 4, 5, tzinfo=UTC)
+RAW_FILE = raw_file(id="f1", file_info={"a.raw": (1.0, "hash")})
 
 
 @pytest.fixture
@@ -27,17 +28,7 @@ def mock_db() -> Iterator[dict[str, MagicMock]]:
             side_effect=lambda m: m.relative_output_path and "/output/f1",
         ),
     ):
-        find.return_value = [
-            raw_file(
-                id="f1",
-                collision_flag=None,
-                status_details=None,
-                created_at=CREATED_AT,
-                created_at_=CREATED_AT,
-                updated_at_=CREATED_AT,
-                file_info={"a.raw": (1.0, "hash")},
-            )
-        ]
+        find.return_value = [RAW_FILE]
         latest.return_value = {
             "f1": {
                 MetricsTypes.ALPHADIA: metrics(values={"proteins": 5000}),
@@ -52,7 +43,7 @@ def mock_db() -> Iterator[dict[str, MagicMock]]:
 
 
 def test_get_raw_files_with_metrics(mock_db: dict[str, MagicMock]) -> None:
-    """The filters are passed on; each raw file carries its metrics as a list of dicts."""
+    """The filters are passed on; each raw file carries its metrics as a list of dicts, and no backup path."""
     # when
     results, total = get_raw_files_with_metrics(
         instrument_id="inst1",
@@ -79,36 +70,28 @@ def test_get_raw_files_with_metrics(mock_db: dict[str, MagicMock]) -> None:
     mock_db["latest"].assert_called_once_with(["f1"])
     assert total == 7
     assert results == [
-        {
-            "id": "f1",
-            "original_name": "file.raw",
-            "instrument_id": "inst1",
-            "project_id": "_FALLBACK",
-            "status": "done",
-            "size": 1024,
-            "instrument_file_status": "n/a",
-            "created_at": CREATED_AT,
-            "updated_at_": CREATED_AT,
-            "metrics": [
+        RawFileWithMetrics(
+            raw_file=RAW_FILE,
+            metrics=[
                 {"type": "alphadia", "proteins": 5000, "output_path": "/output/f1"},
                 {"type": "msqc", "pressure": 100.0},
             ],
-        }
+            backup_path=None,
+        )
     ]
 
 
 def test_get_raw_files_without_metrics(mock_db: dict[str, MagicMock]) -> None:
-    """Without metrics, no metrics query is made and the dicts have no metrics key."""
+    """Without metrics, no metrics query is made and the metrics are None."""
     results, _ = get_raw_files_with_metrics(include_metrics=False)
 
     mock_db["latest"].assert_not_called()
-    assert "metrics" not in results[0]
+    assert results[0].metrics is None
 
 
 def test_get_raw_files_with_file_info(mock_db: dict[str, MagicMock]) -> None:
-    """With file info, the mapping and the folder its paths are relative to are included."""
+    """With file info, it is loaded and the folder its paths are relative to is included."""
     results, _ = get_raw_files_with_metrics(include_file_info=True)
 
     assert mock_db["find"].call_args.kwargs["include_file_info"] is True
-    assert results[0]["file_info"] == {"a.raw": (1.0, "hash")}
-    assert results[0]["backup_path"] == "/backup/f1"
+    assert results[0].backup_path == "/backup/f1"

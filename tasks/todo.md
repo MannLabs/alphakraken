@@ -79,7 +79,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/main.py`, `rest_api/routes.py`, `rest_api/service.py`, `rest_api/tests/*`
   - Size: S
 
-- [ ] **R2: response models from the domain objects**
+- [x] **R2: response models from the domain objects**
   - Acceptance:
     - The service returns domain objects (plus the joined metrics, assignments, backup path); models use `from_attributes=True`; `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
     - `RawFileResponse` declares every field returned today, without `extra="allow"`; `ProjectResponse` and `SettingsResponse` gain `owner_email`; field types stay as optional as today (legacy settings have `runner_name`/`metrics_type` null).

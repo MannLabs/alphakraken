@@ -82,7 +82,7 @@ def resolve_scoped_settings(
 
 def _scopes_match(scopes: list[str], instrument_id: str, instrument_type: str) -> bool:
     """Return True if any scope matches: '*' matches all, an instrument type its instruments, else the instrument ID."""
-    for scope in scopes or []:
+    for scope in scopes:
         if scope == DEFAULT_SCOPE:
             return True
         if scope in KNOWN_INSTRUMENT_TYPES:
@@ -100,7 +100,7 @@ def _name_included(filters: list[str], raw_file_id: str) -> bool:
 
 def _name_excluded(filters: list[str], raw_file_id: str) -> bool:
     """Return True if the raw file ID contains any of the filters, case-insensitive."""
-    return any(f.lower() in raw_file_id.lower() for f in filters or [])
+    return any(f.lower() in raw_file_id.lower() for f in filters)
 
 
 def _unique_by_id(settings_list: list[Settings]) -> list[Settings]:

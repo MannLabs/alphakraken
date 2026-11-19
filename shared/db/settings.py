@@ -87,6 +87,7 @@ def create(  # noqa: PLR0913
         exists, and a retry creates yet another version
 
     Raises:
+        AlreadyExistsError: if a concurrent create took the same version or number.
         InvalidInputError: if a field is invalid, the runner is unknown or cannot run the software
             type, or the owner does not exist or is not active.
 

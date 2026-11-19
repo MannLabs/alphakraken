@@ -36,8 +36,8 @@ db.updateRole("webappRole", {
 import argparse
 import logging
 
-from shared.db.engine import connect_db
-from shared.db.models import Project, ProjectSettings, Settings
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Project, ProjectSettings, Settings
 from shared.keys import DEFAULT_SCOPE
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

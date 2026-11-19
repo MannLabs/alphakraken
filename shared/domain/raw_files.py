@@ -2,7 +2,11 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
+from pydantic import Field
+
+from shared.domain.inputs import InputModel
 from shared.keys import FALLBACK_PROJECT_ID
 
 # (size, hash) or (size, hash, etag) of one file of a raw file folder
@@ -161,3 +165,19 @@ def parse_file_info_item(
 def get_created_at_year_month(raw_file: RawFile) -> str:
     """Get the year and month of the raw file creation date."""
     return raw_file.created_at.strftime("%Y_%m")
+
+
+class RawFileUpdate(InputModel):
+    """Changes of a raw file, cf. `RawFile`; written by the pipeline only, so only the field limits are checked."""
+
+    status: str | None = Field(default=None, max_length=32)
+    # the pipeline truncates to this, cf. `MAX_STATUS_DETAILS_LENGTH`
+    status_details: str | None = Field(default=None, max_length=1024)
+    size: int | None = Field(default=None, ge=-1, le=1000 * 1024**3)
+    file_info: dict[str, Any] | None = None
+    backup_status: str | None = Field(default=None, max_length=32)
+    backup_display_base_path: str | None = Field(default=None, max_length=1024)
+    s3_upload_path: str | None = Field(default=None, max_length=1024)
+    instrument_file_status: str | None = Field(default=None, max_length=16)
+    finalized_at: datetime | None = None
+    created_at: datetime | None = None

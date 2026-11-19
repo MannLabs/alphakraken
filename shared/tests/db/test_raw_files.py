@@ -393,6 +393,28 @@ def test_update_passes_only_the_given_fields(mock_backend_update: MagicMock) -> 
     )
 
 
+@pytest.mark.parametrize(
+    ("fields_", "error"),
+    [
+        (
+            {"status_details": "x" * 1025},
+            "status_details: String should have at most 1024 characters",
+        ),
+        ({"size": -2}, "size: Input should be greater than or equal to -1"),
+        ({"new_status": 7}, "status: Input should be a valid string"),
+    ],
+)
+@patch("shared.db._mongo.raw_files.update")
+def test_update_rejects_values_beyond_the_field_limits(
+    mock_backend_update: MagicMock, fields_: dict[str, Any], error: str
+) -> None:
+    """The values are checked against the limits of their fields before anything is written."""
+    with pytest.raises(InvalidInputError, match=error):
+        update("file.raw", **fields_)
+
+    mock_backend_update.assert_not_called()
+
+
 @patch("shared.db._mongo.raw_files.datetime")
 def test_backend_update_sets_the_update_time(
     mock_datetime: MagicMock, mock_objects: MagicMock
@@ -412,35 +434,6 @@ def test_backend_update_raises_if_missing(mock_objects: MagicMock) -> None:
 
     with pytest.raises(NotFoundError, match="unknown.raw"):
         backend.update("unknown.raw", {"status": RawFileStatus.DONE})
-
-
-@pytest.mark.parametrize(
-    ("fields_", "error"),
-    [
-        ({"status_details": "x" * 1025}, "status_details: String value is too long"),
-        ({"size": -2}, "size: Integer value is too small"),
-        ({"status": 7}, "status: StringField only accepts string values"),
-    ],
-)
-def test_backend_update_rejects_values_the_model_does_not_allow(
-    fields_: dict[str, Any], error: str
-) -> None:
-    """The values are checked against the model, which a queryset update skips."""
-    with (
-        patch("shared.db._mongo.connection.ensure_connected"),
-        patch.object(models.RawFile, "objects") as mock_objects,
-        pytest.raises(InvalidInputError, match=error),
-    ):
-        backend.update("file.raw", fields_)
-
-    mock_objects.with_id.return_value.update.assert_not_called()
-
-
-def test_backend_update_lets_none_clear_a_field(mock_objects: MagicMock) -> None:
-    """None is not checked, it clears the field."""
-    backend.update("file.raw", {"status_details": None})
-
-    mock_objects.with_id.return_value.update.assert_called_once()
 
 
 def test_delete(mock_objects: MagicMock) -> None:

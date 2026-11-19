@@ -8,12 +8,10 @@ from dataclasses import fields
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-import mongoengine
-
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
 from shared.db._mongo.mappers import to_raw_file
-from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.errors import NotFoundError
 
 if TYPE_CHECKING:
     from shared.db.raw_files import RawFileFilter
@@ -151,20 +149,4 @@ def update(raw_file_id: str, fields_: dict[str, Any]) -> None:
         raise NotFoundError(f"No raw file {raw_file_id}")
     logging.info(f"Old DB state: {doc.status=} {doc.status_details=}")
 
-    if errors := _value_errors(fields_):
-        raise InvalidInputError(errors)
     doc.update(updated_at_=datetime.now(tz=UTC), **fields_)
-
-
-def _value_errors(fields_: dict[str, Any]) -> list[str]:
-    """Return why values cannot be stored, as a queryset update skips the model's checks."""
-    errors = []
-    for name, value in fields_.items():
-        # None clears a field
-        if value is None:
-            continue
-        try:
-            getattr(models.RawFile, name).validate(value)
-        except mongoengine.ValidationError as e:
-            errors.append(f"{name}: {e}")
-    return errors

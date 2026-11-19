@@ -111,15 +111,6 @@ def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
         logger.info(item_to_log)
 
 
-def empty_to_none(value: str) -> str | None:
-    """Convert an empty string to None, pass through non-empty strings.
-
-    Because streamlit returns "" for empty text inputs, we need to convert this to None
-    to have the db schema to the validation of "required" fields correctly.
-    """
-    return None if value is None or value.strip() == "" else value
-
-
 METRICS_TYPE_SEPARATOR = "__"
 
 

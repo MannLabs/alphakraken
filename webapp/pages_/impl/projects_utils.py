@@ -8,13 +8,12 @@ from shared.db import project_settings as project_settings_store
 from shared.domain.projects import ProjectSettings
 from shared.domain.settings import Settings
 from shared.settings_scope_resolver import resolve_scoped_settings
-from shared.yamlsettings import YamlKeys
 
 SAME_SOFTWARE_TYPE_WARNING = "⚠️ same software type as another settings on this instrument. Check this is intended and/or make sure the file name filters separate them."
 
 
 def get_resolved_settings_df(
-    selected_project_id: str, instrument_ids: list[str], instruments_config: dict
+    selected_project_id: str, instrument_types: dict[str, str]
 ) -> pd.DataFrame:
     """Build a DataFrame showing resolved settings per instrument.
 
@@ -22,10 +21,7 @@ def get_resolved_settings_df(
     """
     all_ps = project_settings_store.find([selected_project_id])
     rows = []
-    for instrument_id in instrument_ids:
-        instrument_type = instruments_config.get(instrument_id, {}).get(
-            YamlKeys.TYPE, ""
-        )
+    for instrument_id, instrument_type in instrument_types.items():
         resolved = resolve_scoped_settings(
             all_ps, instrument_id=instrument_id, instrument_type=instrument_type
         )

@@ -6,7 +6,7 @@ import pytest
 
 from shared.domain.errors import ValidationError
 from shared.domain.inputs import max_length, parse
-from shared.domain.projects import NewProject
+from shared.domain.projects import NewAssignment, NewProject
 
 
 def test_new_project_cleans_fields() -> None:
@@ -31,11 +31,9 @@ def test_new_project_accepts_project_id(project_id: str) -> None:
     assert parse(NewProject, project_id=project_id, name="n").project_id == project_id
 
 
-@pytest.mark.parametrize(
-    "project_id", ["A12", "1234", "a123", "A-123", "A 123", "_OTHER"]
-)
+@pytest.mark.parametrize("project_id", ["1234", "a123", "A-123", "A 123", "_OTHER"])
 def test_new_project_rejects_project_id(project_id: str) -> None:
-    """Too short, too long, all digits or other characters are rejected."""
+    """All digits or other characters are rejected."""
     with pytest.raises(ValidationError) as e:
         parse(NewProject, project_id=project_id, name="n")
 
@@ -52,6 +50,10 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
         ({"name": None}, "name: is required."),
         ({"name": "n" * 65}, "name: String should have at most 64 characters"),
         (
+            {"project_id": "A12"},
+            "project_id: String should have at least 4 characters",
+        ),
+        (
             {"project_id": "A" * 17},
             "project_id: String should have at most 16 characters",
         ),
@@ -61,7 +63,7 @@ def test_new_project_rejects_project_id(project_id: str) -> None:
 def test_new_project_rejects_invalid_fields(
     overrides: dict[str, Any], error: str
 ) -> None:
-    """The name is required, name and description are limited in length."""
+    """The name is required, project id, name and description are limited in length."""
     with pytest.raises(ValidationError, match=error):
         parse(NewProject, **{"project_id": "P123", "name": "n", **overrides})
 
@@ -69,3 +71,76 @@ def test_new_project_rejects_invalid_fields(
 def test_new_project_declares_project_id_limit() -> None:
     """The forms can read the limit of the project id."""
     assert max_length(NewProject, "project_id") == 16
+
+
+ASSIGNMENT: dict[str, Any] = {"project_id": "P123", "settings_id": "fallback_v7"}
+
+
+def test_new_assignment_defaults_to_all_instruments_and_files() -> None:
+    """Without scopes and filters, the assignment applies to everything."""
+    new = parse(NewAssignment, **ASSIGNMENT)
+
+    assert new.model_dump() == {
+        **ASSIGNMENT,
+        "scopes": ["*"],
+        "excluded_scopes": [],
+        "raw_file_id_filter": [],
+        "raw_file_id_exclude_filter": [],
+    }
+
+
+@pytest.mark.parametrize(
+    ("scopes", "expected"),
+    [
+        (["test1", "*"], ["*"]),
+        (["test1", "thermo"], ["test1", "thermo"]),
+    ],
+)
+def test_new_assignment_normalizes_scopes(
+    scopes: list[str], expected: list[str]
+) -> None:
+    """The default scope absorbs the scopes next to it."""
+    assert parse(NewAssignment, **ASSIGNMENT, scopes=scopes).scopes == expected
+
+
+def test_new_assignment_strips_entries() -> None:
+    """Entries are stripped."""
+    new = parse(NewAssignment, **ASSIGNMENT, raw_file_id_filter=[" hela "])
+
+    assert new.raw_file_id_filter == ["hela"]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error"),
+    [
+        (
+            {"scopes": []},
+            "scopes: At least one scope is required, use '*' for all instruments.",
+        ),
+        ({"scopes": "x*y"}, "scopes: Input should be a valid list"),
+        (
+            {
+                "raw_file_id_filter": ["HeLa_QC", "plasma"],
+                "raw_file_id_exclude_filter": ["hela"],
+            },
+            "File name filters ['HeLa_QC'] always match an exclude filter, these entries would never apply.",
+        ),
+        (
+            {"raw_file_id_filter": ["a", " "]},
+            "raw_file_id_filter.1: String should have at least 1 character",
+        ),
+        (
+            {"raw_file_id_exclude_filter": ["x" * 129]},
+            "raw_file_id_exclude_filter.0: String should have at most 128 characters",
+        ),
+        ({"scopes": ["s" * 65]}, "scopes.0: String should have at most 64 characters"),
+    ],
+)
+def test_new_assignment_rejects_invalid_fields(
+    overrides: dict[str, Any], error: str
+) -> None:
+    """No scopes, entries that would never apply and empty or too long entries are rejected."""
+    with pytest.raises(ValidationError) as e:
+        parse(NewAssignment, **ASSIGNMENT, **overrides)
+
+    assert e.value.errors == [error]

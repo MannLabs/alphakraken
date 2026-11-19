@@ -20,9 +20,9 @@ from shared.db import users as user_store
 from shared.domain.inputs import max_length
 from shared.domain.users import NewUser, UserStatus
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.yamlsettings import get_instruments
 
-_INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
+_INSTRUMENT_IDS = list(get_instruments())
 
 _MESSENGER_ID_MAX_CHARS = max_length(NewUser, "messenger_id")
 _MESSENGER_ID_HELP = (
@@ -82,7 +82,7 @@ with c1.form("add_user_form"):
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
 if add_submit:
-    with toast_result(f"Added user '{new_initials.strip()}'."):
+    with toast_result("Added user."):
         user_store.add(
             email=new_email, initials=new_initials, messenger_id=new_messenger_id
         )
@@ -103,11 +103,13 @@ if bulk_submit:
             continue
         try:
             email, initials, messenger_id = parse_user_row(row)
-            user_store.add(email=email, initials=initials, messenger_id=messenger_id)
+            added_user = user_store.add(
+                email=email, initials=initials, messenger_id=messenger_id
+            )
         except Exception as e:  # noqa: BLE001
             failures.append(f"line {line_number}: {e}")
         else:
-            added.append(initials.strip())
+            added.append(added_user.initials)
     # shown after the rerun, which refreshes the users table
     set_session_state(SessionStateKeys.BULK_ADD_USERS_REPORT, (added, failures))
     st.rerun()
@@ -153,7 +155,7 @@ if all_users:
 
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
-        with toast_result(f"Updated user '{initials.strip()}'."):
+        with toast_result(f"Updated user '{selected_email}'."):
             user_store.update(
                 selected_email, initials=initials, messenger_id=messenger_id
             )

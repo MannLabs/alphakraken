@@ -2,6 +2,7 @@
 
 import logging
 
+from shared.db._checks import inactive_errors
 from shared.db._mongo import users as _backend
 from shared.domain.errors import InvalidInputError
 from shared.domain.inputs import parse
@@ -24,8 +25,8 @@ def project_owner(raw_file_id: str) -> User | None:
     return _backend.project_owner(raw_file_id)
 
 
-def check_active(email: str | None) -> list[str]:
-    """Return an error message if the user with the email is inactive, nothing if active or no email is given.
+def owner_errors(email: str | None) -> list[str]:
+    """Return an error if the owner with the email is not active, nothing if no email is given.
 
     :param email: as it is stored, cf. `normalize_email`
 
@@ -35,9 +36,9 @@ def check_active(email: str | None) -> list[str]:
     """
     if email is None:
         return []
-    if _backend.get(email).status != UserStatus.ACTIVE:
-        return [f"User '{email}' is inactive."]
-    return []
+    return inactive_errors(
+        f"User '{email}'", _backend.get(email).status, UserStatus.ACTIVE
+    )
 
 
 def add(*, email: str, initials: str, messenger_id: str | None = None) -> User:

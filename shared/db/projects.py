@@ -72,7 +72,7 @@ def add(
         NotFoundError: if there is no user with `owner_email`; raised instead of the
             InvalidInputError, so its rule errors are not reported then.
         InvalidInputError: if a field is invalid, the project id was used by a deleted project,
-            the fallback project is not allowed, or the owner is inactive.
+            the fallback project is not allowed, or the owner is not active.
 
     """
     new = parse(
@@ -91,7 +91,7 @@ def add(
         errors.append(
             f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
         )
-    errors += users.check_active(new.owner_email)
+    errors += users.owner_errors(new.owner_email)
     if errors:
         raise InvalidInputError(errors)
 

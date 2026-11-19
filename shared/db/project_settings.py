@@ -3,6 +3,7 @@
 import logging
 
 from shared.db import projects, settings
+from shared.db._checks import inactive_errors
 from shared.db._mongo import project_settings as _backend
 from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
@@ -65,11 +66,7 @@ def assign(  # noqa: PLR0913
     errors = _scope_errors(new)
     errors += _project_errors(new.project_id, allow_fallback=allow_fallback)
     # check and write are separate steps; a race between concurrent writes is accepted, cf. `settings.delete`
-    assigned = settings.get(new.settings_id)
-    if assigned.status != SettingsStatus.ACTIVE:
-        errors.append(
-            f"Cannot assign archived or deleted settings '{assigned.name}' version {assigned.version}"
-        )
+    errors += _settings_errors(new.settings_id)
     errors += _duplicate_errors(
         new.project_id,
         new.settings_id,
@@ -110,11 +107,25 @@ def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
         errors.append(
             f"Changing the settings assignments of project '{FALLBACK_PROJECT_ID}' is not allowed."
         )
-    if projects.get(project_id).status != ProjectStatus.ACTIVE:
-        errors.append(
-            f"Cannot change the settings assignments of archived or deleted project '{project_id}'"
-        )
+    errors += inactive_errors(
+        f"Project '{project_id}'", projects.get(project_id).status, ProjectStatus.ACTIVE
+    )
     return errors
+
+
+def _settings_errors(settings_id: str) -> list[str]:
+    """Return an error if the settings may not be assigned.
+
+    Raises:
+        NotFoundError: if there are no such settings.
+
+    """
+    assigned = settings.get(settings_id)
+    return inactive_errors(
+        f"Settings '{assigned.name}' version {assigned.version}",
+        assigned.status,
+        SettingsStatus.ACTIVE,
+    )
 
 
 def _duplicate_errors(

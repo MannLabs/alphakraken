@@ -79,6 +79,11 @@ def _text(value: object) -> str:
     return "" if pd.isna(value) else str(value)
 
 
+def _integer_text(value: object) -> str:
+    """Return the integer as text, an empty one if the value is missing; pandas may hold it as float."""
+    return "" if pd.isna(value) else str(int(value))  # type: ignore[arg-type]
+
+
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
@@ -200,17 +205,15 @@ if selected_name_option != CREATE_NEW_OPTION:
         "config_file_name": _text(latest_settings.get("config_file_name")),
         "config_params": _text(latest_settings.get("config_params")),
         "metrics_type": _text(latest_settings.get("metrics_type")),
-        "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
+        "slurm_cpus_per_task": _integer_text(
+            latest_settings.get("slurm_cpus_per_task")
+        ),
         "slurm_mem": _text(latest_settings.get("slurm_mem")),
         "slurm_time": _text(latest_settings.get("slurm_time")),
-        "num_threads": latest_settings.get("num_threads", ""),
+        "num_threads": _integer_text(latest_settings.get("num_threads")),
     }
     owner = latest_settings.get("owner")
     prefill_owner_email = None if pd.isna(owner) else str(owner)
-    # Conversion for legacy data. Remove once all is transferred.
-    for k, v in prefill_data.items():
-        if pd.isna(v):
-            prefill_data[k] = ""
 
 
 disable_software_type_selection = "software_type" in prefill_data

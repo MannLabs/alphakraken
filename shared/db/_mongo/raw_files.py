@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import fields
 from datetime import UTC, datetime
@@ -144,9 +143,7 @@ def delete(raw_file_id: str) -> None:
 @db_backend_function
 def update(raw_file_id: str, fields_: dict[str, Any]) -> None:
     """Set the given fields of a raw file, cf. `shared.db.raw_files.update`."""
-    doc = models.RawFile.objects.with_id(raw_file_id)
-    if doc is None:
+    if not models.RawFile.objects(id=raw_file_id).update_one(
+        updated_at_=datetime.now(tz=UTC), **fields_
+    ):
         raise NotFoundError(f"No raw file {raw_file_id}")
-    logging.info(f"Old DB state: {doc.status=} {doc.status_details=}")
-
-    doc.update(updated_at_=datetime.now(tz=UTC), **fields_)

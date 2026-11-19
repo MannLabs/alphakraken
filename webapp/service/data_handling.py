@@ -19,10 +19,6 @@ from shared.keys import MetricsTypes
 _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_yaml())
 
 
-_MSQC_PREFIX = "msqc_"
-
-_LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
-
 _RAW_FILE_ID_COLUMN = "id"
 # the raw file id in the metrics DataFrame
 _RAW_FILE_COLUMN = "raw_file"
@@ -49,14 +45,6 @@ def _coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
-    # strip legacy "msqc_" prefix that the MSQC calculator adds to its metric names
-    df = df.rename(
-        columns={
-            c: c[len(_MSQC_PREFIX) :] for c in df.columns if c.startswith(_MSQC_PREFIX)
-        }
-    )
-
-    df = df.rename(columns=_LEGACY_COLUMN_NAMES)
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name

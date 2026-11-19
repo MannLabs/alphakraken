@@ -11,7 +11,7 @@ from bson import ObjectId
 from shared.db import alerts
 from shared.db._mongo import models
 from shared.domain.alerts import NewSuppression
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 from shared.tests.factories import alert_issue, alert_suppression
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo
@@ -116,7 +116,7 @@ def test_add_suppression(mock_models: MagicMock) -> None:
 @patch("shared.db._mongo.alerts.models")
 def test_add_invalid_suppression_raises(mock_models: MagicMock) -> None:
     """An invalid suppression is rejected before anything is stored."""
-    with pytest.raises(ValidationError, match="comment: is required"):
+    with pytest.raises(InvalidInputError, match="comment: is required"):
         alerts.add_suppression(
             alert="PumpPressureAlert",
             instrument_id="*",

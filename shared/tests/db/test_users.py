@@ -10,7 +10,7 @@ import pytest
 from shared.db import users
 from shared.db._mongo import models
 from shared.db._mongo import users as backend
-from shared.domain.errors import NotFoundError, ValidationError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.users import NewUser, UserStatus, UserUpdate
 from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests.factories import user
@@ -158,22 +158,31 @@ def test_backend_email_and_initials_taken(
     ("status", "errors"),
     [
         (UserStatus.ACTIVE, []),
-        (UserStatus.INACTIVE, ["User 'masc@example.org' is inactive."]),
+        (
+            UserStatus.INACTIVE,
+            ["User 'masc@example.org' is not active (status 'inactive')."],
+        ),
     ],
 )
 @patch("shared.db._mongo.users.models")
-def test_check_active(mock_models: MagicMock, status: str, errors: list[str]) -> None:
+def test_owner_errors(mock_models: MagicMock, status: str, errors: list[str]) -> None:
     """An active user passes, an inactive one is an error."""
     mock_models.User.objects.get.return_value = _user_document(status)
 
-    assert users.check_active("masc@example.org") == errors
+    assert users.owner_errors("masc@example.org") == errors
 
     mock_models.User.objects.get.assert_called_once_with(email="masc@example.org")
 
 
-def test_check_active_without_email() -> None:
+def test_owner_errors_without_email() -> None:
     """No email is no error."""
-    assert users.check_active(None) == []
+    assert users.owner_errors(None) == []
+
+
+@patch("shared.db._mongo.users.get", side_effect=NotFoundError("No user"))
+def test_owner_errors_of_unknown_user(mock_get: MagicMock) -> None:  # noqa: ARG001
+    """An unknown owner is a rule error like an inactive one, not a NotFoundError."""
+    assert users.owner_errors("x@b.de") == ["User 'x@b.de' does not exist."]
 
 
 @pytest.fixture
@@ -208,7 +217,7 @@ def test_add_cleans_fields(taken: dict[str, MagicMock]) -> None:
 
 def test_add_rejects_invalid_fields(taken: dict[str, MagicMock]) -> None:
     """Invalid fields are a validation error before the database is asked."""
-    with pytest.raises(ValidationError, match="initials: must be 2 to 8 letters."):
+    with pytest.raises(InvalidInputError, match="initials: must be 2 to 8 letters."):
         users.add(email="new@b.de", initials="N1")
 
     taken["email"].assert_not_called()
@@ -241,7 +250,7 @@ def test_add_rejects_duplicates(
     taken["email"].return_value = email_taken
     taken["initials"].return_value = initials_taken
 
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(InvalidInputError) as excinfo:
         users.add(email="New@b.de", initials="NB")
 
     assert excinfo.value.errors == errors
@@ -264,7 +273,7 @@ def test_update_rejects_initials_of_another_user(taken: dict[str, MagicMock]) ->
     """Initials of another user are a validation error, nothing is stored."""
     taken["initials"].return_value = True
 
-    with pytest.raises(ValidationError, match="initials 'CD'"):
+    with pytest.raises(InvalidInputError, match="initials 'CD'"):
         users.update("a@b.de", initials="CD", messenger_id=None)
 
     taken["backend_update"].assert_not_called()
@@ -272,7 +281,7 @@ def test_update_rejects_initials_of_another_user(taken: dict[str, MagicMock]) ->
 
 def test_update_rejects_invalid_initials(taken: dict[str, MagicMock]) -> None:
     """Invalid initials are a validation error also on update."""
-    with pytest.raises(ValidationError, match="initials: must be 2 to 8 letters."):
+    with pytest.raises(InvalidInputError, match="initials: must be 2 to 8 letters."):
         users.update("a@b.de", initials="J1", messenger_id=None)
 
     taken["backend_update"].assert_not_called()
@@ -300,7 +309,7 @@ def test_set_status_to_current_or_unknown_status_raises(
     mock_models.User.objects.get.return_value = _user_document()
 
     with pytest.raises(
-        ValidationError, match=f"Cannot set user 'a@b.de' from 'active' to '{status}'"
+        InvalidInputError, match=f"Cannot set user 'a@b.de' from 'active' to '{status}'"
     ):
         users.set_status("a@b.de", status)
 

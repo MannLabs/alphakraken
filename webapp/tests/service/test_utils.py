@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from service.utils import toast_result
 
-from shared.domain.errors import ValidationError
+from shared.domain.errors import InvalidInputError
 
 
 @patch("service.utils.show_success_toast")
@@ -39,7 +39,7 @@ def test_toast_result_shows_single_validation_error_as_it_is(
 ) -> None:
     """One validation error needs no list."""
     with toast_result("done"):
-        raise ValidationError(["name: too long"])
+        raise InvalidInputError(["name: too long"])
 
     mock_show_error_toast.assert_called_once_with("name: too long")
 
@@ -50,7 +50,7 @@ def test_toast_result_lists_several_validation_errors(
 ) -> None:
     """Several validation errors are shown as a counted list."""
     with toast_result("done"):
-        raise ValidationError(["name: too long", "software: Cannot contain '..'"])
+        raise InvalidInputError(["name: too long", "software: Cannot contain '..'"])
 
     mock_show_error_toast.assert_called_once_with(
         "Found 2 input validation errors:\n- name: too long\n- software: Cannot contain '..'"

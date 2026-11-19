@@ -90,9 +90,20 @@ OptionalStr = Annotated[str | None, pydantic.BeforeValidator(empty_to_none)]
 
 
 def max_length(model: type[InputModel], field: str) -> int:
-    """Return the maximum length declared for a string field of the input type."""
-    return next(
-        constraint.max_length
-        for constraint in model.model_fields[field].metadata
-        if getattr(constraint, "max_length", None) is not None
+    """Return the maximum length declared for a string field of the input type.
+
+    Raises:
+        ValueError: if the field declares none.
+
+    """
+    limit = next(
+        (
+            constraint.max_length
+            for constraint in model.model_fields[field].metadata
+            if getattr(constraint, "max_length", None) is not None
+        ),
+        None,
     )
+    if limit is None:
+        raise ValueError(f"{model.__name__}.{field} declares no maximum length.")
+    return limit

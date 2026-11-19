@@ -8,7 +8,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
-from shared.db.models import KrakenStatusValues
+from shared.domain.status import KrakenStatusValues
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 

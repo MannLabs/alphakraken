@@ -9,7 +9,7 @@ from pages_.impl.overview_utils import filter_valid_columns
 from service.columns import Column
 from service.utils import METRICS_TYPE_SEPARATOR, Cols, display_plotly_chart
 
-from shared.db.models import ERROR_STATUSES
+from shared.domain.raw_files import ERROR_STATUSES
 
 PLOT_HEIGHT = 400
 # without a figure title, plotly's default top margin leaves a large gap
@@ -121,7 +121,7 @@ def _draw_plot(  # noqa: PLR0913, C901
         x=x,
         y=y,
         color=color_by_column,
-        hover_name="_id",
+        hover_name="id",
         hover_data=hover_data,
         height=PLOT_HEIGHT,
         error_y=_get_yerror_column_name(y, df) if show_std else None,

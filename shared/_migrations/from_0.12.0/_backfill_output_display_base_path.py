@@ -11,8 +11,8 @@ Only correct if the output file system has not changed since these were written.
 import argparse
 import logging
 
-from shared.db.engine import connect_db
-from shared.db.models import Metrics
+from shared.db._mongo.connection import connect_db
+from shared.db._mongo.models import Metrics
 from shared.display_paths import get_current_output_display_base_path
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

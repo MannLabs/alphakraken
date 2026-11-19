@@ -4,12 +4,17 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 from utils import short_digest
 
-from shared.db.interface import augment_raw_files_with_metrics
-from shared.db.models import KrakenStatus, KrakenStatusEntities, RawFile
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
+from shared.domain.metrics import GRADIENT_LENGTH_KEY, Metrics
+from shared.domain.raw_files import RawFile
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
+from shared.keys import MetricsTypes
 
 from .base_alert import BaseAlert, Issue
 from .config import (
@@ -23,6 +28,8 @@ from .config import (
 
 # temporary hack to bypass bug in pump pressure extraction
 MAX_PRESSURE_TO_CONSIDER = 1000
+
+PRESSURE_KEY = "evosep_pump_hp_pressure_max"
 
 
 @dataclass(frozen=True)
@@ -48,50 +55,63 @@ class PressureChange:
         return self.younger.pressure - self.older.pressure
 
 
+@lru_cache(maxsize=1)
+def _pressure_data(
+    instrument_ids: tuple[str, ...], now: datetime
+) -> dict[str, list[PressureDataPoint]]:
+    """Return the pressure measurements, loaded once per check.
+
+    Both pump pressure alerts run in the same loop iteration with the same `now`, so the
+    second one gets the data the first one loaded.
+    """
+    return _load_pressure_data(list(instrument_ids), now)
+
+
 def _load_pressure_data(
     instrument_ids: list[str], now: datetime
 ) -> dict[str, list[PressureDataPoint]]:
     """Load the pressure measurements of the recent raw files per instrument, newest first."""
     cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
-    raw_files = (
-        RawFile.objects.filter(instrument_id__in=instrument_ids, created_at__gte=cutoff)
-        .only("id", "instrument_id", "created_at")
-        .order_by("-created_at")
+    recent_files = raw_file_store.find(
+        raw_file_store.RawFileFilter(
+            instrument_ids=instrument_ids, created_after=cutoff
+        )
     )
-    if not raw_files:
+    if not recent_files:
         logging.debug("No raw files found in lookback window")
         return {}
 
-    # TODO: centralize column names and harmonization
-    raw_files_with_metrics = augment_raw_files_with_metrics(
-        raw_files,
-        [
-            "raw:gradient_length_m",  # alphadia < 2
-            "gradient_length",
-            "msqc_evosep_pump_hp_pressure_max",  # older alphakraken
-            "evosep_pump_hp_pressure_max",
-        ],
+    latest_metrics = metrics_store.latest_by_raw_file(
+        [raw_file.id for raw_file in recent_files],
+        fields=[GRADIENT_LENGTH_KEY, PRESSURE_KEY],
     )
-    return _group_by_instrument(raw_files_with_metrics)
+    return _group_by_instrument(recent_files, latest_metrics)
 
 
 def _group_by_instrument(
-    raw_files_with_metrics: dict[str, Any],
+    recent_files: list[RawFile], latest_metrics: dict[str, dict[str, Metrics]]
 ) -> dict[str, list[PressureDataPoint]]:
-    """Group the metrics by instrument, skipping raw files without pressure."""
+    """Group the measurements by instrument in the order of the raw files, skipping files without pressure."""
     pressure_data = defaultdict(list)
-    for raw_file_id, v in raw_files_with_metrics.items():
-        gradient_length = v.get("metrics_alphadia", {}).get("gradient_length")
-        pressure = v.get("metrics_msqc", {}).get("evosep_pump_hp_pressure_max")
+    for raw_file in recent_files:
+        by_type = latest_metrics.get(raw_file.id, {})
+        gradient_length = _value(by_type, MetricsTypes.ALPHADIA, GRADIENT_LENGTH_KEY)
+        pressure = _value(by_type, MetricsTypes.MSQC, PRESSURE_KEY)
 
         if pressure is not None:
-            pressure_data[v["instrument_id"]].append(
+            pressure_data[raw_file.instrument_id].append(
                 PressureDataPoint(
-                    pressure, gradient_length, v["created_at"], raw_file_id
+                    pressure, gradient_length, raw_file.created_at, raw_file.id
                 )
             )
 
     return pressure_data
+
+
+def _value(by_type: dict[str, Metrics], metrics_type: str, key: str) -> Any:
+    """Return a metric value, None if the type or the key is missing."""
+    type_metrics = by_type.get(metrics_type)
+    return None if type_metrics is None else type_metrics.values.get(key)
 
 
 def _is_within_tolerance(
@@ -169,7 +189,7 @@ class PumpPressureIncreaseAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             change = _detect_increase(
                 points, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
@@ -207,7 +227,7 @@ class PumpPressureHighAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+        for instrument_id, points in _pressure_data(tuple(instrument_ids), now).items():
             for point in _detect_high(points, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR):
                 issues.append(  # noqa: PERF401
                     Issue(

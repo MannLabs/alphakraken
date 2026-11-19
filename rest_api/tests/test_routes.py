@@ -28,6 +28,8 @@ PROJECT_JSON = {
     "created_at_": SOME_TIME_JSON,
     "settings": [
         {
+            "id": "assignment1",
+            "project_id": "P1",
             "settings_id": "fallback_v7",
             "name": "fallback",
             "version": 7,

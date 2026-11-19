@@ -56,6 +56,8 @@ class RawFileResponse(BaseModel):
 class SettingsAssignmentResponse(BaseModel):
     """A settings assigned to a project, with the scopes and filters it applies to."""
 
+    id: str
+    project_id: str
     settings_id: str  # `<name>_v<version>`
     name: str
     version: int
@@ -68,6 +70,8 @@ class SettingsAssignmentResponse(BaseModel):
     def of(cls, assignment: ProjectSettings) -> Self:
         """Build the response of an assignment."""
         return cls(
+            id=assignment.id,
+            project_id=assignment.project_id,
             settings_id=assignment.settings.id,
             name=assignment.settings.name,
             version=assignment.settings.version,

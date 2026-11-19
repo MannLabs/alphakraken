@@ -422,15 +422,16 @@ def test_backend_update_sets_the_update_time(
     """The backend stamps every update."""
     backend.update("file.raw", {"status": RawFileStatus.DONE})
 
-    mock_objects.with_id.assert_called_once_with("file.raw")
-    mock_objects.with_id.return_value.update.assert_called_once_with(
+    # one write, without loading the record first
+    mock_objects.assert_called_once_with(id="file.raw")
+    mock_objects.return_value.update_one.assert_called_once_with(
         updated_at_=mock_datetime.now.return_value, status=RawFileStatus.DONE
     )
 
 
 def test_backend_update_raises_if_missing(mock_objects: MagicMock) -> None:
     """Updating an unknown raw file is an error."""
-    mock_objects.with_id.return_value = None
+    mock_objects.return_value.update_one.return_value = 0
 
     with pytest.raises(NotFoundError, match="unknown.raw"):
         backend.update("unknown.raw", {"status": RawFileStatus.DONE})

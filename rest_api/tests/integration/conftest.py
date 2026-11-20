@@ -18,7 +18,7 @@ from shared.db._mongo import connection
 MONGO_HOST = "localhost"
 MONGO_PORT_ENV_VAR = "INTEGRATION_MONGO_PORT"
 # not Mongo's default port, to never meet the database of a local AlphaKraken stack
-DEFAULT_MONGO_PORT = 37017
+DEFAULT_MONGO_PORT = 37018
 DB_NAME = "krakendb_integration"
 SERVER_SELECTION_TIMEOUT_MS = 2000
 # set by GitHub Actions

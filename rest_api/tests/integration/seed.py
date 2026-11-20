@@ -18,7 +18,9 @@ METRICS_SETTINGS_NAME = "seed"
 METRICS_SETTINGS_VERSION = 1
 
 
-def _create_settings(name: str, software_type: str) -> str:
+def _create_settings(
+    name: str, software_type: str, speclib_file_name: str | None = None
+) -> str:
     """Create the next version of the settings and return its id."""
     return settings.create(
         name=name,
@@ -26,6 +28,7 @@ def _create_settings(name: str, software_type: str) -> str:
         software=f"{software_type}-1.0.0",
         runner_name="slurm",
         metrics_type=software_type,
+        speclib_file_name=speclib_file_name,
     ).id
 
 
@@ -68,8 +71,12 @@ def _add_raw_file(  # noqa: PLR0913
 
 def seed() -> None:
     """Fill an empty database: active and archived projects and settings, assignments, raw files with metrics."""
-    alphadia_v1 = _create_settings("seed_alphadia", "alphadia")
-    alphadia_v2 = _create_settings("seed_alphadia", "alphadia")
+    alphadia_v1 = _create_settings(
+        "seed_alphadia", "alphadia", speclib_file_name="speclib.hdf"
+    )
+    alphadia_v2 = _create_settings(
+        "seed_alphadia", "alphadia", speclib_file_name="speclib.hdf"
+    )
     msqc_v1 = _create_settings("seed_msqc", "msqc")
 
     # in a deployment, misc/init-mongo.sh creates the fallback project

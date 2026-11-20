@@ -13,7 +13,7 @@ from shared.db._mongo import models
 from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
-from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.domain.projects import NewAssignment, NewProject, ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.domain.users import UserStatus
@@ -502,6 +502,21 @@ def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> 
     )
 
 
+def test_create_settings_concurrently_names_the_settings(
+    creatable: dict[str, MagicMock],
+) -> None:
+    """The error names the settings instead of carrying the driver's message."""
+    creatable["backend_create"].side_effect = AlreadyExistsError(
+        "E11000 duplicate key error"
+    )
+
+    with pytest.raises(
+        AlreadyExistsError,
+        match=r"^Settings 'fallback' were created concurrently\. Please retry\.$",
+    ):
+        settings.create(**CREATE_FIELDS, name="fallback")
+
+
 @pytest.mark.parametrize(
     ("existing", "archive_previous"),
     [
@@ -566,12 +581,16 @@ def test_backend_create_settings_resolves_owner(
 def test_archive_settings_only_if_active(
     mock_get: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, archived and deleted settings stay as they are."""
+    """Archiving sets the status to inactive; archived settings stay as they are, deleted ones are not found."""
     mock_get.return_value = factories.settings(status=status)
 
     if archived:
         settings.archive("fallback_v7")
         mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.INACTIVE)
+    elif status == SettingsStatus.DELETED:
+        with pytest.raises(NotFoundError, match="fallback_v7"):
+            settings.archive("fallback_v7")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,
@@ -657,6 +676,20 @@ def test_delete_archived_settings_raises(
 
 
 @patch("shared.db._mongo.settings.set_status")
+@patch("shared.db.settings.get")
+def test_delete_deleted_settings_is_not_found(
+    mock_get: MagicMock, mock_set_status: MagicMock
+) -> None:
+    """Deleted settings are gone: deleting them again does not reveal them."""
+    mock_get.return_value = factories.settings(status=SettingsStatus.DELETED)
+
+    with pytest.raises(NotFoundError, match="fallback_v7"):
+        settings.delete("fallback_v7")
+
+    mock_set_status.assert_not_called()
+
+
+@patch("shared.db._mongo.settings.set_status")
 @patch("shared.db.projects.find")
 @patch(
     "shared.db._mongo.settings.assigned_project_ids", return_value=["P1", "P2", "P3"]
@@ -729,6 +762,22 @@ def test_add_project(
 
 
 @patch("shared.db.users.owner_errors", return_value=[])
+@patch(
+    "shared.db._mongo.projects.add",
+    side_effect=AlreadyExistsError("E11000 duplicate key error"),
+)
+@patch("shared.db.projects.find", return_value=[])
+def test_add_existing_project_names_the_id(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,  # noqa: ARG001
+    mock_owner_errors: MagicMock,  # noqa: ARG001
+) -> None:
+    """The error names the project id instead of carrying the driver's message."""
+    with pytest.raises(AlreadyExistsError, match=r"^Project 'P123' already exists\.$"):
+        projects.add(project_id="P123", name="n", allow_fallback=False)
+
+
+@patch("shared.db.users.owner_errors", return_value=[])
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
 def test_add_project_without_owner(
@@ -766,7 +815,7 @@ def test_add_project_with_id_of_deleted_project_raises(
     """The id of a deleted project cannot be reused."""
     mock_find.return_value = [factories.project(status=ProjectStatus.DELETED)]
 
-    with pytest.raises(InvalidInputError, match="was used by a deleted project"):
+    with pytest.raises(InvalidInputError, match="Project id 'P123' is not available"):
         projects.add(project_id="P123", name="n", description="d", allow_fallback=False)
 
     mock_backend_add.assert_not_called()
@@ -867,12 +916,16 @@ def test_fallback_project_cannot_be_archived_or_deleted(
 def test_archive_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, an archived or deleted project stays as it is."""
+    """Archiving sets the status to inactive; an archived project stays as it is, a deleted one is not found."""
     mock_find.return_value = [factories.project(status=status)]
 
     if archived:
         projects.archive("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
+    elif status == ProjectStatus.DELETED:
+        with pytest.raises(NotFoundError, match="P1"):
+            projects.archive("P1")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,
@@ -895,12 +948,16 @@ def test_archive_project_only_if_active(
 def test_delete_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, deleted: bool
 ) -> None:
-    """Active projects are soft-deleted, archived and deleted ones stay as they are."""
+    """Active projects are soft-deleted; archived ones stay as they are, deleted ones are not found."""
     mock_find.return_value = [factories.project(status=status)]
 
     if deleted:
         projects.delete("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.DELETED)
+    elif status == ProjectStatus.DELETED:
+        with pytest.raises(NotFoundError, match="P1"):
+            projects.delete("P1")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,
@@ -1019,32 +1076,42 @@ def test_assign_settings_default_scope_absorbs_other_scopes(
     )
 
 
-@pytest.mark.parametrize("status", [ProjectStatus.INACTIVE, ProjectStatus.DELETED])
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (ProjectStatus.INACTIVE, r"Project 'P1' is not active \(status 'inactive'\)"),
+        (ProjectStatus.DELETED, "Project 'P1' does not exist"),
+    ],
+)
 def test_assign_settings_to_archived_or_deleted_project_raises(
-    assignable: dict[str, MagicMock], status: str
+    assignable: dict[str, MagicMock], status: str, error: str
 ) -> None:
-    """Assignments of archived and deleted projects are frozen."""
+    """Assignments of archived and deleted projects are frozen; a deleted project is not revealed."""
     assignable["find_projects"].return_value = [factories.project(status=status)]
 
-    with pytest.raises(
-        InvalidInputError, match=f"Project 'P1' is not active \\(status '{status}'\\)"
-    ):
+    with pytest.raises(InvalidInputError, match=error):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
 
-@pytest.mark.parametrize("status", [SettingsStatus.INACTIVE, SettingsStatus.DELETED])
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (
+            SettingsStatus.INACTIVE,
+            r"Settings 'fallback' version 7 is not active \(status 'inactive'\)",
+        ),
+        (SettingsStatus.DELETED, "Settings 'fallback_v7' do not exist"),
+    ],
+)
 def test_assign_archived_or_deleted_settings_raises(
-    assignable: dict[str, MagicMock], status: str
+    assignable: dict[str, MagicMock], status: str, error: str
 ) -> None:
-    """Archived and deleted settings cannot be assigned."""
+    """Archived and deleted settings cannot be assigned; deleted settings are not revealed."""
     assignable["get_settings"].return_value = factories.settings(status=status)
 
-    with pytest.raises(
-        InvalidInputError,
-        match=f"Settings 'fallback' version 7 is not active \\(status '{status}'\\)",
-    ):
+    with pytest.raises(InvalidInputError, match=error):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()

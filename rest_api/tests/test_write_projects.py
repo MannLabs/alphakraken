@@ -11,6 +11,7 @@ from rest_api.auth import API_KEY_ENV_VAR, API_KEY_HEADER
 from rest_api.main import app
 from rest_api.service import ProjectWithAssignments
 from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
+from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests.factories import project
 
 client = TestClient(app)
@@ -31,32 +32,43 @@ def api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(API_KEY_ENV_VAR, API_KEY)
 
 
+# differs from the request in every field, to show that the response is what was read back
+STORED_PROJECT = project(
+    id="P123",
+    name="stored name",
+    description="stored description",
+    owner_email="stored@example.org",
+)
+
+
 @pytest.fixture
-def mock_add() -> Iterator[MagicMock]:
-    """The write function, and the read of the created project."""
-    with (
-        patch("rest_api.routers.projects.project_store.add") as add,
-        patch(
-            "rest_api.routers.projects.get_project",
-            return_value=ProjectWithAssignments(
-                project(id="P123", owner_email="masc@example.org"), []
-            ),
-        ),
-    ):
+def mock_get_project() -> Iterator[MagicMock]:
+    """The read of the created project."""
+    with patch(
+        "rest_api.routers.projects.get_project",
+        return_value=ProjectWithAssignments(STORED_PROJECT, []),
+    ) as get_project:
+        yield get_project
+
+
+@pytest.fixture
+def mock_add(mock_get_project: MagicMock) -> Iterator[MagicMock]:  # noqa: ARG001
+    """The write function."""
+    with patch("rest_api.routers.projects.project_store.add") as add:
         yield add
 
 
-def test_create_project(mock_add: MagicMock) -> None:
-    """A project is added with every field passed by name and returned as it was stored."""
+def test_create_project(mock_add: MagicMock, mock_get_project: MagicMock) -> None:
+    """A project is added with every field passed by name, then read back and returned as stored."""
     response = client.post("/projects/", json=NEW_PROJECT, headers=KEY_HEADERS)
 
     assert response.status_code == status.HTTP_201_CREATED
     assert response.json() == {
         "id": "P123",
-        "name": "Project 1",
-        "description": "desc",
+        "name": "stored name",
+        "description": "stored description",
         "status": "active",
-        "owner_email": "masc@example.org",
+        "owner_email": "stored@example.org",
         "created_at_": "2024-01-01T12:00:00Z",
         "settings": [],
     }
@@ -67,33 +79,48 @@ def test_create_project(mock_add: MagicMock) -> None:
         owner_email="masc@example.org",
         allow_fallback=False,
     )
+    mock_get_project.assert_called_once_with("P123")
 
 
-@pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
-def test_create_project_without_valid_key(
-    mock_add: MagicMock, headers: dict[str, str]
+@pytest.mark.parametrize(
+    "content", [b"{not json", b'{"project_id": 1}', b"x" * 100_000]
+)
+def test_write_without_key_is_rejected_before_the_body_is_checked(
+    mock_add: MagicMock, content: bytes
 ) -> None:
-    """A missing or wrong key gives 401 and nothing is written."""
-    response = client.post("/projects/", json=NEW_PROJECT, headers=headers)
+    """Without the key the answer is 401 whatever the body, not a 422 about the body."""
+    response = client.post(
+        "/projects/", content=content, headers={"Content-Type": "application/json"}
+    )
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {"detail": "Invalid or missing API key"}
     mock_add.assert_not_called()
 
 
-@pytest.mark.parametrize("configured_key", [None, ""])
-def test_create_project_without_configured_key(
-    mock_add: MagicMock, monkeypatch: pytest.MonkeyPatch, configured_key: str | None
-) -> None:
-    """Without a configured key every keyed request gives 401, also one sending an empty key."""
-    if configured_key is None:
-        monkeypatch.delenv(API_KEY_ENV_VAR)
-    else:
-        monkeypatch.setenv(API_KEY_ENV_VAR, configured_key)
+def test_write_to_unknown_path_without_key_is_401() -> None:
+    """The key is checked for every write, before the route is looked up."""
+    assert client.post("/nosuch/").status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        client.post("/nosuch/", headers=KEY_HEADERS).status_code
+        == status.HTTP_404_NOT_FOUND
+    )
 
-    for headers in (KEY_HEADERS, {API_KEY_HEADER: ""}, {}):
-        response = client.post("/projects/", json=NEW_PROJECT, headers=headers)
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+def test_create_project_malformed_json(mock_add: MagicMock) -> None:
+    """With the key, a body that is no JSON gives 422 in the common shape."""
+    response = client.post(
+        "/projects/",
+        content=b"{not json",
+        headers={**KEY_HEADERS, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {
+        "detail": [
+            "JSON decode error at character 1: Expecting property name enclosed in double quotes"
+        ]
+    }
     mock_add.assert_not_called()
 
 
@@ -128,6 +155,69 @@ def test_create_project_invalid_body(mock_add: MagicMock) -> None:
     mock_add.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (None, ["Field required"]),
+        (
+            [NEW_PROJECT],
+            ["Input should be a valid dictionary or object to extract fields from"],
+        ),
+        (
+            "text",
+            ["Input should be a valid dictionary or object to extract fields from"],
+        ),
+    ],
+)
+def test_create_project_body_is_no_object(
+    mock_add: MagicMock, body: object, expected: list[str]
+) -> None:
+    """A missing body, a list or a string gives 422 with the bare message, as no field is at fault."""
+    response = client.post("/projects/", json=body, headers=KEY_HEADERS)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {"detail": expected}
+    mock_add.assert_not_called()
+
+
+def test_create_project_field_of_wrong_type(mock_add: MagicMock) -> None:
+    """A field of the wrong type is reported like any other violation."""
+    response = client.post(
+        "/projects/",
+        json={**NEW_PROJECT, "name": ["a", "list"], "description": 5},
+        headers=KEY_HEADERS,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {
+        "detail": [
+            "name: Input should be a valid string",
+            "description: Input should be a valid string",
+        ]
+    }
+    mock_add.assert_not_called()
+
+
+@patch("shared.db.projects._backend")
+def test_create_fallback_project_is_rejected_by_the_write_function(
+    mock_backend: MagicMock,
+) -> None:
+    """With the real write function, the fallback project gives 422 and is not written."""
+    mock_backend.find.return_value = []
+
+    response = client.post(
+        "/projects/",
+        json={"project_id": FALLBACK_PROJECT_ID, "name": "Fallback"},
+        headers=KEY_HEADERS,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {
+        "detail": [f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed."]
+    }
+    mock_backend.add.assert_not_called()
+
+
 def test_create_project_misspelled_key(mock_add: MagicMock) -> None:
     """A misspelled key is rejected, not dropped."""
     response = client.post(
@@ -154,18 +244,6 @@ def test_archive_and_delete_project(method: str, path: str, function: str) -> No
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert response.content == b""
     mock_write.assert_called_once_with("P123")
-
-
-@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
-def test_archive_and_delete_project_without_key(
-    method: str, path: str, function: str
-) -> None:
-    """Without the key nothing is written."""
-    with patch(f"rest_api.routers.projects.project_store.{function}") as mock_write:
-        response = client.request(method, path)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_write.assert_not_called()
 
 
 @pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)

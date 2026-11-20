@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from typing import get_args
+from unittest.mock import patch
 
 import pytest
 import pytz
@@ -245,3 +246,20 @@ def test_assignment_entries_have_the_same_max_length_in_input_type_and_model(
     )
 
     assert entry_limit == getattr(ProjectSettings, field).field.max_length
+
+
+@pytest.mark.parametrize(
+    "model",
+    [RawFile, Metrics, User, AlertSuppression, Project, Settings, ProjectSettings],
+)
+def test_created_at_default_has_the_precision_of_the_database(
+    model: type[Document],
+) -> None:
+    """A new document gets its creation time cut to milliseconds, as MongoDB stores it."""
+    now = datetime(2025, 1, 2, 3, 4, 5, 123456, tzinfo=UTC)
+
+    with patch("shared.db._mongo.models.datetime") as mock_datetime:
+        mock_datetime.now.return_value = now
+        document = model()
+
+    assert document["created_at_"] == datetime(2025, 1, 2, 3, 4, 5, 123000, tzinfo=UTC)

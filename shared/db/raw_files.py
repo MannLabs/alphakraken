@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from shared.db._mongo import raw_files as _backend
+from shared.domain.errors import AlreadyExistsError
 from shared.domain.inputs import parse
 from shared.domain.raw_files import FileInfoItem, RawFile, RawFileUpdate
 
@@ -127,16 +128,19 @@ def add(  # noqa: PLR0913 too many arguments
     )
     id_ = file_name if collision_flag is None else f"{collision_flag}{file_name}"
 
-    _backend.add(
-        id_,
-        collision_flag=collision_flag,
-        original_name=file_name,
-        project_id=project_id,
-        instrument_id=instrument_id,
-        status=status,
-        instrument_file_status=instrument_file_status,
-        created_at=datetime.fromtimestamp(creation_ts, UTC),
-    )
+    try:
+        _backend.add(
+            id_,
+            collision_flag=collision_flag,
+            original_name=file_name,
+            project_id=project_id,
+            instrument_id=instrument_id,
+            status=status,
+            instrument_file_status=instrument_file_status,
+            created_at=datetime.fromtimestamp(creation_ts, UTC),
+        )
+    except AlreadyExistsError as e:
+        raise AlreadyExistsError(f"Raw file '{id_}' already exists.") from e
     return id_
 
 

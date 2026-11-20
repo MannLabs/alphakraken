@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Generic, Self, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from rest_api.service import ProjectWithAssignments, RawFileWithMetrics
 from shared.domain.projects import ProjectSettings
@@ -20,11 +20,26 @@ class Page(BaseModel, Generic[T]):
     limit: int
     data: list[T]
 
+    @classmethod
+    def of_all(cls, data: list[T]) -> Self:
+        """Build the one page of a list that has no paging: it holds all entries."""
+        return cls(total=len(data), offset=0, limit=len(data), data=data)
 
-class RawFileResponse(BaseModel):
+
+class DomainResponse(BaseModel):
+    """A response built from a domain object."""
+
+    @classmethod
+    def of(cls, entity: object, **joined: Any) -> Self:
+        """Build and validate the response from the fields of a domain object and the data joined to it.
+
+        Fields of the domain object that the response does not declare are left out.
+        """
+        return cls.model_validate({**vars(entity), **joined})
+
+
+class RawFileResponse(DomainResponse):
     """A raw file with its metrics."""
-
-    model_config = ConfigDict(from_attributes=True)
 
     id: str
     collision_flag: str | None = None
@@ -46,14 +61,12 @@ class RawFileResponse(BaseModel):
     backup_path: str | None = None
 
     @classmethod
-    def of(cls, item: RawFileWithMetrics) -> Self:
+    def of_item(cls, item: RawFileWithMetrics) -> Self:
         """Build the response of a raw file with the data joined to it."""
-        return cls.model_validate(item.raw_file).model_copy(
-            update={"metrics": item.metrics, "backup_path": item.backup_path}
-        )
+        return cls.of(item.raw_file, metrics=item.metrics, backup_path=item.backup_path)
 
 
-class SettingsAssignmentResponse(BaseModel):
+class SettingsAssignmentResponse(DomainResponse):
     """A settings assigned to a project, with the scopes and filters it applies to."""
 
     id: str
@@ -67,22 +80,18 @@ class SettingsAssignmentResponse(BaseModel):
     raw_file_id_exclude_filter: list[str]
 
     @classmethod
-    def of(cls, assignment: ProjectSettings) -> Self:
-        """Build the response of an assignment."""
-        return cls(
-            id=assignment.id,
-            project_id=assignment.project_id,
-            settings_id=assignment.settings.id,
-            name=assignment.settings.name,
-            version=assignment.settings.version,
-            scopes=assignment.scopes,
-            excluded_scopes=assignment.excluded_scopes,
-            raw_file_id_filter=assignment.raw_file_id_filter,
-            raw_file_id_exclude_filter=assignment.raw_file_id_exclude_filter,
+    def of(cls, entity: ProjectSettings, **joined: Any) -> Self:
+        """Build the response of an assignment, with its settings as their id, name and version."""
+        return super().of(
+            entity,
+            settings_id=entity.settings.id,
+            name=entity.settings.name,
+            version=entity.settings.version,
+            **joined,
         )
 
 
-class ProjectResponse(BaseModel):
+class ProjectResponse(DomainResponse):
     """A project with its settings assignments."""
 
     id: str
@@ -94,24 +103,16 @@ class ProjectResponse(BaseModel):
     settings: list[SettingsAssignmentResponse]
 
     @classmethod
-    def of(cls, item: ProjectWithAssignments) -> Self:
+    def of_item(cls, item: ProjectWithAssignments) -> Self:
         """Build the response of a project with its assignments."""
-        project = item.project
-        return cls(
-            id=project.id,
-            name=project.name,
-            description=project.description,
-            status=project.status,
-            owner_email=project.owner_email,
-            created_at_=project.created_at_,
+        return cls.of(
+            item.project,
             settings=[SettingsAssignmentResponse.of(a) for a in item.assignments],
         )
 
 
-class SettingsResponse(BaseModel):
+class SettingsResponse(DomainResponse):
     """A settings entry."""
-
-    model_config = ConfigDict(from_attributes=True)
 
     id: str  # `<name>_v<version>`
     number: int
@@ -136,10 +137,8 @@ class SettingsResponse(BaseModel):
     created_at_: datetime | None = None
 
 
-class StatusResponse(BaseModel):
+class StatusResponse(DomainResponse):
     """Health of an entity (instrument, file system, job) as last reported."""
-
-    model_config = ConfigDict(from_attributes=True)
 
     id: str
     status: str
@@ -149,10 +148,38 @@ class StatusResponse(BaseModel):
     updated_at_: datetime
 
 
-class UserResponse(BaseModel):
+class UserResponse(DomainResponse):
     """A user who can own projects and settings."""
-
-    model_config = ConfigDict(from_attributes=True)
 
     email: str
     initials: str
+
+
+class ErrorResponse(BaseModel):
+    """An error with one message."""
+
+    detail: str
+
+
+class InvalidInputResponse(BaseModel):
+    """All violations of a request: `<field or location>: <message>`, or the bare message for a rule spanning several fields."""
+
+    detail: list[str]
+
+
+# `responses=` of the routes, so that OpenAPI documents the errors as they are returned
+UNAUTHORIZED: dict[int | str, dict[str, Any]] = {
+    401: {"model": ErrorResponse, "description": "The API key is missing or wrong"}
+}
+NOT_FOUND: dict[int | str, dict[str, Any]] = {
+    404: {
+        "model": ErrorResponse,
+        "description": "The record in the path does not exist",
+    }
+}
+CONFLICT: dict[int | str, dict[str, Any]] = {
+    409: {"model": ErrorResponse, "description": "A record with the same key exists"}
+}
+INVALID_INPUT: dict[int | str, dict[str, Any]] = {
+    422: {"model": InvalidInputResponse, "description": "The request is invalid"}
+}

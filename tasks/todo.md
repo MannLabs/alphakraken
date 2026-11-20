@@ -54,7 +54,7 @@ from the host.
 
 - [x] **T4: `restApiRole` and REST API Mongo user (D5)**
   - Acceptance:
-    - `init-mongo.sh` creates `restApiRole` (find/insert/update/remove on `project`, `settings`, `project_settings`; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
+    - `init-mongo.sh` creates `restApiRole` (find/insert/update on `project`, `settings`, `project_settings`; remove on `project_settings` only; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
     - The e2e REST service runs as that user; the baseline e2e stays green.
     - e2e: connecting through `shared.db` as the REST user, `users.add(...)` is refused by Mongo (a `DatabaseError`), while `projects.add(...)` succeeds.
   - Verify: fresh `down` + `up`; e2e green.
@@ -81,7 +81,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 - [x] **R2: response models from the domain objects**
   - Acceptance:
-    - The service returns domain objects (plus the joined metrics, assignments, backup path); models use `from_attributes=True`; `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
+    - The service returns domain objects (plus the joined metrics, assignments, backup path); models are built by one validating builder (`DomainResponse.of`); `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
     - `RawFileResponse` declares every field returned today, without `extra="allow"`; `ProjectResponse` and `SettingsResponse` gain `owner_email`; field types stay as optional as today (legacy settings have `runner_name`/`metrics_type` null).
     - Every declared field is always present, `null` when unset.
   - Verify: new e2e test: each response has exactly the declared fields; unit test serialising a legacy settings object; OpenAPI lists the raw file fields.
@@ -123,7 +123,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Acceptance:
     - `POST /projects/{id}/archive` and `DELETE /projects/{id}` → 204, keyed.
     - Archived → `status` `inactive` in `GET /projects/{id}`; deleted → 404 there (`get_project` hides deleted).
-    - Second archive/delete → 422; unknown id → 404; `_FALLBACK` → 422.
+    - Second archive → 422; a write on a deleted project → 404 (review 2.1); unknown id → 404; `_FALLBACK` → 422.
   - Verify: unit + e2e for each bullet.
   - Depends on: T5
   - Files: `rest_api/routers/projects.py`, `rest_api/tests/test_write_projects.py`, `e2e/rest_api/test_e2e_projects.py`
@@ -149,7 +149,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Acceptance:
     - `POST /settings/{id}/archive`, `DELETE /settings/{id}` → 204, keyed.
     - Delete while assigned → 422 naming the projects (uses a seeded assigned settings).
-    - Second archive/delete → 422; unknown id → 404.
+    - Second archive → 422; a write on deleted settings → 404 (review 2.1); unknown id → 404.
   - Verify: unit + e2e.
   - Depends on: T7
   - Files: `rest_api/routers/settings.py`, `rest_api/tests/test_write_settings.py`, `e2e/rest_api/test_e2e_settings.py`
@@ -183,7 +183,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 - [x] **T11: `GET /status/` and `GET /users/`**
   - Acceptance:
-    - `GET /status/` (open) returns all `KrakenStatus` entries.
+    - `GET /status/` (open) returns all `KrakenStatus` entries. Both lists use the page shape, all entries on one page, no paging parameters (review 2.2).
     - `GET /users/` (keyed) returns active users, `email` and `initials` only; inactive users are left out.
   - Verify: unit + e2e with status and users seeded through `shared.db`; `/users/` without a key → 401.
   - Depends on: T5
@@ -195,10 +195,10 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
     - `main.py`: version `0.2.0`, description without "Read-only".
     - `docker-compose.yaml`: `rest-api` uses `MONGO_USER_REST_API`, gets `REST_API_KEY`; `mongodb-service` passes the new user vars; `envs/local.env` and `envs/production.env` / `sandbox.env` have the entries (production as placeholders).
     - `docs/deployment.md`: `mongosh` commands for role + user on an existing DB, and the `REST_API_KEY` step.
-    - Upgrade guide `upgrade_from_v0.12.0.md`: new endpoints, `X-API-Key`, assignment `id` (SC8).
+    - Upgrade guide `upgrade_from_v0.13.0.md`: new endpoints, `X-API-Key`, assignment `id` (SC8).
   - Verify: `docker compose --env-file envs/.env-airflow --env-file envs/local.env config` lists the new vars for `rest-api`; the `mongosh` commands from the docs, run against the e2e Mongo started *without* them in `init-mongo.sh` (temporarily skip T4's block via a scratch copy), give a working REST user.
   - Depends on: T6, T8, T10, T11
-  - Files: `rest_api/main.py`, `docker-compose.yaml`, `envs/*.env`, `docs/deployment.md`, `docs/upgrade_guides/upgrade_from_v0.12.0.md`
+  - Files: `rest_api/main.py`, `docker-compose.yaml`, `envs/*.env`, `docs/deployment.md`, `docs/upgrade_guides/upgrade_from_v0.13.0.md`
   - Size: M
 
 ### Checkpoint: Complete

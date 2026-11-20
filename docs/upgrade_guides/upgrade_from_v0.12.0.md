@@ -1,37 +1,5 @@
 # Upgrade from v0.12.0
 
-## Before deploying: drain the processor runs
-
-The `acquisition_processor` passes the settings between its tasks as the unique name (e.g. `fallback_v7`)
-instead of the database id. A run that resolved its settings before the deploy fails afterwards, and its
-raw file goes to `ERROR`. So, before deploying, pause the `instrument_watcher`s (or pick an acquisition gap)
-and wait until no `acquisition_handler` or `acquisition_processor` run is active. Unpause after the deploy.
-
-## Changes visible to REST API and MCP clients
-
-- Datetimes carry their UTC offset, e.g. `2024-01-02T03:04:05+00:00` instead of `2024-01-02T03:04:05`.
-  The values themselves are unchanged (they were UTC before, too).
-- MCP server: the `metrics` of a raw file are a list with one entry per metrics type, each with its
-  `type` key, instead of one flat dict with type-prefixed keys on collisions. The entries no longer
-  contain `settings_name`, `settings_version` and `relative_output_path`; the output folder is in
-  `output_path`, as the users see it.
-- REST API, version 0.2.0:
-  - New endpoints to manage projects, settings and their assignments, and to read the status and the users, cf.
-    [REST API](../deployment.md#rest-api). The writes and `GET /users/` need the header `X-API-Key`.
-  - The assignments in `/projects/` have two new fields: `id`, which the assignment endpoints take, and `project_id`.
-  - Projects and settings have the new field `owner_email`.
-  - Raw files: `collision_flag`, `status_details`, `backup_status`, `backup_display_base_path`, `s3_upload_path`,
-    `instrument_file_status` and `finalized_at` are always present, `null` when unset (before: present only when
-    set, and missing from the OpenAPI schema).
-  - Errors: every `422` is `{"detail": ["<location>: <message>", ...]}`, e.g. `["query.limit: Input should be greater
-    than or equal to 1"]` (before: FastAPI's list of objects). The `detail` text of a `404` changed, e.g. `No project P1`.
-  - OpenAPI: the list schemas are named `Page_RawFileResponse_`, `Page_ProjectResponse_` and `Page_SettingsResponse_`;
-    their shape is unchanged.
-  - The REST API needs a new MongoDB user and, for the writes, an API key: follow
-    [Enabling the writes on an existing deployment](../deployment.md#enabling-the-writes-on-an-existing-deployment)
-    when deploying. Without the new env variables `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` the
-    `mongodb-service` and `rest-api` containers do not start.
-
 ## Backup location per raw file
 
 `RawFile.backup_display_base_path` records `display_paths.backup` at copy time, and is used to display the backup path.
@@ -50,18 +18,6 @@ Change `display_paths.output` only when the output file system changes.
 Backfill existing metrics with the current `display_paths.output`:
 ```
 ./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py --dry-run
-```
-
-## Metric key names
-
-Metrics written by older versions carry old key names (`msqc_` prefix, `quanting_time_elapsed`,
-`raw:gradient_length_m`). They are no longer renamed when read, so until the migration has run,
-`gradient_length` and `evosep_pump_hp_pressure_max` are missing for those metrics
-(pump pressure alert, MCP server).
-
-After deploying, rename the keys of the existing metrics:
-```
-./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_migrate_legacy_metrics_keys.py --dry-run
 ```
 
 ## Adding users (owner of projects and settings)

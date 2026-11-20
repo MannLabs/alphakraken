@@ -51,19 +51,11 @@ def api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def mock_create() -> Iterator[MagicMock]:
     """The write function, returning the created settings."""
-    with (
-        patch(
-            "rest_api.routers.settings.settings_store.create",
-            return_value=settings(),
-        ) as create,
-        patch(
-            "rest_api.routers.settings.get_settings_by_unique_name",
-            return_value=settings(description="as stored"),
-        ) as get,
-    ):
+    with patch(
+        "rest_api.routers.settings.settings_store.create",
+        return_value=settings(description="as stored"),
+    ) as create:
         yield create
-        if create.called and not create.side_effect:
-            get.assert_called_once_with("fallback_v7")
 
 
 def test_create_settings(mock_create: MagicMock) -> None:
@@ -98,17 +90,6 @@ def test_create_settings_fills_resource_defaults(mock_create: MagicMock) -> None
     assert passed["slurm_cpus_per_task"] is not None
     assert passed["slurm_mem"]
     assert passed["description"] is None
-
-
-@pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
-def test_create_settings_without_valid_key(
-    mock_create: MagicMock, headers: dict[str, str]
-) -> None:
-    """A missing or wrong key gives 401 and nothing is written."""
-    response = client.post("/settings/", json=NEW_SETTINGS, headers=headers)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_create.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -182,18 +163,6 @@ def test_archive_and_delete_settings(method: str, path: str, function: str) -> N
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert response.content == b""
     mock_write.assert_called_once_with("fallback_v7")
-
-
-@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
-def test_archive_and_delete_settings_without_key(
-    method: str, path: str, function: str
-) -> None:
-    """Without the key nothing is written."""
-    with patch(f"rest_api.routers.settings.settings_store.{function}") as mock_write:
-        response = client.request(method, path)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_write.assert_not_called()
 
 
 @pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)

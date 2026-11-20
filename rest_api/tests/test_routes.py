@@ -8,10 +8,10 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from rest_api.dependencies import Pagination
-from rest_api.main import app
+from rest_api.main import DATABASE_ERROR_DETAIL, DATABASE_UNAVAILABLE_DETAIL, app
 from rest_api.service import ProjectWithAssignments, RawFileWithMetrics
 from shared.db.raw_files import RawFileFilter
-from shared.domain.errors import NotFoundError
+from shared.domain.errors import DatabaseError, DatabaseUnavailableError, NotFoundError
 from shared.tests.factories import project, project_settings, raw_file, settings
 
 client = TestClient(app)
@@ -192,6 +192,37 @@ def test_read_project(mock_get_project: MagicMock) -> None:
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == PROJECT_JSON
     mock_get_project.assert_called_once_with("P1")
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status", "expected_detail"),
+    [
+        (
+            DatabaseUnavailableError("mongodb-service:27017: timed out"),
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            DATABASE_UNAVAILABLE_DETAIL,
+        ),
+        (
+            DatabaseError("not authorized on krakendb"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            DATABASE_ERROR_DETAIL,
+        ),
+    ],
+)
+@patch("rest_api.routers.projects.get_project")
+def test_database_failure_is_json_without_the_driver_message(
+    mock_get_project: MagicMock,
+    error: DatabaseError,
+    expected_status: int,
+    expected_detail: str,
+) -> None:
+    """A database failure gives a JSON error that does not carry the driver's message."""
+    mock_get_project.side_effect = error
+
+    response = client.get("/projects/P1")
+
+    assert response.status_code == expected_status
+    assert response.json() == {"detail": expected_detail}
 
 
 @patch(

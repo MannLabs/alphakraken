@@ -595,8 +595,9 @@ status, and manages projects, settings and their assignments like the webapp doe
   The fallback project and its assignments cannot be changed through the REST API.
 
 The service is started automatically with the `local` and `infrastructure` profiles. It connects to MongoDB as
-`MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)).
-See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
+`MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)); a database created before version 0.2.0
+needs this user set up, cf. the [upgrade guide](upgrade_guides/upgrade_from_v0.13.0.md#rest-api-new-mongodb-user-required).
+See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples of the reads and of the writes with the API key.
 
 ### API key
 The writes and `GET /users/` need the header `X-API-Key` with the value of `REST_API_KEY` (`envs/<ENV>.env`):
@@ -608,28 +609,8 @@ The key is needed in addition to the basic auth of nginx (cf. [URL redirect](#ur
 Generate one e.g. with `openssl rand -hex 32`.
 
 Errors: `401` (key), `404` (the record in the path does not exist), `409` (the project id is in use), `422` (invalid
-input, `{"detail": ["<field>: <message>", ...]}` with all violations).
-
-### Enabling the writes on an existing deployment
-`misc/init-mongo.sh` creates the role and user of the REST API only when the database is first created. On an existing
-database, create them by hand. This needs no downtime; test on `sandbox` first.
-
-1. On every PC (VM) of the deployment, add `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` to `envs/<ENV>.env`,
-   and `REST_API_KEY` on the PC hosting the infrastructure.
-2. On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory, `export ENV=production` and create the role and
-   the user (replace the two placeholders):
-   ```bash
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createRole({role: \"restApiRole\", privileges: [{resource: {db: \"krakendb\", collection: \"project\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"project_settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}], roles: [\"read\"]})"'
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createUser({user: \"<MONGO_USER_REST_API>\", pwd: \"<MONGO_PASSWORD_REST_API>\", roles: [\"restApiRole\"]})"'
-   ```
-3. Verify that the three collections are listed:
-   ```bash
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").getRole(\"restApiRole\", {showPrivileges: true}).privileges.map(p => p.resource.collection)"'
-   ```
-   Expected: `[ 'project', 'settings', 'project_settings' ]`.
-4. On the PC (VM) hosting the infrastructure, restart the REST API with the new version: `./compose.sh up rest-api --build -d`.
-5. Confirm that `curl "http://<alphakraken_ip_address>:8090/users/" -H "X-API-Key: <api_key>"` returns the users.
-
+input, `{"detail": ["<field>: <message>", ...]}` with all violations), `503` (database not reachable), `500` (other
+database failure; the cause is in the `rest-api` log).
 
 ## Automated MongoDB Database Backups
 

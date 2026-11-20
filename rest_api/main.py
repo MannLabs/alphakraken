@@ -1,5 +1,6 @@
 """FastAPI application for the AlphaKraken REST API."""
 
+import logging
 import os
 from typing import Any
 
@@ -9,13 +10,26 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from rest_api import __version__
+from rest_api.auth import RejectWritesWithoutApiKey
 from rest_api.routers import assignments, projects, raw_files, settings, users
 from rest_api.routers import status as status_router
-from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
+from rest_api.schemas import INVALID_INPUT
+from shared.domain.errors import (
+    AlreadyExistsError,
+    DatabaseError,
+    DatabaseUnavailableError,
+    InvalidInputError,
+    NotFoundError,
+)
 from shared.domain.inputs import message
 
 # first element of the location of an error in the request body
 _BODY_LOCATION = "body"
+# FastAPI's error type for a body that is no JSON
+_INVALID_JSON_ERROR_TYPE = "json_invalid"
+
+DATABASE_UNAVAILABLE_DETAIL = "The database is not available."
+DATABASE_ERROR_DETAIL = "The database request failed."
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
@@ -28,12 +42,18 @@ app = FastAPI(
     version=__version__,
 )
 
-app.include_router(raw_files.router)
-app.include_router(projects.router)
-app.include_router(settings.router)
-app.include_router(assignments.router)
-app.include_router(status_router.router)
-app.include_router(users.router)
+app.add_middleware(RejectWritesWithoutApiKey)
+
+for router in (
+    raw_files.router,
+    projects.router,
+    settings.router,
+    assignments.router,
+    status_router.router,
+    users.router,
+):
+    # replaces FastAPI's default 422 schema, which the handlers below do not return
+    app.include_router(router, responses=INVALID_INPUT)
 
 
 @app.exception_handler(NotFoundError)
@@ -51,6 +71,25 @@ def _invalid_input(_request: Request, error: InvalidInputError) -> JSONResponse:
     return JSONResponse({"detail": error.errors}, status.HTTP_422_UNPROCESSABLE_CONTENT)
 
 
+# the driver's message names hosts, collections and indexes, so it is logged, not returned
+@app.exception_handler(DatabaseUnavailableError)
+def _database_unavailable(
+    _request: Request, error: DatabaseUnavailableError
+) -> JSONResponse:
+    logging.error(f"Database unavailable: {error}")
+    return JSONResponse(
+        {"detail": DATABASE_UNAVAILABLE_DETAIL}, status.HTTP_503_SERVICE_UNAVAILABLE
+    )
+
+
+@app.exception_handler(DatabaseError)
+def _database_error(_request: Request, error: DatabaseError) -> JSONResponse:
+    logging.error("Database error", exc_info=error)
+    return JSONResponse(
+        {"detail": DATABASE_ERROR_DETAIL}, status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+
 @app.exception_handler(RequestValidationError)
 def _invalid_request(_request: Request, error: RequestValidationError) -> JSONResponse:
     """Report the errors of FastAPI's validation in the format of `InvalidInputError`."""
@@ -62,6 +101,9 @@ def _invalid_request(_request: Request, error: RequestValidationError) -> JSONRe
 
 def _request_error_message(error: dict[str, Any]) -> str:
     location = error["loc"]
+    if error["type"] == _INVALID_JSON_ERROR_TYPE:
+        # its location is the character offset, which would read like a field name
+        return f"{error['msg']} at character {location[-1]}: {error['ctx']['error']}"
     # a body error names its field like the domain errors do: `name: ...`
     if location and location[0] == _BODY_LOCATION:
         location = location[1:]

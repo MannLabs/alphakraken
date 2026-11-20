@@ -68,17 +68,6 @@ def test_create_assignment(mock_assign: MagicMock) -> None:
     mock_assign.assert_called_once_with(**NEW_ASSIGNMENT, allow_fallback=False)
 
 
-@pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
-def test_create_assignment_without_valid_key(
-    mock_assign: MagicMock, headers: dict[str, str]
-) -> None:
-    """A missing or wrong key gives 401 and nothing is written."""
-    response = client.post("/assignments/", json=NEW_ASSIGNMENT, headers=headers)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_assign.assert_not_called()
-
-
 def test_create_assignment_invalid_input(mock_assign: MagicMock) -> None:
     """All violations found by the write function are listed in one 422."""
     mock_assign.side_effect = InvalidInputError(["unknown scope", "unknown settings"])
@@ -152,20 +141,6 @@ WRITES_BY_ID = [
     ("delete", "/assignments/assignment1", "unassign"),
     ("post", "/assignments/assignment1/update_to_latest", "update_to_latest"),
 ]
-
-
-@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
-def test_assignment_writes_by_id_without_key(
-    method: str, path: str, function: str
-) -> None:
-    """Without the key nothing is written."""
-    with patch(
-        f"rest_api.routers.assignments.project_settings_store.{function}"
-    ) as mock_write:
-        response = client.request(method, path)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_write.assert_not_called()
 
 
 @pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)

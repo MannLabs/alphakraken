@@ -102,6 +102,9 @@ def _project_errors(project_id: str, *, allow_fallback: bool) -> list[str]:
     try:
         project = projects.get(project_id)
     except NotFoundError:
+        project = None
+    # a deleted project is gone for every client, so it is not revealed by a different error
+    if project is None or project.status == ProjectStatus.DELETED:
         return [*errors, f"Project '{project_id}' does not exist."]
     errors += inactive_errors(
         f"Project '{project_id}'", project.status, ProjectStatus.ACTIVE
@@ -114,6 +117,9 @@ def _settings_errors(settings_id: str) -> list[str]:
     try:
         assigned = settings.get(settings_id)
     except NotFoundError:
+        assigned = None
+    # deleted settings are gone for every client, cf. `_project_errors`
+    if assigned is None or assigned.status == SettingsStatus.DELETED:
         return [f"Settings '{settings_id}' do not exist."]
     return inactive_errors(
         f"Settings '{assigned.name}' version {assigned.version}",

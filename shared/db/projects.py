@@ -69,7 +69,7 @@ def add(
 
     Raises:
         AlreadyExistsError: if the project id is in use.
-        InvalidInputError: if a field is invalid, the project id was used by a deleted project,
+        InvalidInputError: if a field is invalid, the project id is not available,
             the fallback project is not allowed, or the owner does not exist or is not active.
 
     """
@@ -85,8 +85,9 @@ def add(
         errors.append(f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed.")
     existing = find(ids=[new.project_id], include_deleted=True)
     if existing and existing[0].status == ProjectStatus.DELETED:
+        # the id stays blocked; the deleted project itself is not revealed, cf. `_set_status`
         errors.append(
-            f"Project id '{new.project_id}' was used by a deleted project. Please choose a different one."
+            f"Project id '{new.project_id}' is not available. Please choose a different one."
         )
     errors += users.owner_errors(new.owner_email)
     if errors:

@@ -784,7 +784,7 @@ def test_add_project_with_id_of_deleted_project_raises(
     """The id of a deleted project cannot be reused."""
     mock_find.return_value = [factories.project(status=ProjectStatus.DELETED)]
 
-    with pytest.raises(InvalidInputError, match="was used by a deleted project"):
+    with pytest.raises(InvalidInputError, match="Project id 'P123' is not available"):
         projects.add(project_id="P123", name="n", description="d", allow_fallback=False)
 
     mock_backend_add.assert_not_called()
@@ -1045,32 +1045,42 @@ def test_assign_settings_default_scope_absorbs_other_scopes(
     )
 
 
-@pytest.mark.parametrize("status", [ProjectStatus.INACTIVE, ProjectStatus.DELETED])
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (ProjectStatus.INACTIVE, r"Project 'P1' is not active \(status 'inactive'\)"),
+        (ProjectStatus.DELETED, "Project 'P1' does not exist"),
+    ],
+)
 def test_assign_settings_to_archived_or_deleted_project_raises(
-    assignable: dict[str, MagicMock], status: str
+    assignable: dict[str, MagicMock], status: str, error: str
 ) -> None:
-    """Assignments of archived and deleted projects are frozen."""
+    """Assignments of archived and deleted projects are frozen; a deleted project is not revealed."""
     assignable["find_projects"].return_value = [factories.project(status=status)]
 
-    with pytest.raises(
-        InvalidInputError, match=f"Project 'P1' is not active \\(status '{status}'\\)"
-    ):
+    with pytest.raises(InvalidInputError, match=error):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()
 
 
-@pytest.mark.parametrize("status", [SettingsStatus.INACTIVE, SettingsStatus.DELETED])
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (
+            SettingsStatus.INACTIVE,
+            r"Settings 'fallback' version 7 is not active \(status 'inactive'\)",
+        ),
+        (SettingsStatus.DELETED, "Settings 'fallback_v7' do not exist"),
+    ],
+)
 def test_assign_archived_or_deleted_settings_raises(
-    assignable: dict[str, MagicMock], status: str
+    assignable: dict[str, MagicMock], status: str, error: str
 ) -> None:
-    """Archived and deleted settings cannot be assigned."""
+    """Archived and deleted settings cannot be assigned; deleted settings are not revealed."""
     assignable["get_settings"].return_value = factories.settings(status=status)
 
-    with pytest.raises(
-        InvalidInputError,
-        match=f"Settings 'fallback' version 7 is not active \\(status '{status}'\\)",
-    ):
+    with pytest.raises(InvalidInputError, match=error):
         project_settings.assign("P1", "fallback_v7", allow_fallback=False, scopes=["*"])
 
     assignable["backend_assign"].assert_not_called()

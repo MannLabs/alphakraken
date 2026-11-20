@@ -514,8 +514,7 @@ AlphaKraken implements a role-based access control system for MongoDB with five 
 `alerting_active_instance` collections, used by the monitoring service to record the issues it found and notified and to elect
 the one instance that runs the checks
 5. `MONGO_USER_REST_API`: Custom role with read access to all collections, but write access only to the `project`, `settings`
-and `project_settings` collections, used by the REST API. It can remove documents only from `project_settings`: projects and settings
-are archived and deleted by a status update. Unlike the webapp role, it cannot write users or alert suppressions.
+and `project_settings` collections, used by the REST API. Unlike the webapp role, it cannot write users or alert suppressions.
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 
@@ -597,8 +596,8 @@ status, and manages projects, settings and their assignments like the webapp doe
 
 The service is started automatically with the `local` and `infrastructure` profiles. It connects to MongoDB as
 `MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)); a database created before version 0.2.0
-needs [this user set up](#setting-up-the-rest-api-user-on-an-existing-database).
-See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
+needs this user set up, cf. the [upgrade guide](upgrade_guides/upgrade_from_v0.13.0.md#rest-api-new-mongodb-user-required).
+See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples of the reads and of the writes with the API key.
 
 ### API key
 The writes and `GET /users/` need the header `X-API-Key` with the value of `REST_API_KEY` (`envs/<ENV>.env`):
@@ -611,33 +610,6 @@ Generate one e.g. with `openssl rand -hex 32`.
 
 Errors: `401` (key), `404` (the record in the path does not exist), `409` (the project id is in use), `422` (invalid
 input, `{"detail": ["<field>: <message>", ...]}` with all violations).
-
-### Setting up the REST API user on an existing database
-Required since REST API version 0.2.0, also for a read-only REST API: the service always connects as
-`MONGO_USER_REST_API`. `misc/init-mongo.sh` creates this user and its role only when the database is first created.
-On an existing database, create them by hand. Without them `/health` still answers, but every other request fails,
-as the service cannot authenticate at the database. This needs no downtime; test on `sandbox` first.
-
-1. On every PC (VM) of the deployment, add `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` to `envs/<ENV>.env`.
-   Optional, only to enable the writes and `GET /users/`: add `REST_API_KEY` on the PC hosting the infrastructure
-   (cf. [API key](#api-key)).
-2. On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory, `export ENV=production` and create the role and
-   the user (replace the two placeholders):
-   ```bash
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createRole({role: \"restApiRole\", privileges: [{resource: {db: \"krakendb\", collection: \"project\"}, actions: [\"find\", \"insert\", \"update\"]}, {resource: {db: \"krakendb\", collection: \"settings\"}, actions: [\"find\", \"insert\", \"update\"]}, {resource: {db: \"krakendb\", collection: \"project_settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}], roles: [\"read\"]})"'
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createUser({user: \"<MONGO_USER_REST_API>\", pwd: \"<MONGO_PASSWORD_REST_API>\", roles: [\"restApiRole\"]})"'
-   ```
-3. Verify that the three collections are listed:
-   ```bash
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").getRole(\"restApiRole\", {showPrivileges: true}).privileges.map(p => p.resource.collection)"'
-   ```
-   Expected: `[ 'project', 'settings', 'project_settings' ]`.
-4. On the PC (VM) hosting the infrastructure, restart the REST API with the new version: `./compose.sh up rest-api --build -d`.
-5. Confirm that the REST API reaches the database: `curl "http://<alphakraken_ip_address>:8090/projects/?limit=1"`
-   returns a project (`/health` does not show this, it does not access the database).
-6. If `REST_API_KEY` is set, confirm that `curl "http://<alphakraken_ip_address>:8090/users/" -H "X-API-Key: <api_key>"`
-   returns the users.
-
 
 ## Automated MongoDB Database Backups
 

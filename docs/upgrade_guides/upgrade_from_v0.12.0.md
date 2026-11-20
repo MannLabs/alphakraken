@@ -15,30 +15,6 @@ and wait until no `acquisition_handler` or `acquisition_processor` run is active
   `type` key, instead of one flat dict with type-prefixed keys on collisions. The entries no longer
   contain `settings_name`, `settings_version` and `relative_output_path`; the output folder is in
   `output_path`, as the users see it.
-- REST API, version 0.2.0:
-  - New endpoints to manage projects, settings and their assignments, and to read the status and the users, cf.
-    [REST API](../deployment.md#rest-api). The writes and `GET /users/` need the header `X-API-Key`.
-  - The assignments in `/projects/` have two new fields: `id`, which the assignment endpoints take, and `project_id`.
-  - Projects and settings have the new field `owner_email`.
-  - Raw files: `collision_flag`, `status_details`, `backup_status`, `backup_display_base_path`, `s3_upload_path`,
-    `instrument_file_status` and `finalized_at` are always present, `null` when unset (before: present only when
-    set, and missing from the OpenAPI schema).
-  - Errors: every `422` is `{"detail": ["<location>: <message>", ...]}`, e.g. `["query.limit: Input should be greater
-    than or equal to 1"]` (before: FastAPI's list of objects). The `detail` text of a `404` changed, e.g. `No project P1`.
-  - OpenAPI: the list schemas are named `Page_RawFileResponse_`, `Page_ProjectResponse_` and `Page_SettingsResponse_`;
-    their shape is unchanged.
-
-## REST API: new MongoDB user (required)
-
-The REST API no longer connects with the read-only user but with its own, `MONGO_USER_REST_API`, for reads too.
-This is not optional:
-
-- Without the new env variables `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` the `mongodb-service` and
-  `rest-api` containers do not start.
-- With the variables, but without the user in the database, `/health` stays green while every other request fails.
-
-Follow [Setting up the REST API user on an existing database](../deployment.md#setting-up-the-rest-api-user-on-an-existing-database)
-when deploying. Only `REST_API_KEY` is optional: without it the REST API is read-only.
 
 ## Backup location per raw file
 

@@ -95,7 +95,8 @@ requires `allow_fallback` to come from authentication, never from the request.
 - D6. Existing deployments: `init-mongo.sh` only runs when the database is first created.
   `docs/deployment.md` gets the `mongosh` commands to create `restApiRole` and the user on a
   running instance, and the step to set `REST_API_KEY`. The section "Changes visible to REST
-  API and MCP clients" of `docs/upgrade_guides/upgrade_from_v0.12.0.md` lists the new
+  API clients" of `docs/upgrade_guides/upgrade_from_v0.13.0.md` (moved there 2026-11-20, with the
+  `mongosh` steps of `docs/deployment.md`) lists the new
   endpoints, the `X-API-Key` header, the new `id` of the assignments, and the changes of R2/R3
   (`owner_email`, the declared raw file fields, the generic page schema in OpenAPI).
 - D7. The known issue below stays out of scope and is recorded here only.
@@ -144,7 +145,7 @@ docker-compose.yaml   → REST_API_KEY env, REST API Mongo user (D5)
 envs/*.env            → MONGO_USER_REST_API, MONGO_PASSWORD_REST_API
 misc/init-mongo.sh    → restApiRole and its user (D5)
 docs/deployment.md    → setup on existing deployments (D6)
-docs/upgrade_guides/upgrade_from_v0.12.0.md → client-visible changes (D6)
+docs/upgrade_guides/upgrade_from_v0.13.0.md → setup on existing deployments, client-visible changes (D6)
 ```
 
 ## Code Style

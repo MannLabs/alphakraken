@@ -195,10 +195,10 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
     - `main.py`: version `0.2.0`, description without "Read-only".
     - `docker-compose.yaml`: `rest-api` uses `MONGO_USER_REST_API`, gets `REST_API_KEY`; `mongodb-service` passes the new user vars; `envs/local.env` and `envs/production.env` / `sandbox.env` have the entries (production as placeholders).
     - `docs/deployment.md`: `mongosh` commands for role + user on an existing DB, and the `REST_API_KEY` step.
-    - Upgrade guide `upgrade_from_v0.12.0.md`: new endpoints, `X-API-Key`, assignment `id` (SC8).
+    - Upgrade guide `upgrade_from_v0.13.0.md`: new endpoints, `X-API-Key`, assignment `id` (SC8).
   - Verify: `docker compose --env-file envs/.env-airflow --env-file envs/local.env config` lists the new vars for `rest-api`; the `mongosh` commands from the docs, run against the e2e Mongo started *without* them in `init-mongo.sh` (temporarily skip T4's block via a scratch copy), give a working REST user.
   - Depends on: T6, T8, T10, T11
-  - Files: `rest_api/main.py`, `docker-compose.yaml`, `envs/*.env`, `docs/deployment.md`, `docs/upgrade_guides/upgrade_from_v0.12.0.md`
+  - Files: `rest_api/main.py`, `docker-compose.yaml`, `envs/*.env`, `docs/deployment.md`, `docs/upgrade_guides/upgrade_from_v0.13.0.md`
   - Size: M
 
 ### Checkpoint: Complete

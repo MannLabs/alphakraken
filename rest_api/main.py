@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from rest_api.routers import projects, raw_files, settings
+from rest_api.routers import assignments, projects, raw_files, settings
 from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.domain.inputs import message
 
@@ -26,6 +26,7 @@ app = FastAPI(
 app.include_router(raw_files.router)
 app.include_router(projects.router)
 app.include_router(settings.router)
+app.include_router(assignments.router)
 
 
 @app.exception_handler(NotFoundError)

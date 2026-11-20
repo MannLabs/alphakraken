@@ -155,7 +155,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/routers/settings.py`, `rest_api/tests/test_write_settings.py`, `e2e/rest_api/test_e2e_settings.py`
   - Size: S
 
-- [ ] **T9: assignment `id` in responses, `POST /assignments/`**
+- [x] **T9: assignment `id` in responses, `POST /assignments/`**
   - Acceptance:
     - `SettingsAssignmentResponse.id` filled in `/projects/` and `/projects/{id}`.
     - `POST /assignments/` (body `NewAssignment`, all four lists required, `allow_fallback=False`) → 201 with the assignment incl. `id` and `project_id`.

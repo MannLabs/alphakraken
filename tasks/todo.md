@@ -145,7 +145,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/routers/settings.py`, `rest_api/tests/test_write_settings.py`, `e2e/rest_api/test_e2e_settings.py`
   - Size: S
 
-- [ ] **T8: archive and delete settings**
+- [x] **T8: archive and delete settings**
   - Acceptance:
     - `POST /settings/{id}/archive`, `DELETE /settings/{id}` → 204, keyed.
     - Delete while assigned → 422 naming the projects (uses a seeded assigned settings).

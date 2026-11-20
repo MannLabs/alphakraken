@@ -78,3 +78,23 @@ def create_settings(
     )
     # read again: `create` returns `created_at_` with microseconds, the database keeps milliseconds
     return SettingsResponse.model_validate(get_settings_by_unique_name(created.id))
+
+
+@router.post(
+    "/{settings_id}/archive",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def archive_settings(settings_id: str) -> None:
+    """Archive active settings."""
+    settings_store.archive(settings_id)
+
+
+@router.delete(
+    "/{settings_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def delete_settings(settings_id: str) -> None:
+    """Delete settings that are not assigned to an active project: they are kept in the database, but no longer returned."""
+    settings_store.delete(settings_id)

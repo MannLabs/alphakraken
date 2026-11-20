@@ -104,7 +104,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [x] T7: `POST /settings/` (+ `archive_previous`)
 - [x] T8: `POST /settings/{id}/archive`, `DELETE /settings/{id}`
 - [x] T9: assignment `id` in responses, `POST /assignments/`
-- [ ] T10: `DELETE /assignments/{id}`, `POST /assignments/{id}/update_to_latest`
+- [x] T10: `DELETE /assignments/{id}`, `POST /assignments/{id}/update_to_latest`
 
 ### Checkpoint 2
 - [ ] unit + e2e green, CI command green

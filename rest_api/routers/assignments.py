@@ -31,3 +31,24 @@ def create_assignment(new: NewAssignment) -> SettingsAssignmentResponse:
         raw_file_id_exclude_filter=new.raw_file_id_exclude_filter,
     )
     return SettingsAssignmentResponse.of(assignment)
+
+
+@router.delete(
+    "/{assignment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def delete_assignment(assignment_id: str) -> None:
+    """Remove an assignment of settings to a project."""
+    project_settings_store.unassign(assignment_id, allow_fallback=False)
+
+
+@router.post(
+    "/{assignment_id}/update_to_latest", dependencies=[Depends(require_api_key)]
+)
+def update_assignment_to_latest(assignment_id: str) -> SettingsAssignmentResponse:
+    """Point an assignment to the latest active version of its settings, keeping scopes and filters."""
+    updated = project_settings_store.update_to_latest(
+        assignment_id, allow_fallback=False
+    )
+    return SettingsAssignmentResponse.of(updated)

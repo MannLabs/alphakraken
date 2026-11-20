@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from rest_api.auth import API_KEY_ENV_VAR, API_KEY_HEADER
 from rest_api.main import app
-from shared.domain.errors import InvalidInputError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.tests.factories import project_settings
 
 client = TestClient(app)
@@ -119,3 +119,85 @@ def test_create_assignment_misspelled_key(mock_assign: MagicMock) -> None:
         "detail": ["excluded_scope: Extra inputs are not permitted"]
     }
     mock_assign.assert_not_called()
+
+
+def test_delete_assignment() -> None:
+    """An assignment is removed, never one of the fallback project."""
+    with patch(
+        "rest_api.routers.assignments.project_settings_store.unassign"
+    ) as mock_unassign:
+        response = client.delete("/assignments/assignment1", headers=KEY_HEADERS)
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert response.content == b""
+    mock_unassign.assert_called_once_with("assignment1", allow_fallback=False)
+
+
+def test_update_assignment_to_latest() -> None:
+    """The updated assignment is returned, never one of the fallback project."""
+    with patch(
+        "rest_api.routers.assignments.project_settings_store.update_to_latest",
+        return_value=ASSIGNMENT,
+    ) as mock_update:
+        response = client.post(
+            "/assignments/assignment1/update_to_latest", headers=KEY_HEADERS
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == ASSIGNMENT_JSON
+    mock_update.assert_called_once_with("assignment1", allow_fallback=False)
+
+
+WRITES_BY_ID = [
+    ("delete", "/assignments/assignment1", "unassign"),
+    ("post", "/assignments/assignment1/update_to_latest", "update_to_latest"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
+def test_assignment_writes_by_id_without_key(
+    method: str, path: str, function: str
+) -> None:
+    """Without the key nothing is written."""
+    with patch(
+        f"rest_api.routers.assignments.project_settings_store.{function}"
+    ) as mock_write:
+        response = client.request(method, path)
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    mock_write.assert_not_called()
+
+
+@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
+@pytest.mark.parametrize(
+    ("error", "status_code", "body"),
+    [
+        (
+            NotFoundError("No settings assignment assignment1"),
+            status.HTTP_404_NOT_FOUND,
+            {"detail": "No settings assignment assignment1"},
+        ),
+        (
+            InvalidInputError(["not allowed for the fallback project"]),
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {"detail": ["not allowed for the fallback project"]},
+        ),
+    ],
+)
+def test_assignment_writes_by_id_errors(  # noqa: PLR0913
+    method: str,
+    path: str,
+    function: str,
+    error: Exception,
+    status_code: int,
+    body: dict,
+) -> None:
+    """The errors of the write functions are mapped to their status codes."""
+    with patch(
+        f"rest_api.routers.assignments.project_settings_store.{function}",
+        side_effect=error,
+    ):
+        response = client.request(method, path, headers=KEY_HEADERS)
+
+    assert response.status_code == status_code
+    assert response.json() == body

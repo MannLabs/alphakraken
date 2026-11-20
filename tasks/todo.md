@@ -165,7 +165,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/schemas.py`, `rest_api/service.py`, `rest_api/routers/assignments.py` (new), `rest_api/main.py`, `rest_api/tests/test_write_assignments.py`, `e2e/rest_api/test_e2e_assignments.py`
   - Size: M
 
-- [ ] **T10: unassign and update to latest**
+- [x] **T10: unassign and update to latest**
   - Acceptance:
     - `DELETE /assignments/{id}` → 204; gone from `GET /projects/{id}`.
     - `POST /assignments/{id}/update_to_latest` → 200 pointing at the newest active version; no newer version → 422.

@@ -46,6 +46,8 @@ ignore = [
 # the Mongo backend, its tests and the migration scripts
 "shared/db/_mongo/**" = ["TID251"]
 "shared/tests/db/**" = ["TID251"]
+# connects to the test database without credentials and drops it
+"rest_api/tests/integration/conftest.py" = ["TID251"]
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 "airflow_src/plugins/celery_config.py" = ["TID251"]

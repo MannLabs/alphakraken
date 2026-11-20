@@ -20,6 +20,12 @@ jobs:
   unit-tests:
     name: Run unit tests
     runs-on: ubuntu-latest
+    services:
+      # for rest_api/tests/integration
+      mongo:
+        image: mongo:8.0-noble
+        ports:
+          - 37017:27017
     steps:
       - uses: actions/checkout@v4
 

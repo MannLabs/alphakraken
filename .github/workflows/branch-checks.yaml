@@ -20,12 +20,6 @@ jobs:
   unit-tests:
     name: Run unit tests
     runs-on: ubuntu-latest
-    services:
-      # for rest_api/tests/integration
-      mongo:
-        image: mongo:8.0-noble
-        ports:
-          - 37018:27017
     steps:
       - uses: actions/checkout@v4
 
@@ -46,9 +40,32 @@ jobs:
           pip install -r monitoring/requirements_monitoring.txt
           airflow db migrate
           pip freeze
-          python -m pytest shared webapp airflow_src rest_api mcp_server
+          python -m pytest shared webapp airflow_src rest_api mcp_server --ignore=rest_api/tests/integration
           # separate run: the monitoring puts its own top-level modules on the path
           python -m pytest monitoring
+
+  integration-tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8.0-noble
+        ports:
+          - 37018:27017
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Run integration tests
+        run: |
+          pip install -r misc/requirements_development.txt
+          pip install -r shared/requirements_shared.txt
+          pip install -r rest_api/requirements_rest_api.txt
+          python -m pytest rest_api/tests/integration
 
   docker-compose-test:
     runs-on: ubuntu-latest

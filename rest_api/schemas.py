@@ -156,3 +156,33 @@ class UserResponse(BaseModel):
 
     email: str
     initials: str
+
+
+class ErrorResponse(BaseModel):
+    """An error with one message."""
+
+    detail: str
+
+
+class InvalidInputResponse(BaseModel):
+    """All violations of a request: `<field or location>: <message>`, or the bare message for a rule spanning several fields."""
+
+    detail: list[str]
+
+
+# `responses=` of the routes, so that OpenAPI documents the errors as they are returned
+UNAUTHORIZED: dict[int | str, dict[str, Any]] = {
+    401: {"model": ErrorResponse, "description": "The API key is missing or wrong"}
+}
+NOT_FOUND: dict[int | str, dict[str, Any]] = {
+    404: {
+        "model": ErrorResponse,
+        "description": "The record in the path does not exist",
+    }
+}
+CONFLICT: dict[int | str, dict[str, Any]] = {
+    409: {"model": ErrorResponse, "description": "A record with the same key exists"}
+}
+INVALID_INPUT: dict[int | str, dict[str, Any]] = {
+    422: {"model": InvalidInputResponse, "description": "The request is invalid"}
+}

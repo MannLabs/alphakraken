@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Query, status
 
 from rest_api.auth import require_api_key
 from rest_api.dependencies import Pagination
-from rest_api.schemas import Page, ProjectResponse
+from rest_api.schemas import (
+    CONFLICT,
+    NOT_FOUND,
+    UNAUTHORIZED,
+    Page,
+    ProjectResponse,
+)
 from rest_api.service import get_project, get_projects
 from shared.db import projects as project_store
 from shared.domain.projects import NewProject
@@ -33,7 +39,7 @@ def list_projects(
     )
 
 
-@router.get("/{project_id}")
+@router.get("/{project_id}", responses=NOT_FOUND)
 def read_project(project_id: str) -> ProjectResponse:
     """Get a project by ID."""
     return ProjectResponse.of(get_project(project_id))
@@ -43,6 +49,7 @@ def read_project(project_id: str) -> ProjectResponse:
     "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **CONFLICT},
 )
 def create_project(new: NewProject) -> ProjectResponse:
     """Add an active project."""
@@ -60,6 +67,7 @@ def create_project(new: NewProject) -> ProjectResponse:
     "/{project_id}/archive",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def archive_project(project_id: str) -> None:
     """Archive an active project."""
@@ -70,6 +78,7 @@ def archive_project(project_id: str) -> None:
     "/{project_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def delete_project(project_id: str) -> None:
     """Delete a project: it is kept in the database, but no longer returned."""

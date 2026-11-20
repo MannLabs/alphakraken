@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Query, status
 
 from rest_api.auth import require_api_key
 from rest_api.dependencies import Pagination
-from rest_api.schemas import Page, SettingsResponse
+from rest_api.schemas import (
+    CONFLICT,
+    NOT_FOUND,
+    UNAUTHORIZED,
+    Page,
+    SettingsResponse,
+)
 from rest_api.service import get_settings, get_settings_by_unique_name
 from shared.db import settings as settings_store
 from shared.domain.settings import NewSettings
@@ -31,7 +37,7 @@ def list_settings(
     )
 
 
-@router.get("/{settings_id}")
+@router.get("/{settings_id}", responses=NOT_FOUND)
 def read_settings(settings_id: str) -> SettingsResponse:
     """Get settings by ID, i.e. `<name>_v<version>`."""
     return SettingsResponse.model_validate(get_settings_by_unique_name(settings_id))
@@ -41,6 +47,7 @@ def read_settings(settings_id: str) -> SettingsResponse:
     "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **CONFLICT},
 )
 def create_settings(
     new: NewSettings,
@@ -84,6 +91,7 @@ def create_settings(
     "/{settings_id}/archive",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def archive_settings(settings_id: str) -> None:
     """Archive active settings."""
@@ -94,6 +102,7 @@ def archive_settings(settings_id: str) -> None:
     "/{settings_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def delete_settings(settings_id: str) -> None:
     """Delete settings that are not assigned to an active project: they are kept in the database, but no longer returned."""

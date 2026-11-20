@@ -3,7 +3,11 @@
 from fastapi import APIRouter, Depends, status
 
 from rest_api.auth import require_api_key
-from rest_api.schemas import SettingsAssignmentResponse
+from rest_api.schemas import (
+    NOT_FOUND,
+    UNAUTHORIZED,
+    SettingsAssignmentResponse,
+)
 from shared.db import project_settings as project_settings_store
 from shared.domain.projects import NewAssignment
 
@@ -14,6 +18,7 @@ router = APIRouter(prefix="/assignments")
     "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_api_key)],
+    responses=UNAUTHORIZED,
 )
 def create_assignment(new: NewAssignment) -> SettingsAssignmentResponse:
     """Assign settings to a project, for the given scopes and file name filters.
@@ -37,6 +42,7 @@ def create_assignment(new: NewAssignment) -> SettingsAssignmentResponse:
     "/{assignment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def delete_assignment(assignment_id: str) -> None:
     """Remove an assignment of settings to a project."""
@@ -44,7 +50,9 @@ def delete_assignment(assignment_id: str) -> None:
 
 
 @router.post(
-    "/{assignment_id}/update_to_latest", dependencies=[Depends(require_api_key)]
+    "/{assignment_id}/update_to_latest",
+    dependencies=[Depends(require_api_key)],
+    responses={**UNAUTHORIZED, **NOT_FOUND},
 )
 def update_assignment_to_latest(assignment_id: str) -> SettingsAssignmentResponse:
     """Point an assignment to the latest active version of its settings, keeping scopes and filters."""

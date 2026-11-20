@@ -41,6 +41,9 @@ requires `allow_fallback` to come from authentication, never from the request.
   `REST_API_KEY` and sent in the header `X-API-Key`. Other reads stay open. A missing or wrong
   key gives 401. If `REST_API_KEY` is unset, every keyed request gives 401 (fails closed). Keys
   are compared with `secrets.compare_digest`.
+  The key of a write is checked before its body is read (ASGI middleware on every method
+  except GET/HEAD/OPTIONS, added 2026-11-20), so an unkeyed request gets 401 whatever its body
+  or path. The route dependency stays: it puts the key into OpenAPI and guards `GET /users/`.
   The key is in addition to the nginx basic auth (`misc/nginx.conf:180`), because
   `.htpasswd` is shared with the webapp users `admin` and `kraken`, and compose publishes the
   container port 8090 directly (`docker-compose.yaml:455`), which bypasses nginx.
@@ -70,6 +73,9 @@ requires `allow_fallback` to come from authentication, never from the request.
   `shared.domain.inputs.parse`. For that, `_message` (`shared/domain/inputs.py:40`) becomes
   public, and the `RequestValidationError` handler drops the leading `"body"` from each
   error's `loc`, so a body error reads `name: ...`, not `body.name: ...`.
+  OpenAPI documents these shapes (added 2026-11-20): `InvalidInputResponse` replaces FastAPI's
+  default `HTTPValidationError` on every route, and the routes list their 401, 404 and 409
+  with `ErrorResponse` (`{"detail": "<message>"}`).
 - D4. Responses: create returns 201 with the created resource in its response model of R2,
   so a created project or settings shows its `owner_email`. Archive, delete and unassign return 204. Update-to-latest returns 200 with the
   assignment.

@@ -97,6 +97,44 @@ def test_create_project_without_configured_key(
     mock_add.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "content", [b"{not json", b'{"project_id": 1}', b"x" * 100_000]
+)
+def test_write_without_key_is_rejected_before_the_body_is_checked(
+    mock_add: MagicMock, content: bytes
+) -> None:
+    """Without the key the answer is 401 whatever the body, not a 422 about the body."""
+    response = client.post(
+        "/projects/", content=content, headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {"detail": "Invalid or missing API key"}
+    mock_add.assert_not_called()
+
+
+def test_write_to_unknown_path_without_key_is_401() -> None:
+    """The key is checked for every write, before the route is looked up."""
+    assert client.post("/nosuch/").status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        client.post("/nosuch/", headers=KEY_HEADERS).status_code
+        == status.HTTP_404_NOT_FOUND
+    )
+
+
+def test_create_project_malformed_json(mock_add: MagicMock) -> None:
+    """With the key, a body that is no JSON gives 422 in the common shape."""
+    response = client.post(
+        "/projects/",
+        content=b"{not json",
+        headers={**KEY_HEADERS, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert all(isinstance(entry, str) for entry in response.json()["detail"])
+    mock_add.assert_not_called()
+
+
 def test_create_project_invalid_input(mock_add: MagicMock) -> None:
     """The violations found by the write function give 422 with one message each."""
     mock_add.side_effect = InvalidInputError(["first", "second"])

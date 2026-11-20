@@ -1,14 +1,27 @@
 """Tests for the response models of the REST API."""
 
+from dataclasses import fields
+
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from rest_api.main import app
 from rest_api.schemas import (
     ErrorResponse,
     InvalidInputResponse,
+    ProjectResponse,
     RawFileResponse,
+    SettingsAssignmentResponse,
     SettingsResponse,
+    StatusResponse,
+    UserResponse,
 )
+from shared.domain.projects import Project, ProjectSettings
+from shared.domain.raw_files import RawFile
+from shared.domain.settings import Settings
+from shared.domain.status import KrakenStatus
+from shared.domain.users import User
 from shared.tests.factories import settings
 
 
@@ -24,21 +37,38 @@ def test_settings_response_of_legacy_settings() -> None:
     assert response.metrics_type is None
 
 
+@pytest.mark.parametrize(
+    ("domain", "not_returned", "response", "joined"),
+    [
+        (RawFile, {"created_at_"}, RawFileResponse, {"metrics", "backup_path"}),
+        (Project, set(), ProjectResponse, {"settings"}),
+        (Settings, set(), SettingsResponse, set()),
+        (
+            ProjectSettings,
+            # the settings are returned as their id, name and version
+            {"settings", "created_at_"},
+            SettingsAssignmentResponse,
+            {"settings_id", "name", "version"},
+        ),
+        (KrakenStatus, set(), StatusResponse, set()),
+        (User, {"messenger_id", "status", "created_at_"}, UserResponse, set()),
+    ],
+)
+def test_response_returns_every_domain_field(
+    domain: type, not_returned: set[str], response: type[BaseModel], joined: set[str]
+) -> None:
+    """A field added to a domain type must be added to its response, or be left out here on purpose."""
+    domain_fields = {field.name for field in fields(domain)}
+
+    assert domain_fields - not_returned == set(response.model_fields) - joined
+
+
 def test_openapi_lists_all_raw_file_fields() -> None:
-    """The schema of a raw file has every field of the model, none are undeclared extras."""
+    """The schema of a raw file lists the fields of the model and allows no undeclared ones."""
     schema = app.openapi()["components"]["schemas"]["RawFileResponse"]
 
     assert set(schema["properties"]) == set(RawFileResponse.model_fields)
     assert schema.get("additionalProperties") is not True
-    assert set(schema["properties"]) >= {
-        "collision_flag",
-        "status_details",
-        "backup_status",
-        "backup_display_base_path",
-        "s3_upload_path",
-        "instrument_file_status",
-        "finalized_at",
-    }
 
 
 WRITE_METHODS = {"post", "put", "patch", "delete"}

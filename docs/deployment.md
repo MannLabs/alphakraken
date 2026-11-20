@@ -514,7 +514,8 @@ AlphaKraken implements a role-based access control system for MongoDB with five 
 `alerting_active_instance` collections, used by the monitoring service to record the issues it found and notified and to elect
 the one instance that runs the checks
 5. `MONGO_USER_REST_API`: Custom role with read access to all collections, but write access only to the `project`, `settings`
-and `project_settings` collections, used by the REST API. Unlike the webapp role, it cannot write users or alert suppressions.
+and `project_settings` collections, used by the REST API. It can remove documents only from `project_settings`: projects and settings
+are archived and deleted by a status update. Unlike the webapp role, it cannot write users or alert suppressions.
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 
@@ -619,7 +620,7 @@ database, create them by hand. This needs no downtime; test on `sandbox` first.
 2. On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory, `export ENV=production` and create the role and
    the user (replace the two placeholders):
    ```bash
-   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createRole({role: \"restApiRole\", privileges: [{resource: {db: \"krakendb\", collection: \"project\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}, {resource: {db: \"krakendb\", collection: \"project_settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}], roles: [\"read\"]})"'
+   ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createRole({role: \"restApiRole\", privileges: [{resource: {db: \"krakendb\", collection: \"project\"}, actions: [\"find\", \"insert\", \"update\"]}, {resource: {db: \"krakendb\", collection: \"settings\"}, actions: [\"find\", \"insert\", \"update\"]}, {resource: {db: \"krakendb\", collection: \"project_settings\"}, actions: [\"find\", \"insert\", \"update\", \"remove\"]}], roles: [\"read\"]})"'
    ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").createUser({user: \"<MONGO_USER_REST_API>\", pwd: \"<MONGO_PASSWORD_REST_API>\", roles: [\"restApiRole\"]})"'
    ```
 3. Verify that the three collections are listed:

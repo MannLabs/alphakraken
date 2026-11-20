@@ -73,8 +73,10 @@ requires `allow_fallback` to come from authentication, never from the request.
 - D4. Responses: create returns 201 with the created resource in its response model of R2,
   so a created project or settings shows its `owner_email`. Archive, delete and unassign return 204. Update-to-latest returns 200 with the
   assignment.
-- D5. Mongo access: a new role `restApiRole` in `misc/init-mongo.sh` with find/insert/
-  update/remove on `project`, `settings` and `project_settings` only, plus `read`. Unlike
+- D5. Mongo access: a new role `restApiRole` in `misc/init-mongo.sh` with find/insert/update on
+  `project`, `settings` and `project_settings` only, plus `read`, and remove on
+  `project_settings` only (changed 2026-11-20: projects and settings are archived and deleted
+  by a status update, only unassign removes a document). Unlike
   `webappRole`, it cannot write `user` or `alert_suppression` (admin data). A new user with
   that role, env `MONGO_USER_REST_API` / `MONGO_PASSWORD_REST_API`, in `envs/*.env`, the
   mongo init service and the `rest-api` service of `docker-compose.yaml`.

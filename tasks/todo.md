@@ -54,7 +54,7 @@ from the host.
 
 - [x] **T4: `restApiRole` and REST API Mongo user (D5)**
   - Acceptance:
-    - `init-mongo.sh` creates `restApiRole` (find/insert/update/remove on `project`, `settings`, `project_settings`; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
+    - `init-mongo.sh` creates `restApiRole` (find/insert/update on `project`, `settings`, `project_settings`; remove on `project_settings` only; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
     - The e2e REST service runs as that user; the baseline e2e stays green.
     - e2e: connecting through `shared.db` as the REST user, `users.add(...)` is refused by Mongo (a `DatabaseError`), while `projects.add(...)` succeeds.
   - Verify: fresh `down` + `up`; e2e green.

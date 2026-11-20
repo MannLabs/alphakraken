@@ -78,16 +78,17 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         roles: ["alertingRole"]
     });
     // like webappRole, but without the admin data (user, alert_suppression)
+    // projects and settings are archived and deleted by a status update, so only assignments need `remove`
     db.createRole({
         role: "restApiRole",
         privileges: [
             {
                 resource: { db: "krakendb", collection: "project" },
-                actions: ["find", "insert", "update", "remove"]
+                actions: ["find", "insert", "update"]
             },
             {
                 resource: { db: "krakendb", collection: "settings" },
-                actions: ["find", "insert", "update", "remove"]
+                actions: ["find", "insert", "update"]
             },
             {
                 resource: { db: "krakendb", collection: "project_settings" },

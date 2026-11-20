@@ -119,7 +119,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/auth.py`, `rest_api/main.py`, `rest_api/routers/projects.py`, `shared/domain/inputs.py`, `rest_api/tests/test_write_projects.py`, `e2e/rest_api/test_e2e_projects.py`
   - Size: M (6 files; the e2e test file is small)
 
-- [ ] **T6: archive and delete a project**
+- [x] **T6: archive and delete a project**
   - Acceptance:
     - `POST /projects/{id}/archive` and `DELETE /projects/{id}` → 204, keyed.
     - Archived → `status` `inactive` in `GET /projects/{id}`; deleted → 404 there (`get_project` hides deleted).

@@ -54,3 +54,23 @@ def create_project(new: NewProject) -> ProjectResponse:
         allow_fallback=False,
     )
     return ProjectResponse.of(get_project(new.project_id))
+
+
+@router.post(
+    "/{project_id}/archive",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def archive_project(project_id: str) -> None:
+    """Archive an active project."""
+    project_store.archive(project_id)
+
+
+@router.delete(
+    "/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def delete_project(project_id: str) -> None:
+    """Delete a project: it is kept in the database, but no longer returned."""
+    project_store.delete(project_id)

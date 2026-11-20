@@ -52,7 +52,7 @@ from the host.
   - Files: `e2e/rest_api/conftest.py`, `e2e/rest_api/test_e2e_reads.py`
   - Size: S
 
-- [ ] **T4: `restApiRole` and REST API Mongo user (D5)**
+- [x] **T4: `restApiRole` and REST API Mongo user (D5)**
   - Acceptance:
     - `init-mongo.sh` creates `restApiRole` (find/insert/update/remove on `project`, `settings`, `project_settings`; plus `read`) and a user from `MONGO_USER_REST_API`/`MONGO_PASSWORD_REST_API`.
     - The e2e REST service runs as that user; the baseline e2e stays green.
@@ -72,14 +72,14 @@ Cf. `REFACTORING_SPEC.md` for the findings and acceptance; each step is one comm
 unit tests adapted and green, e2e green on a fresh stack, and once with
 `e2e/restart.sh ../ignore/e2e_seed`.
 
-- [ ] **R1: domain errors → HTTP**
+- [x] **R1: domain errors → HTTP**
   - Acceptance: `NotFoundError` handler in `main.py` (404, `{"detail": "<message>"}`); `get_project` and `get_settings_by_unique_name` raise it, also for deleted records; no 404 code in routes.
   - Verify: e2e 404 tests unchanged and green; unit tests for a deleted project and settings.
   - Depends on: T3
   - Files: `rest_api/main.py`, `rest_api/routes.py`, `rest_api/service.py`, `rest_api/tests/*`
   - Size: S
 
-- [ ] **R2: response models from the domain objects**
+- [x] **R2: response models from the domain objects**
   - Acceptance:
     - The service returns domain objects (plus the joined metrics, assignments, backup path); models use `from_attributes=True`; `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
     - `RawFileResponse` declares every field returned today, without `extra="allow"`; `ProjectResponse` and `SettingsResponse` gain `owner_email`; field types stay as optional as today (legacy settings have `runner_name`/`metrics_type` null).
@@ -89,14 +89,14 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/schemas.py`, `rest_api/service.py`, `rest_api/routes.py`, `rest_api/tests/*`, `e2e/rest_api/test_e2e_reads.py`
   - Size: M
 
-- [ ] **R3: `Page[T]` and `Pagination`**
+- [x] **R3: `Page[T]` and `Pagination`**
   - Acceptance: one generic page model and one pagination dependency replace the three list models and the three `limit`/`offset` declarations; parameter constraints unchanged.
   - Verify: e2e limit-range and pagination tests green; `/openapi.json` shows the same query parameters.
   - Depends on: R2
   - Files: `rest_api/schemas.py`, `rest_api/routes.py`, `rest_api/tests/*`
   - Size: S
 
-- [ ] **R4: `RawFileQuery`, routers per resource**
+- [x] **R4: `RawFileQuery`, routers per resource**
   - Acceptance: one dependency builds `RawFileFilter`; `rest_api/routers/{raw_files,projects,settings}.py` replace `routes.py`; no `noqa: PLR0913` left in `rest_api/`.
   - Verify: e2e reads green; `grep -rn PLR0913 rest_api` empty.
   - Depends on: R3

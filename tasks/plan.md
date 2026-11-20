@@ -75,7 +75,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [x] T1: e2e stack (Mongo + hot-reloading REST API)
 - [x] T2: seed through `shared.db` (synthetic default, production sample locally)
 - [x] T3: e2e harness and baseline tests of the existing reads
-- [ ] T4: `restApiRole` and REST API Mongo user
+- [x] T4: `restApiRole` and REST API Mongo user
 
 ### Checkpoint 0
 - [ ] `up --wait` from scratch is healthy; an edit to `rest_api/main.py` shows without restart
@@ -83,10 +83,10 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [ ] review with human
 
 ### Phase R: Refactoring (`REFACTORING_SPEC.md`)
-- [ ] R1: domain errors → HTTP (404 handler, no `None` returns)
-- [ ] R2: response models from the domain objects (all fields declared, `owner_email`)
-- [ ] R3: `Page[T]` and a `Pagination` dependency
-- [ ] R4: `RawFileQuery` dependency, routers per resource, writes call `shared.db` directly
+- [x] R1: domain errors → HTTP (404 handler, no `None` returns)
+- [x] R2: response models from the domain objects (all fields declared, `owner_email`)
+- [x] R3: `Page[T]` and a `Pagination` dependency
+- [x] R4: `RawFileQuery` dependency, routers per resource, writes call `shared.db` directly
 
 ### Checkpoint R
 - [ ] unit + e2e green after each step, also with the production sample on top

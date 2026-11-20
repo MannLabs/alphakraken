@@ -12,6 +12,8 @@ q_MONGO_USER_WEBAPP=`jq --arg v "$MONGO_USER_WEBAPP" -n '$v'`
 q_MONGO_PASSWORD_WEBAPP=`jq --arg v "$MONGO_PASSWORD_WEBAPP" -n '$v'`
 q_MONGO_USER_ALERTING=`jq --arg v "$MONGO_USER_ALERTING" -n '$v'`
 q_MONGO_PASSWORD_ALERTING=`jq --arg v "$MONGO_PASSWORD_ALERTING" -n '$v'`
+q_MONGO_USER_REST_API=`jq --arg v "$MONGO_USER_REST_API" -n '$v'`
+q_MONGO_PASSWORD_REST_API=`jq --arg v "$MONGO_PASSWORD_REST_API" -n '$v'`
 
 mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin <<EOF
     use krakendb;
@@ -74,6 +76,30 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         user: $q_MONGO_USER_ALERTING,
         pwd: $q_MONGO_PASSWORD_ALERTING,
         roles: ["alertingRole"]
+    });
+    // like webappRole, but without the admin data (user, alert_suppression)
+    db.createRole({
+        role: "restApiRole",
+        privileges: [
+            {
+                resource: { db: "krakendb", collection: "project" },
+                actions: ["find", "insert", "update", "remove"]
+            },
+            {
+                resource: { db: "krakendb", collection: "settings" },
+                actions: ["find", "insert", "update", "remove"]
+            },
+            {
+                resource: { db: "krakendb", collection: "project_settings" },
+                actions: ["find", "insert", "update", "remove"]
+            },
+        ],
+        roles: ["read"]
+    });
+    db.createUser({
+        user: $q_MONGO_USER_REST_API,
+        pwd: $q_MONGO_PASSWORD_REST_API,
+        roles: ["restApiRole"]
     });
 
     // raw files without a project are assigned to it, cf. FALLBACK_PROJECT_ID; a no-op if it exists

@@ -13,7 +13,7 @@ from shared.db._mongo import models
 from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
-from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.domain.projects import NewAssignment, NewProject, ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
 from shared.domain.users import UserStatus
@@ -502,6 +502,21 @@ def test_create_settings_archiving_previous(creatable: dict[str, MagicMock]) -> 
     )
 
 
+def test_create_settings_concurrently_names_the_settings(
+    creatable: dict[str, MagicMock],
+) -> None:
+    """The error names the settings instead of carrying the driver's message."""
+    creatable["backend_create"].side_effect = AlreadyExistsError(
+        "E11000 duplicate key error"
+    )
+
+    with pytest.raises(
+        AlreadyExistsError,
+        match=r"^Settings 'fallback' were created concurrently\. Please retry\.$",
+    ):
+        settings.create(**CREATE_FIELDS, name="fallback")
+
+
 @pytest.mark.parametrize(
     ("existing", "archive_previous"),
     [
@@ -744,6 +759,22 @@ def test_add_project(
     mock_backend_add.assert_called_once_with(
         NewProject(project_id="P123", name="n", owner_email="a@b.de")
     )
+
+
+@patch("shared.db.users.owner_errors", return_value=[])
+@patch(
+    "shared.db._mongo.projects.add",
+    side_effect=AlreadyExistsError("E11000 duplicate key error"),
+)
+@patch("shared.db.projects.find", return_value=[])
+def test_add_existing_project_names_the_id(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,  # noqa: ARG001
+    mock_owner_errors: MagicMock,  # noqa: ARG001
+) -> None:
+    """The error names the project id instead of carrying the driver's message."""
+    with pytest.raises(AlreadyExistsError, match=r"^Project 'P123' already exists\.$"):
+        projects.add(project_id="P123", name="n", allow_fallback=False)
 
 
 @patch("shared.db.users.owner_errors", return_value=[])

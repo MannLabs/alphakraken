@@ -1,5 +1,6 @@
 """FastAPI application for the AlphaKraken REST API."""
 
+import logging
 import os
 from typing import Any
 
@@ -13,13 +14,22 @@ from rest_api.auth import RejectWritesWithoutApiKey
 from rest_api.routers import assignments, projects, raw_files, settings, users
 from rest_api.routers import status as status_router
 from rest_api.schemas import INVALID_INPUT
-from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
+from shared.domain.errors import (
+    AlreadyExistsError,
+    DatabaseError,
+    DatabaseUnavailableError,
+    InvalidInputError,
+    NotFoundError,
+)
 from shared.domain.inputs import message
 
 # first element of the location of an error in the request body
 _BODY_LOCATION = "body"
 # FastAPI's error type for a body that is no JSON
 _INVALID_JSON_ERROR_TYPE = "json_invalid"
+
+DATABASE_UNAVAILABLE_DETAIL = "The database is not available."
+DATABASE_ERROR_DETAIL = "The database request failed."
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
@@ -59,6 +69,25 @@ def _already_exists(_request: Request, error: AlreadyExistsError) -> JSONRespons
 @app.exception_handler(InvalidInputError)
 def _invalid_input(_request: Request, error: InvalidInputError) -> JSONResponse:
     return JSONResponse({"detail": error.errors}, status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+
+# the driver's message names hosts, collections and indexes, so it is logged, not returned
+@app.exception_handler(DatabaseUnavailableError)
+def _database_unavailable(
+    _request: Request, error: DatabaseUnavailableError
+) -> JSONResponse:
+    logging.error(f"Database unavailable: {error}")
+    return JSONResponse(
+        {"detail": DATABASE_UNAVAILABLE_DETAIL}, status.HTTP_503_SERVICE_UNAVAILABLE
+    )
+
+
+@app.exception_handler(DatabaseError)
+def _database_error(_request: Request, error: DatabaseError) -> JSONResponse:
+    logging.error("Database error", exc_info=error)
+    return JSONResponse(
+        {"detail": DATABASE_ERROR_DETAIL}, status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
 
 
 @app.exception_handler(RequestValidationError)

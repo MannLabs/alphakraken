@@ -30,7 +30,8 @@ After deploying, rename the keys of the existing metrics. Until then, `gradient_
 
 ## Changes for clients
 REST API and MCP server:
-- Datetimes carry their UTC offset (`2024-01-02T03:04:05+00:00`); the values are unchanged.
+- Datetimes carry their UTC offset (REST API: `2024-01-02T03:04:05Z`, MCP server: `2024-01-02T03:04:00+00:00`);
+  the values are unchanged.
 
 MCP server:
 - `metrics` of a raw file is a list with one entry per metrics type (key `type`), no longer one flat dict.

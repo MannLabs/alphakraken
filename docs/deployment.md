@@ -609,7 +609,8 @@ The key is needed in addition to the basic auth of nginx (cf. [URL redirect](#ur
 Generate one e.g. with `openssl rand -hex 32`.
 
 Errors: `401` (key), `404` (the record in the path does not exist), `409` (the project id is in use), `422` (invalid
-input, `{"detail": ["<field>: <message>", ...]}` with all violations).
+input, `{"detail": ["<field>: <message>", ...]}` with all violations), `503` (database not reachable), `500` (other
+database failure; the cause is in the `rest-api` log).
 
 ## Automated MongoDB Database Backups
 

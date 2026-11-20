@@ -4,7 +4,7 @@ import logging
 
 from shared.db import projects, users
 from shared.db._mongo import settings as _backend
-from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
@@ -122,7 +122,12 @@ def create(  # noqa: PLR0913
     # deliberately ignoring potential race condition
     number = count(include_deleted=True) + 1
 
-    settings = _backend.create(new, number=number, version=version)
+    try:
+        settings = _backend.create(new, number=number, version=version)
+    except AlreadyExistsError as e:
+        raise AlreadyExistsError(
+            f"Settings '{new.name}' were created concurrently. Please retry."
+        ) from e
     logging.info(f"Created settings: {new.name=} {version=}")
 
     if archive_previous and previous:

@@ -4,7 +4,7 @@ import logging
 
 from shared.db import users
 from shared.db._mongo import projects as _backend
-from shared.domain.errors import InvalidInputError, NotFoundError
+from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import NewProject, Project, ProjectStatus
 from shared.keys import FALLBACK_PROJECT_ID
@@ -94,7 +94,10 @@ def add(
         raise InvalidInputError(errors)
 
     logging.info(f"Adding to DB: {new!r}")
-    _backend.add(new)
+    try:
+        _backend.add(new)
+    except AlreadyExistsError as e:
+        raise AlreadyExistsError(f"Project '{new.project_id}' already exists.") from e
 
 
 def archive(project_id: str) -> None:

@@ -25,6 +25,7 @@ from shared.db.raw_files import (
     update,
 )
 from shared.domain.errors import (
+    AlreadyExistsError,
     InvalidInputError,
     NotFoundError,
 )
@@ -368,6 +369,25 @@ def test_add_prefixes_the_id_with_the_collision_flag(
         instrument_file_status=InstrumentFileStatus.INITIAL,
         created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=UTC),
     )
+
+
+@patch("shared.db._mongo.raw_files.add")
+def test_add_existing_raw_file_names_the_id(mock_backend_add: MagicMock) -> None:
+    """The error names the raw file id instead of carrying the driver's message."""
+    mock_backend_add.side_effect = AlreadyExistsError("E11000 duplicate key error")
+
+    with pytest.raises(
+        AlreadyExistsError, match=r"^Raw file '123-file.raw' already exists\.$"
+    ):
+        add(
+            "file.raw",
+            "123-",
+            project_id="P1",
+            status=RawFileStatus.QUEUED_FOR_MONITORING,
+            instrument_file_status=InstrumentFileStatus.INITIAL,
+            instrument_id="inst1",
+            creation_ts=43.0,
+        )
 
 
 def test_backend_add_never_overwrites() -> None:

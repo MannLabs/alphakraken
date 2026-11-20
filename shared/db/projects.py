@@ -100,8 +100,8 @@ def archive(project_id: str) -> None:
     """Archive a project by setting its status to INACTIVE.
 
     Raises:
-        NotFoundError: if there is no such project.
-        InvalidInputError: if the project is not active or is the fallback project.
+        NotFoundError: if there is no such project, or it is deleted.
+        InvalidInputError: if the project is archived or is the fallback project.
 
     """
     _set_status(project_id, ProjectStatus.INACTIVE)
@@ -111,8 +111,8 @@ def delete(project_id: str) -> None:
     """Soft-delete a project by setting its status to DELETED.
 
     Raises:
-        NotFoundError: if there is no such project.
-        InvalidInputError: if the project is not active or is the fallback project.
+        NotFoundError: if there is no such project, or it is deleted.
+        InvalidInputError: if the project is archived or is the fallback project.
 
     """
     _set_status(project_id, ProjectStatus.DELETED)
@@ -126,6 +126,9 @@ def _set_status(project_id: str, status: str) -> None:
             [f"Project '{FALLBACK_PROJECT_ID}' cannot be archived or deleted."]
         )
     current = get(project_id).status
+    # a deleted project is gone for every client, so it is not revealed by a different error
+    if current == ProjectStatus.DELETED:
+        raise NotFoundError(f"No project {project_id}")
     # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if current != ProjectStatus.ACTIVE:
         raise InvalidInputError(

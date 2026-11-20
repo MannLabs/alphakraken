@@ -68,6 +68,9 @@ requires `allow_fallback` to come from authentication, never from the request.
   project or settings of an assignment) is one entry of the `InvalidInputError`, so 422.
   `AlreadyExistsError`: the project id is in use, or a concurrent create took the same
   settings version or number.
+  A deleted project or settings is gone for every client (decided 2026-11-20): archive and
+  delete on it give 404 like the reads, not 422, so a deleted record is not revealed. This
+  rule is in `shared.db` (`NotFoundError`). An archived record still gives 422.
   Every 422, whether FastAPI's body validation or the domain's, has the shape
   `{"detail": ["<field>: <message>", ...]}` and uses the message format of
   `shared.domain.inputs.parse`. For that, `_message` (`shared/domain/inputs.py:40`) becomes
@@ -76,6 +79,9 @@ requires `allow_fallback` to come from authentication, never from the request.
   OpenAPI documents these shapes (added 2026-11-20): `InvalidInputResponse` replaces FastAPI's
   default `HTTPValidationError` on every route, and the routes list their 401, 404 and 409
   with `ErrorResponse` (`{"detail": "<message>"}`).
+- D8. `GET /status/` and `GET /users/` return the page shape of the other lists (`total`,
+  `offset`, `limit`, `data`) with all entries on one page and no paging parameters (decided
+  2026-11-20), so that paging can be added later without changing the shape.
 - D4. Responses: create returns 201 with the created resource in its response model of R2,
   so a created project or settings shows its `owner_email`. Archive, delete and unassign return 204. Update-to-latest returns 200 with the
   assignment.

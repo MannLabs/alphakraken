@@ -123,7 +123,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Acceptance:
     - `POST /projects/{id}/archive` and `DELETE /projects/{id}` → 204, keyed.
     - Archived → `status` `inactive` in `GET /projects/{id}`; deleted → 404 there (`get_project` hides deleted).
-    - Second archive/delete → 422; unknown id → 404; `_FALLBACK` → 422.
+    - Second archive → 422; a write on a deleted project → 404 (review 2.1); unknown id → 404; `_FALLBACK` → 422.
   - Verify: unit + e2e for each bullet.
   - Depends on: T5
   - Files: `rest_api/routers/projects.py`, `rest_api/tests/test_write_projects.py`, `e2e/rest_api/test_e2e_projects.py`
@@ -149,7 +149,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Acceptance:
     - `POST /settings/{id}/archive`, `DELETE /settings/{id}` → 204, keyed.
     - Delete while assigned → 422 naming the projects (uses a seeded assigned settings).
-    - Second archive/delete → 422; unknown id → 404.
+    - Second archive → 422; a write on deleted settings → 404 (review 2.1); unknown id → 404.
   - Verify: unit + e2e.
   - Depends on: T7
   - Files: `rest_api/routers/settings.py`, `rest_api/tests/test_write_settings.py`, `e2e/rest_api/test_e2e_settings.py`
@@ -183,7 +183,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 - [x] **T11: `GET /status/` and `GET /users/`**
   - Acceptance:
-    - `GET /status/` (open) returns all `KrakenStatus` entries.
+    - `GET /status/` (open) returns all `KrakenStatus` entries. Both lists use the page shape, all entries on one page, no paging parameters (review 2.2).
     - `GET /users/` (keyed) returns active users, `email` and `initials` only; inactive users are left out.
   - Verify: unit + e2e with status and users seeded through `shared.db`; `/users/` without a key → 401.
   - Depends on: T5

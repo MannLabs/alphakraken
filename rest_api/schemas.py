@@ -20,6 +20,11 @@ class Page(BaseModel, Generic[T]):
     limit: int
     data: list[T]
 
+    @classmethod
+    def of_all(cls, data: list[T]) -> Self:
+        """Build the one page of a list that has no paging: it holds all entries."""
+        return cls(total=len(data), offset=0, limit=len(data), data=data)
+
 
 class RawFileResponse(BaseModel):
     """A raw file with its metrics."""

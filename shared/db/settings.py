@@ -4,7 +4,7 @@ import logging
 
 from shared.db import projects, users
 from shared.db._mongo import settings as _backend
-from shared.domain.errors import InvalidInputError
+from shared.domain.errors import InvalidInputError, NotFoundError
 from shared.domain.inputs import parse
 from shared.domain.projects import ProjectStatus
 from shared.domain.settings import NewSettings, Settings, SettingsStatus
@@ -134,8 +134,8 @@ def archive(unique_name: str) -> None:
     """Archive settings by setting their status to INACTIVE.
 
     Raises:
-        NotFoundError: if there are no such settings.
-        InvalidInputError: if the settings are not active.
+        NotFoundError: if there are no such settings, or they are deleted.
+        InvalidInputError: if the settings are archived.
 
     """
     _check_status_change(get(unique_name), SettingsStatus.INACTIVE)
@@ -147,8 +147,8 @@ def delete(unique_name: str) -> None:
     """Soft-delete settings by setting their status to DELETED.
 
     Raises:
-        NotFoundError: if there are no such settings.
-        InvalidInputError: if the settings are not active or still assigned to an active project.
+        NotFoundError: if there are no such settings, or they are deleted.
+        InvalidInputError: if the settings are archived or still assigned to an active project.
 
     """
     settings = get(unique_name)
@@ -173,6 +173,9 @@ def delete(unique_name: str) -> None:
 
 def _check_status_change(settings: Settings, new_status: str) -> None:
     """Raise unless the settings are active."""
+    # deleted settings are gone for every client, so they are not revealed by a different error
+    if settings.status == SettingsStatus.DELETED:
+        raise NotFoundError(f"No settings {settings.id}")
     # archiving and deleting are final; check and write are separate steps; a race between concurrent writes is accepted
     if settings.status != SettingsStatus.ACTIVE:
         raise InvalidInputError(

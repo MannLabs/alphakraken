@@ -566,12 +566,16 @@ def test_backend_create_settings_resolves_owner(
 def test_archive_settings_only_if_active(
     mock_get: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, archived and deleted settings stay as they are."""
+    """Archiving sets the status to inactive; archived settings stay as they are, deleted ones are not found."""
     mock_get.return_value = factories.settings(status=status)
 
     if archived:
         settings.archive("fallback_v7")
         mock_set_status.assert_called_once_with("fallback_v7", SettingsStatus.INACTIVE)
+    elif status == SettingsStatus.DELETED:
+        with pytest.raises(NotFoundError, match="fallback_v7"):
+            settings.archive("fallback_v7")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,
@@ -651,6 +655,20 @@ def test_delete_archived_settings_raises(
         InvalidInputError,
         match="Cannot set settings 'fallback' version 7 from 'inactive' to 'deleted'",
     ):
+        settings.delete("fallback_v7")
+
+    mock_set_status.assert_not_called()
+
+
+@patch("shared.db._mongo.settings.set_status")
+@patch("shared.db.settings.get")
+def test_delete_deleted_settings_is_not_found(
+    mock_get: MagicMock, mock_set_status: MagicMock
+) -> None:
+    """Deleted settings are gone: deleting them again does not reveal them."""
+    mock_get.return_value = factories.settings(status=SettingsStatus.DELETED)
+
+    with pytest.raises(NotFoundError, match="fallback_v7"):
         settings.delete("fallback_v7")
 
     mock_set_status.assert_not_called()
@@ -867,12 +885,16 @@ def test_fallback_project_cannot_be_archived_or_deleted(
 def test_archive_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
 ) -> None:
-    """Archiving sets the status to inactive, an archived or deleted project stays as it is."""
+    """Archiving sets the status to inactive; an archived project stays as it is, a deleted one is not found."""
     mock_find.return_value = [factories.project(status=status)]
 
     if archived:
         projects.archive("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
+    elif status == ProjectStatus.DELETED:
+        with pytest.raises(NotFoundError, match="P1"):
+            projects.archive("P1")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,
@@ -895,12 +917,16 @@ def test_archive_project_only_if_active(
 def test_delete_project_only_if_active(
     mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, deleted: bool
 ) -> None:
-    """Active projects are soft-deleted, archived and deleted ones stay as they are."""
+    """Active projects are soft-deleted; archived ones stay as they are, deleted ones are not found."""
     mock_find.return_value = [factories.project(status=status)]
 
     if deleted:
         projects.delete("P1")
         mock_set_status.assert_called_once_with("P1", ProjectStatus.DELETED)
+    elif status == ProjectStatus.DELETED:
+        with pytest.raises(NotFoundError, match="P1"):
+            projects.delete("P1")
+        mock_set_status.assert_not_called()
     else:
         with pytest.raises(
             InvalidInputError,

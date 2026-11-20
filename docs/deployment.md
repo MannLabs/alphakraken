@@ -596,7 +596,8 @@ status, and manages projects, settings and their assignments like the webapp doe
   The fallback project and its assignments cannot be changed through the REST API.
 
 The service is started automatically with the `local` and `infrastructure` profiles. It connects to MongoDB as
-`MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)).
+`MONGO_USER_REST_API` (cf. [MongoDB User Management](#mongodb-user-management)); a database created before version 0.2.0
+needs [this user set up](#setting-up-the-rest-api-user-on-an-existing-database).
 See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
 
 ### API key
@@ -611,12 +612,15 @@ Generate one e.g. with `openssl rand -hex 32`.
 Errors: `401` (key), `404` (the record in the path does not exist), `409` (the project id is in use), `422` (invalid
 input, `{"detail": ["<field>: <message>", ...]}` with all violations).
 
-### Enabling the writes on an existing deployment
-`misc/init-mongo.sh` creates the role and user of the REST API only when the database is first created. On an existing
-database, create them by hand. This needs no downtime; test on `sandbox` first.
+### Setting up the REST API user on an existing database
+Required since REST API version 0.2.0, also for a read-only REST API: the service always connects as
+`MONGO_USER_REST_API`. `misc/init-mongo.sh` creates this user and its role only when the database is first created.
+On an existing database, create them by hand. Without them `/health` still answers, but every other request fails,
+as the service cannot authenticate at the database. This needs no downtime; test on `sandbox` first.
 
-1. On every PC (VM) of the deployment, add `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` to `envs/<ENV>.env`,
-   and `REST_API_KEY` on the PC hosting the infrastructure.
+1. On every PC (VM) of the deployment, add `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` to `envs/<ENV>.env`.
+   Optional, only to enable the writes and `GET /users/`: add `REST_API_KEY` on the PC hosting the infrastructure
+   (cf. [API key](#api-key)).
 2. On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory, `export ENV=production` and create the role and
    the user (replace the two placeholders):
    ```bash
@@ -629,7 +633,10 @@ database, create them by hand. This needs no downtime; test on `sandbox` first.
    ```
    Expected: `[ 'project', 'settings', 'project_settings' ]`.
 4. On the PC (VM) hosting the infrastructure, restart the REST API with the new version: `./compose.sh up rest-api --build -d`.
-5. Confirm that `curl "http://<alphakraken_ip_address>:8090/users/" -H "X-API-Key: <api_key>"` returns the users.
+5. Confirm that the REST API reaches the database: `curl "http://<alphakraken_ip_address>:8090/projects/?limit=1"`
+   returns a project (`/health` does not show this, it does not access the database).
+6. If `REST_API_KEY` is set, confirm that `curl "http://<alphakraken_ip_address>:8090/users/" -H "X-API-Key: <api_key>"`
+   returns the users.
 
 
 ## Automated MongoDB Database Backups

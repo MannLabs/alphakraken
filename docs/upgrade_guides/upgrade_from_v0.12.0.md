@@ -27,10 +27,18 @@ and wait until no `acquisition_handler` or `acquisition_processor` run is active
     than or equal to 1"]` (before: FastAPI's list of objects). The `detail` text of a `404` changed, e.g. `No project P1`.
   - OpenAPI: the list schemas are named `Page_RawFileResponse_`, `Page_ProjectResponse_` and `Page_SettingsResponse_`;
     their shape is unchanged.
-  - The REST API needs a new MongoDB user and, for the writes, an API key: follow
-    [Enabling the writes on an existing deployment](../deployment.md#enabling-the-writes-on-an-existing-deployment)
-    when deploying. Without the new env variables `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` the
-    `mongodb-service` and `rest-api` containers do not start.
+
+## REST API: new MongoDB user (required)
+
+The REST API no longer connects with the read-only user but with its own, `MONGO_USER_REST_API`, for reads too.
+This is not optional:
+
+- Without the new env variables `MONGO_USER_REST_API` and `MONGO_PASSWORD_REST_API` the `mongodb-service` and
+  `rest-api` containers do not start.
+- With the variables, but without the user in the database, `/health` stays green while every other request fails.
+
+Follow [Setting up the REST API user on an existing database](../deployment.md#setting-up-the-rest-api-user-on-an-existing-database)
+when deploying. Only `REST_API_KEY` is optional: without it the REST API is read-only.
 
 ## Backup location per raw file
 

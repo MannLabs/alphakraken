@@ -190,7 +190,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
   - Files: `rest_api/schemas.py`, `rest_api/routers/{status,users}.py` (new), `rest_api/main.py`, `rest_api/tests/test_reads_status_users.py`, `e2e/rest_api/test_e2e_reads.py`
   - Size: M
 
-- [ ] **T12: version, main compose/env, deployment docs (D5, D6, Q3)**
+- [x] **T12: version, main compose/env, deployment docs (D5, D6, Q3)**
   - Acceptance:
     - `main.py`: version `0.2.0`, description without "Read-only".
     - `docker-compose.yaml`: `rest-api` uses `MONGO_USER_REST_API`, gets `REST_API_KEY`; `mongodb-service` passes the new user vars; `envs/local.env` and `envs/production.env` / `sandbox.env` have the entries (production as placeholders).

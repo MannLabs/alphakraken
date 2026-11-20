@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from rest_api import __version__
 from rest_api.routers import assignments, projects, raw_files, settings, users
 from rest_api.routers import status as status_router
 from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
@@ -20,8 +21,11 @@ REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
 app = FastAPI(
     title="AlphaKraken REST API",
-    description="Read-only API for querying raw files and metrics, projects and settings.",
-    version="0.1.0",
+    description=(
+        "API for querying raw files and metrics, and for managing projects, settings and "
+        "their assignments."
+    ),
+    version=__version__,
 )
 
 app.include_router(raw_files.router)

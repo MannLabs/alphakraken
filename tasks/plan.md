@@ -93,7 +93,7 @@ See `tasks/todo.md` for acceptance criteria and verification.
 - [ ] review with human (esp. R2: the client-visible additions)
 
 ### Phase 1: Projects
-- [ ] T5: API key, error mapping, `POST /projects/`
+- [x] T5: API key, error mapping, `POST /projects/`
 - [ ] T6: `POST /projects/{id}/archive`, `DELETE /projects/{id}`
 
 ### Checkpoint 1

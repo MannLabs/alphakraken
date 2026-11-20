@@ -2,11 +2,14 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
+from rest_api.auth import require_api_key
 from rest_api.dependencies import Pagination
 from rest_api.schemas import Page, ProjectResponse
 from rest_api.service import get_project, get_projects
+from shared.db import projects as project_store
+from shared.domain.projects import NewProject
 
 router = APIRouter(prefix="/projects")
 
@@ -34,3 +37,20 @@ def list_projects(
 def read_project(project_id: str) -> ProjectResponse:
     """Get a project by ID."""
     return ProjectResponse.of(get_project(project_id))
+
+
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+def create_project(new: NewProject) -> ProjectResponse:
+    """Add an active project."""
+    project_store.add(
+        project_id=new.project_id,
+        name=new.name,
+        description=new.description,
+        owner_email=new.owner_email,
+        allow_fallback=False,
+    )
+    return ProjectResponse.of(get_project(new.project_id))

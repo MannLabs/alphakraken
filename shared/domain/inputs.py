@@ -34,10 +34,10 @@ def parse(model: type[T], **fields: Any) -> T:
     try:
         return model(**fields)
     except pydantic.ValidationError as e:
-        raise InvalidInputError([_message(error) for error in e.errors()]) from e
+        raise InvalidInputError([message(error) for error in e.errors()]) from e
 
 
-def _message(error: Any) -> str:
+def message(error: Any) -> str:
     """Return the message of a pydantic error, prefixed by its field if it has one."""
     message = error["msg"].removeprefix(_VALUE_ERROR_PREFIX)
     field = ".".join(str(part) for part in error["loc"])

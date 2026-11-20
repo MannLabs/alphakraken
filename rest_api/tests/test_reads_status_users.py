@@ -60,8 +60,7 @@ def test_list_users(mock_find: MagicMock) -> None:
         "limit": 1,
         "data": [{"email": "masc@example.org", "initials": "MaSc"}],
     }
-    # inactive users are left out by the default of the query
-    mock_find.assert_called_once_with()
+    mock_find.assert_called_once_with(include_inactive=False)
 
 
 @pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])

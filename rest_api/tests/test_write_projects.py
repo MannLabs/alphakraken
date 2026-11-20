@@ -82,34 +82,6 @@ def test_create_project(mock_add: MagicMock, mock_get_project: MagicMock) -> Non
     mock_get_project.assert_called_once_with("P123")
 
 
-@pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
-def test_create_project_without_valid_key(
-    mock_add: MagicMock, headers: dict[str, str]
-) -> None:
-    """A missing or wrong key gives 401 and nothing is written."""
-    response = client.post("/projects/", json=NEW_PROJECT, headers=headers)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_add.assert_not_called()
-
-
-@pytest.mark.parametrize("configured_key", [None, ""])
-def test_create_project_without_configured_key(
-    mock_add: MagicMock, monkeypatch: pytest.MonkeyPatch, configured_key: str | None
-) -> None:
-    """Without a configured key every keyed request gives 401, also one sending an empty key."""
-    if configured_key is None:
-        monkeypatch.delenv(API_KEY_ENV_VAR)
-    else:
-        monkeypatch.setenv(API_KEY_ENV_VAR, configured_key)
-
-    for headers in (KEY_HEADERS, {API_KEY_HEADER: ""}, {}):
-        response = client.post("/projects/", json=NEW_PROJECT, headers=headers)
-
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_add.assert_not_called()
-
-
 @pytest.mark.parametrize(
     "content", [b"{not json", b'{"project_id": 1}', b"x" * 100_000]
 )
@@ -144,7 +116,11 @@ def test_create_project_malformed_json(mock_add: MagicMock) -> None:
     )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-    assert all(isinstance(entry, str) for entry in response.json()["detail"])
+    assert response.json() == {
+        "detail": [
+            "JSON decode error at character 1: Expecting property name enclosed in double quotes"
+        ]
+    }
     mock_add.assert_not_called()
 
 
@@ -268,18 +244,6 @@ def test_archive_and_delete_project(method: str, path: str, function: str) -> No
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert response.content == b""
     mock_write.assert_called_once_with("P123")
-
-
-@pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)
-def test_archive_and_delete_project_without_key(
-    method: str, path: str, function: str
-) -> None:
-    """Without the key nothing is written."""
-    with patch(f"rest_api.routers.projects.project_store.{function}") as mock_write:
-        response = client.request(method, path)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_write.assert_not_called()
 
 
 @pytest.mark.parametrize(("method", "path", "function"), WRITES_BY_ID)

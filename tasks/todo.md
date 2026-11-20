@@ -81,7 +81,7 @@ unit tests adapted and green, e2e green on a fresh stack, and once with
 
 - [x] **R2: response models from the domain objects**
   - Acceptance:
-    - The service returns domain objects (plus the joined metrics, assignments, backup path); models use `from_attributes=True`; `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
+    - The service returns domain objects (plus the joined metrics, assignments, backup path); models are built by one validating builder (`DomainResponse.of`); `_to_dict` and `RAW_FILE_EXCLUDED_KEYS` are gone.
     - `RawFileResponse` declares every field returned today, without `extra="allow"`; `ProjectResponse` and `SettingsResponse` gain `owner_email`; field types stay as optional as today (legacy settings have `runner_name`/`metrics_type` null).
     - Every declared field is always present, `null` when unset.
   - Verify: new e2e test: each response has exactly the declared fields; unit test serialising a legacy settings object; OpenAPI lists the raw file fields.

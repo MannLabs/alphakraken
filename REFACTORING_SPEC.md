@@ -33,7 +33,8 @@ Each step is one commit and behaviour-preserving, except R2, which is additive (
 ### R2: response models from the domain objects (F1, F2)
 
 - The service returns domain objects (or, for composed reads, the domain object plus the joined
-  data); the response models are built from them (`from_attributes=True`). `_to_dict` and
+  data); the response models are built and validated from their fields by one builder
+  (`DomainResponse.of`, changed 2026-11-20 from `from_attributes=True`). `_to_dict` and
   `RAW_FILE_EXCLUDED_KEYS` go away.
 - `RawFileResponse` declares every field it returns today, `extra="allow"` and the commented-out
   fields go away. `created_at_` stays out, as today.

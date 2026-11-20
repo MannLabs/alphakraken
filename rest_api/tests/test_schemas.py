@@ -30,7 +30,7 @@ def test_settings_response_of_legacy_settings() -> None:
     # the type hints of the domain do not hold for documents written before the validation
     legacy = settings(number=-1, runner_name=None, metrics_type=None, owner_email=None)
 
-    response = SettingsResponse.model_validate(legacy)
+    response = SettingsResponse.of(legacy)
 
     assert response.number == -1
     assert response.runner_name is None

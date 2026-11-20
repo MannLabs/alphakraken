@@ -18,6 +18,8 @@ from shared.domain.inputs import message
 
 # first element of the location of an error in the request body
 _BODY_LOCATION = "body"
+# FastAPI's error type for a body that is no JSON
+_INVALID_JSON_ERROR_TYPE = "json_invalid"
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
@@ -70,6 +72,9 @@ def _invalid_request(_request: Request, error: RequestValidationError) -> JSONRe
 
 def _request_error_message(error: dict[str, Any]) -> str:
     location = error["loc"]
+    if error["type"] == _INVALID_JSON_ERROR_TYPE:
+        # its location is the character offset, which would read like a field name
+        return f"{error['msg']} at character {location[-1]}: {error['ctx']['error']}"
     # a body error names its field like the domain errors do: `name: ...`
     if location and location[0] == _BODY_LOCATION:
         location = location[1:]

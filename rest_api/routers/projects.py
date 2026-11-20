@@ -35,14 +35,14 @@ def list_projects(
         total=total,
         offset=page.offset,
         limit=page.limit,
-        data=[ProjectResponse.of(item) for item in data],
+        data=[ProjectResponse.of_item(item) for item in data],
     )
 
 
 @router.get("/{project_id}", responses=NOT_FOUND)
 def read_project(project_id: str) -> ProjectResponse:
     """Get a project by ID."""
-    return ProjectResponse.of(get_project(project_id))
+    return ProjectResponse.of_item(get_project(project_id))
 
 
 @router.post(
@@ -60,7 +60,7 @@ def create_project(new: NewProject) -> ProjectResponse:
         owner_email=new.owner_email,
         allow_fallback=False,
     )
-    return ProjectResponse.of(get_project(new.project_id))
+    return ProjectResponse.of_item(get_project(new.project_id))
 
 
 @router.post(

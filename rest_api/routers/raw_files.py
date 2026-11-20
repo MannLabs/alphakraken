@@ -38,5 +38,5 @@ def list_raw_files(
         total=total,
         offset=page.offset,
         limit=page.limit,
-        data=[RawFileResponse.of(item) for item in data],
+        data=[RawFileResponse.of_item(item) for item in data],
     )

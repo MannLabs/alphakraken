@@ -11,4 +11,4 @@ router = APIRouter(prefix="/status")
 @router.get("/")
 def list_status() -> Page[StatusResponse]:
     """List the status of all entities (instruments, file systems, jobs), on one page."""
-    return Page.of_all([StatusResponse.model_validate(s) for s in status_store.find()])
+    return Page.of_all([StatusResponse.of(s) for s in status_store.find()])

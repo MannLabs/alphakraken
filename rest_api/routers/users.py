@@ -13,8 +13,5 @@ router = APIRouter(prefix="/users")
 def list_users() -> Page[UserResponse]:
     """List the active users, i.e. the possible owners of projects and settings, on one page."""
     return Page.of_all(
-        [
-            UserResponse.model_validate(u)
-            for u in user_store.find(include_inactive=False)
-        ]
+        [UserResponse.of(u) for u in user_store.find(include_inactive=False)]
     )

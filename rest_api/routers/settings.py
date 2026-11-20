@@ -33,14 +33,14 @@ def list_settings(
         total=total,
         offset=page.offset,
         limit=page.limit,
-        data=[SettingsResponse.model_validate(s) for s in data],
+        data=[SettingsResponse.of(s) for s in data],
     )
 
 
 @router.get("/{settings_id}", responses=NOT_FOUND)
 def read_settings(settings_id: str) -> SettingsResponse:
     """Get settings by ID, i.e. `<name>_v<version>`."""
-    return SettingsResponse.model_validate(get_settings_by_unique_name(settings_id))
+    return SettingsResponse.of(get_settings_by_unique_name(settings_id))
 
 
 @router.post(
@@ -83,7 +83,7 @@ def create_settings(
         owner_email=new.owner_email,
         archive_previous=archive_previous,
     )
-    return SettingsResponse.model_validate(created)
+    return SettingsResponse.of(created)
 
 
 @router.post(

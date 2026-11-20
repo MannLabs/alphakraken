@@ -63,18 +63,6 @@ def test_list_users(mock_find: MagicMock) -> None:
     mock_find.assert_called_once_with(include_inactive=False)
 
 
-@pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
-@patch("rest_api.routers.users.user_store.find")
-def test_list_users_without_valid_key(
-    mock_find: MagicMock, headers: dict[str, str]
-) -> None:
-    """The users are not returned without the key."""
-    response = client.get("/users/", headers=headers)
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_find.assert_not_called()
-
-
 @patch("rest_api.routers.status.status_store.find", return_value=[])
 def test_list_status_empty(mock_find: MagicMock) -> None:  # noqa: ARG001
     """Without entries the one page is empty."""

@@ -44,6 +44,21 @@ from shared.keys import (
     SoftwareTypes,
 )
 
+_MICROSECONDS_PER_MILLISECOND = 1000
+
+
+def _now() -> datetime:
+    """Return the current time as MongoDB stores it, i.e. cut to milliseconds.
+
+    So a document returned right after saving it equals the one read later.
+    """
+    now = datetime.now(UTC)
+    return now.replace(
+        microsecond=now.microsecond
+        // _MICROSECONDS_PER_MILLISECOND
+        * _MICROSECONDS_PER_MILLISECOND
+    )
+
 
 class RawFile(Document):
     """Schema for a raw file."""
@@ -89,8 +104,8 @@ class RawFile(Document):
     finalized_at = DateTimeField()  # when acquisition was finished (mtime of main file)
 
     # audit fields
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
-    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
+    updated_at_ = DateTimeField(default=_now)
 
 
 class Metrics(DynamicDocument):
@@ -118,7 +133,7 @@ class Metrics(DynamicDocument):
     output_display_base_path = StringField(max_length=1024, default=None)
 
     # audit fields
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
 
 class User(Document):
@@ -142,7 +157,7 @@ class User(Document):
 
     status = StringField(max_length=32, default=UserStatus.ACTIVE)
 
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
 
 class AlertIssue(Document):
@@ -197,7 +212,7 @@ class AlertSuppression(Document):
     # None: never expires
     expires_at = DateTimeField()
     created_by = StringField(max_length=64)
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
 
 class Project(Document):
@@ -219,7 +234,7 @@ class Project(Document):
 
     owner = ReferenceField(User, default=None)
 
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
 
 class Settings(Document):
@@ -270,7 +285,7 @@ class Settings(Document):
 
     owner = ReferenceField(User, default=None)
 
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
     @property
     def unique_name(self) -> str:
@@ -292,7 +307,7 @@ class ProjectSettings(Document):
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
     raw_file_id_filter = ListField(StringField(max_length=128), default=list)
     raw_file_id_exclude_filter = ListField(StringField(max_length=128), default=list)
-    created_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    created_at_ = DateTimeField(default=_now)
 
 
 class KrakenStatus(Document):
@@ -310,7 +325,7 @@ class KrakenStatus(Document):
     free_space_gb = IntField(min_value=-1, default=-1)
     entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
-    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    updated_at_ = DateTimeField(default=_now)
 
 
 class SlurmJob(Document):
@@ -333,4 +348,4 @@ class SlurmJob(Document):
 
     state = StringField(max_length=32)
 
-    updated_at_ = DateTimeField(default=lambda: datetime.now(UTC))
+    updated_at_ = DateTimeField(default=_now)

@@ -51,19 +51,11 @@ def api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def mock_create() -> Iterator[MagicMock]:
     """The write function, returning the created settings."""
-    with (
-        patch(
-            "rest_api.routers.settings.settings_store.create",
-            return_value=settings(),
-        ) as create,
-        patch(
-            "rest_api.routers.settings.get_settings_by_unique_name",
-            return_value=settings(description="as stored"),
-        ) as get,
-    ):
+    with patch(
+        "rest_api.routers.settings.settings_store.create",
+        return_value=settings(description="as stored"),
+    ) as create:
         yield create
-        if create.called and not create.side_effect:
-            get.assert_called_once_with("fallback_v7")
 
 
 def test_create_settings(mock_create: MagicMock) -> None:

@@ -83,8 +83,7 @@ def create_settings(
         owner_email=new.owner_email,
         archive_previous=archive_previous,
     )
-    # read again: `create` returns `created_at_` with microseconds, the database keeps milliseconds
-    return SettingsResponse.model_validate(get_settings_by_unique_name(created.id))
+    return SettingsResponse.model_validate(created)
 
 
 @router.post(

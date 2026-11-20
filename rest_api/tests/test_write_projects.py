@@ -11,6 +11,7 @@ from rest_api.auth import API_KEY_ENV_VAR, API_KEY_HEADER
 from rest_api.main import app
 from rest_api.service import ProjectWithAssignments
 from shared.domain.errors import AlreadyExistsError, InvalidInputError, NotFoundError
+from shared.keys import FALLBACK_PROJECT_ID
 from shared.tests.factories import project
 
 client = TestClient(app)
@@ -31,32 +32,43 @@ def api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(API_KEY_ENV_VAR, API_KEY)
 
 
+# differs from the request in every field, to show that the response is what was read back
+STORED_PROJECT = project(
+    id="P123",
+    name="stored name",
+    description="stored description",
+    owner_email="stored@example.org",
+)
+
+
 @pytest.fixture
-def mock_add() -> Iterator[MagicMock]:
-    """The write function, and the read of the created project."""
-    with (
-        patch("rest_api.routers.projects.project_store.add") as add,
-        patch(
-            "rest_api.routers.projects.get_project",
-            return_value=ProjectWithAssignments(
-                project(id="P123", owner_email="masc@example.org"), []
-            ),
-        ),
-    ):
+def mock_get_project() -> Iterator[MagicMock]:
+    """The read of the created project."""
+    with patch(
+        "rest_api.routers.projects.get_project",
+        return_value=ProjectWithAssignments(STORED_PROJECT, []),
+    ) as get_project:
+        yield get_project
+
+
+@pytest.fixture
+def mock_add(mock_get_project: MagicMock) -> Iterator[MagicMock]:  # noqa: ARG001
+    """The write function."""
+    with patch("rest_api.routers.projects.project_store.add") as add:
         yield add
 
 
-def test_create_project(mock_add: MagicMock) -> None:
-    """A project is added with every field passed by name and returned as it was stored."""
+def test_create_project(mock_add: MagicMock, mock_get_project: MagicMock) -> None:
+    """A project is added with every field passed by name, then read back and returned as stored."""
     response = client.post("/projects/", json=NEW_PROJECT, headers=KEY_HEADERS)
 
     assert response.status_code == status.HTTP_201_CREATED
     assert response.json() == {
         "id": "P123",
-        "name": "Project 1",
-        "description": "desc",
+        "name": "stored name",
+        "description": "stored description",
         "status": "active",
-        "owner_email": "masc@example.org",
+        "owner_email": "stored@example.org",
         "created_at_": "2024-01-01T12:00:00Z",
         "settings": [],
     }
@@ -67,6 +79,7 @@ def test_create_project(mock_add: MagicMock) -> None:
         owner_email="masc@example.org",
         allow_fallback=False,
     )
+    mock_get_project.assert_called_once_with("P123")
 
 
 @pytest.mark.parametrize("headers", [{}, {API_KEY_HEADER: "wrong-key"}])
@@ -164,6 +177,69 @@ def test_create_project_invalid_body(mock_add: MagicMock) -> None:
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert response.json() == {"detail": ["name: is required."]}
     mock_add.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (None, ["Field required"]),
+        (
+            [NEW_PROJECT],
+            ["Input should be a valid dictionary or object to extract fields from"],
+        ),
+        (
+            "text",
+            ["Input should be a valid dictionary or object to extract fields from"],
+        ),
+    ],
+)
+def test_create_project_body_is_no_object(
+    mock_add: MagicMock, body: object, expected: list[str]
+) -> None:
+    """A missing body, a list or a string gives 422 with the bare message, as no field is at fault."""
+    response = client.post("/projects/", json=body, headers=KEY_HEADERS)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {"detail": expected}
+    mock_add.assert_not_called()
+
+
+def test_create_project_field_of_wrong_type(mock_add: MagicMock) -> None:
+    """A field of the wrong type is reported like any other violation."""
+    response = client.post(
+        "/projects/",
+        json={**NEW_PROJECT, "name": ["a", "list"], "description": 5},
+        headers=KEY_HEADERS,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {
+        "detail": [
+            "name: Input should be a valid string",
+            "description: Input should be a valid string",
+        ]
+    }
+    mock_add.assert_not_called()
+
+
+@patch("shared.db.projects._backend")
+def test_create_fallback_project_is_rejected_by_the_write_function(
+    mock_backend: MagicMock,
+) -> None:
+    """With the real write function, the fallback project gives 422 and is not written."""
+    mock_backend.find.return_value = []
+
+    response = client.post(
+        "/projects/",
+        json={"project_id": FALLBACK_PROJECT_ID, "name": "Fallback"},
+        headers=KEY_HEADERS,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json() == {
+        "detail": [f"Creating project '{FALLBACK_PROJECT_ID}' is not allowed."]
+    }
+    mock_backend.add.assert_not_called()
 
 
 def test_create_project_misspelled_key(mock_add: MagicMock) -> None:
